@@ -1,0 +1,289 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO CONFIGURAÇÕES
+   Arquivo: assets/css/modulos/configuracoes.css
+   ============================================================ */
+
+/* ============================================================
+   1. ABAS
+   ============================================================ */
+
+.cfg-abas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-5);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.cfg-aba {
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--texto-base);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  margin-bottom: -1px;
+}
+
+.cfg-aba:hover {
+  color: var(--cor-texto-principal);
+}
+
+.cfg-aba--ativa {
+  color: var(--azul-medio);
+  border-bottom-color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   2. BLOCOS
+   ============================================================ */
+
+.cfg-bloco {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  padding: var(--esp-5);
+  margin-bottom: var(--esp-5);
+  box-shadow: var(--sombra-xs);
+}
+
+.cfg-bloco:last-child {
+  margin-bottom: 0;
+}
+
+.cfg-bloco__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  margin-bottom: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.cfg-bloco__titulo {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin: 0 0 var(--esp-1);
+  letter-spacing: var(--letra-apertada);
+}
+
+.cfg-bloco__subtitulo {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  margin: 0;
+}
+
+/* ============================================================
+   3. LINHA DE USUÁRIO
+   ============================================================ */
+
+.cfg-usuario {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+}
+
+.cfg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--raio-pill);
+  background-color: var(--azul-medio);
+  color: var(--branco);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  flex-shrink: 0;
+}
+
+.cfg-usuario__info {
+  min-width: 0;
+}
+
+.cfg-usuario__nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.cfg-usuario__meta {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+/* ============================================================
+   4. AUDITORIA
+   ============================================================ */
+
+.cfg-log-data {
+  font-size: var(--texto-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-secundario);
+  white-space: nowrap;
+}
+
+.cfg-log-detalhe {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   5. EXPORTAÇÕES
+   ============================================================ */
+
+.cfg-exportacoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--esp-3);
+}
+
+.cfg-exportacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-principal);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  text-align: left;
+}
+
+.cfg-exportacao:hover {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.25);
+}
+
+.cfg-exportacao__nome {
+  font-weight: var(--peso-medio);
+}
+
+.cfg-exportacao__acao {
+  font-size: var(--texto-xs);
+  color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   6. AÇÕES
+   ============================================================ */
+
+.cfg-acoes {
+  margin-top: var(--esp-4);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--esp-2);
+}
+
+/* ============================================================
+   7. SEÇÕES DO FORMULÁRIO DE USUÁRIO
+   ============================================================ */
+
+.cfg-secao-form {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.cfg-secao-form__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin: 0 0 var(--esp-1);
+}
+
+.cfg-secao-form__subtitulo {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  margin: 0 0 var(--esp-3);
+}
+
+.cfg-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--esp-2);
+}
+
+.cfg-check {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-sm);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  user-select: none;
+}
+
+.cfg-check:hover {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.cfg-check input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.cfg-check input[type="checkbox"]:checked + span {
+  color: var(--azul-marinho);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   8. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .cfg-abas {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .cfg-aba {
+    white-space: nowrap;
+  }
+
+  .cfg-bloco__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cfg-exportacoes {
+    grid-template-columns: 1fr;
+  }
+
+  .cfg-checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cfg-acoes {
+    justify-content: stretch;
+  }
+
+  .cfg-acoes > * {
+    flex: 1;
+  }
+}
