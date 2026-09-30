@@ -1,12 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v4)
+   PRAFICAR ERP — MÓDULO PRODUTOS (v5 com KIT)
    Arquivo: assets/js/modulos/produtos.js
    Descrição: cadastro, listagem, edição e exclusão lógica.
+              - Tipo: Simples ou Composto (Kit)
+              - Se Composto: componentes + custo automático
               - Margem mínima editável por produto
-              - Alerta quando margem cair abaixo do mínimo
               - Ordem alfabética por nome
               - Toggle de ativo/inativo + ação em massa
-              - Canais de venda por produto
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -22,10 +22,14 @@ const MODULO_PRODUTOS = (() => {
   let filtroBusca = '';
   let filtroStatus = '';
   let filtroCanal = '';
-  let filtroMargem = '';       // '' | 'abaixo' | 'ok'
+  let filtroMargem = '';
+  let filtroTipo = '';
 
   let produtoEditandoId = null;
   let selecionados = new Set();
+
+  // Componentes sendo montados no modal (temporário)
+  let componentesTemporarios = [];
 
   const MARGEM_MINIMA_PADRAO = 30;
 
@@ -49,6 +53,13 @@ const MODULO_PRODUTOS = (() => {
   function nomeCanal(id) {
     const c = window.MODULO_CANAIS?._buscar(id);
     return c ? c.nome : '—';
+  }
+
+  // Produtos que podem ser componentes (simples, ativos)
+  function produtosDisponiveisComoComponente(excluirId) {
+    return produtos
+      .filter(p => p.status === 'ativo' && p.tipo !== 'composto' && p.id !== excluirId)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
   /* ==========================================================
@@ -76,7 +87,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     4. CÁLCULO DE MARGEM
+     4. CÁLCULO DE MARGEM E CUSTO DO KIT
      ========================================================== */
 
   function calcularMargem(produto) {
@@ -94,18 +105,50 @@ const MODULO_PRODUTOS = (() => {
     return margem < minima && Number(produto.precoVarejo) > 0;
   }
 
+  // Calcula custo total dos componentes
+  function calcularCustoComponentes(componentes) {
+    return componentes.reduce((acc, c) => {
+      return acc + (Number(c.custoUnitario) || 0) * (Number(c.quantidade) || 0);
+    }, 0);
+  }
+
+  // Reconstrói os componentes com custo atual do produto
+  function sincronizarComponentes(componentes) {
+    return componentes.map(c => {
+      const produto = buscarProduto(c.produtoId);
+      return {
+        produtoId: c.produtoId,
+        nome: produto ? produto.nome : c.nome,
+        sku: produto ? produto.sku : c.sku,
+        quantidade: Number(c.quantidade) || 0,
+        custoUnitario: produto ? Number(produto.custo) || 0 : Number(c.custoUnitario) || 0
+      };
+    });
+  }
+
   /* ==========================================================
      5. CRUD
      ========================================================== */
 
   function criarProduto(dados) {
+    const tipo = dados.tipo || 'simples';
+    const componentes = tipo === 'composto'
+      ? sincronizarComponentes(dados.componentes || [])
+      : [];
+
+    const custo = tipo === 'composto'
+      ? calcularCustoComponentes(componentes)
+      : Number(dados.custo) || 0;
+
     const p = {
       id: proximoId++,
       sku: dados.sku,
       nome: dados.nome,
       categoria: dados.categoria,
       descricao: dados.descricao || '',
-      custo: Number(dados.custo) || 0,
+      tipo,
+      componentes,
+      custo,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
       margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
@@ -138,6 +181,7 @@ const MODULO_PRODUTOS = (() => {
       nome: dados.nome,
       categoria: dados.categoria,
       descricao: dados.descricao || '',
+      tipo: 'simples',
       custo: dados.custo,
       precoVarejo: dados.precoVarejo,
       precoAtacado: dados.precoAtacado || dados.precoVarejo,
@@ -159,11 +203,21 @@ const MODULO_PRODUTOS = (() => {
     if (idx === -1) return null;
 
     const skuAntigo = produtos[idx].sku;
+    const tipo = dados.tipo || produtos[idx].tipo || 'simples';
+    const componentes = tipo === 'composto'
+      ? sincronizarComponentes(dados.componentes || [])
+      : [];
+
+    const custo = tipo === 'composto'
+      ? calcularCustoComponentes(componentes)
+      : Number(dados.custo) || 0;
 
     produtos[idx] = {
       ...produtos[idx],
       ...dados,
-      custo: Number(dados.custo) || 0,
+      tipo,
+      componentes,
+      custo,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
       margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
@@ -177,7 +231,22 @@ const MODULO_PRODUTOS = (() => {
       window.SKU_PRAFICAR?.registrarExistente(dados.sku);
     }
 
+    // Recalcula kits que usam este produto
+    recalcularKitsQueUsam(id);
+
     return produtos[idx];
+  }
+
+  function recalcularKitsQueUsam(produtoId) {
+    produtos.forEach(p => {
+      if (p.tipo !== 'composto') return;
+      const usa = (p.componentes || []).some(c => Number(c.produtoId) === Number(produtoId));
+      if (!usa) return;
+
+      p.componentes = sincronizarComponentes(p.componentes);
+      p.custo = calcularCustoComponentes(p.componentes);
+      p.atualizadoEm = new Date().toISOString();
+    });
   }
 
   function excluirProduto(id) {
@@ -263,15 +332,9 @@ const MODULO_PRODUTOS = (() => {
       <span class="barra-acoes-massa__contador">
         ${selecionados.size} selecionado${selecionados.size > 1 ? 's' : ''}
       </span>
-      <button class="btn btn--sucesso btn--sm" onclick="MODULO_PRODUTOS.ativarSelecionados()">
-        Ativar
-      </button>
-      <button class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.desativarSelecionados()">
-        Desativar
-      </button>
-      <button class="btn btn--ghost btn--sm" onclick="MODULO_PRODUTOS.limparSelecao()">
-        Cancelar
-      </button>
+      <button class="btn btn--sucesso btn--sm" onclick="MODULO_PRODUTOS.ativarSelecionados()">Ativar</button>
+      <button class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.desativarSelecionados()">Desativar</button>
+      <button class="btn btn--ghost btn--sm" onclick="MODULO_PRODUTOS.limparSelecao()">Cancelar</button>
     `;
   }
 
@@ -284,7 +347,7 @@ const MODULO_PRODUTOS = (() => {
       if (filtroCategoria && p.categoria !== filtroCategoria) return false;
       if (filtroStatus && p.status !== filtroStatus) return false;
       if (filtroCanal && !(p.canais || []).map(String).includes(String(filtroCanal))) return false;
-
+      if (filtroTipo && p.tipo !== filtroTipo) return false;
       if (filtroMargem === 'abaixo' && !margemAbaixoDoMinimo(p)) return false;
       if (filtroMargem === 'ok' && margemAbaixoDoMinimo(p)) return false;
 
@@ -296,7 +359,6 @@ const MODULO_PRODUTOS = (() => {
       return true;
     });
 
-    // Ordem alfabética por nome
     return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
@@ -305,6 +367,7 @@ const MODULO_PRODUTOS = (() => {
   function alterarFiltroStatus(v)    { filtroStatus = v; rerender(); }
   function alterarFiltroCanal(v)     { filtroCanal = v; rerender(); }
   function alterarFiltroMargem(v)    { filtroMargem = v; rerender(); }
+  function alterarFiltroTipo(v)      { filtroTipo = v; rerender(); }
 
   /* ==========================================================
      8. RENDER — TELA PRINCIPAL
@@ -312,6 +375,7 @@ const MODULO_PRODUTOS = (() => {
 
   function render() {
     const abaixoDoMinimo = produtos.filter(p => p.status === 'ativo' && margemAbaixoDoMinimo(p)).length;
+    const totalKits = produtos.filter(p => p.tipo === 'composto' && p.status === 'ativo').length;
 
     return `
       <div class="pagina-header">
@@ -319,6 +383,7 @@ const MODULO_PRODUTOS = (() => {
           <h1 class="pagina-header__titulo">Produtos & Estoque</h1>
           <p class="pagina-header__subtitulo">
             ${produtos.length} ${produtos.length === 1 ? 'produto cadastrado' : 'produtos cadastrados'}
+            ${totalKits > 0 ? ` · ${totalKits} ${totalKits === 1 ? 'kit' : 'kits'}` : ''}
             ${abaixoDoMinimo > 0 ? ` · <span class="text-atencao">${abaixoDoMinimo} com margem abaixo do mínimo</span>` : ''}
           </p>
         </div>
@@ -339,6 +404,12 @@ const MODULO_PRODUTOS = (() => {
             oninput="MODULO_PRODUTOS.alterarFiltroBusca(this.value)"
           />
         </div>
+
+        <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroTipo(this.value)">
+          <option value="">Todos os tipos</option>
+          <option value="simples"  ${filtroTipo === 'simples'  ? 'selected' : ''}>Simples</option>
+          <option value="composto" ${filtroTipo === 'composto' ? 'selected' : ''}>Composto (Kit)</option>
+        </select>
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroCategoria(this.value)">
           <option value="">Todas as categorias</option>
@@ -392,7 +463,7 @@ const MODULO_PRODUTOS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${produtos.length === 0
-                ? 'Cadastre seu primeiro produto. O SKU é gerado automaticamente e o custo vem do Precificador.'
+                ? 'Cadastre seu primeiro produto ou crie um kit com componentes.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${produtos.length === 0 ? `
@@ -447,6 +518,7 @@ const MODULO_PRODUTOS = (() => {
     const { margem } = calcularMargem(p);
     const minima = Number(p.margemMinima) || MARGEM_MINIMA_PADRAO;
     const margemOk = margem >= minima;
+    const isKit = p.tipo === 'composto';
 
     return `
       <tr>
@@ -459,8 +531,14 @@ const MODULO_PRODUTOS = (() => {
         </td>
         <td><span class="sku">${escaparHTML(p.sku)}</span></td>
         <td>
-          <div class="produto-nome">${escaparHTML(p.nome)}</div>
+          <div class="produto-nome">
+            ${escaparHTML(p.nome)}
+            ${isKit ? '<span class="badge badge--info">Kit</span>' : ''}
+          </div>
           ${p.descricao ? `<div class="produto-desc">${escaparHTML(p.descricao)}</div>` : ''}
+          ${isKit && p.componentes?.length ? `
+            <div class="produto-kit-info">${p.componentes.length} ${p.componentes.length === 1 ? 'componente' : 'componentes'}</div>
+          ` : ''}
         </td>
         <td>${escaparHTML(nomeCategoria(p.categoria))}</td>
         <td class="tabela__numero ${classeEstoque}">
@@ -504,11 +582,16 @@ const MODULO_PRODUTOS = (() => {
 
   function abrirNovo() {
     produtoEditandoId = null;
+    componentesTemporarios = [];
     abrirModal();
   }
 
   function abrirEdicao(id) {
     produtoEditandoId = id;
+    const p = buscarProduto(id);
+    componentesTemporarios = p && p.tipo === 'composto'
+      ? JSON.parse(JSON.stringify(p.componentes || []))
+      : [];
     abrirModal();
   }
 
@@ -517,6 +600,7 @@ const MODULO_PRODUTOS = (() => {
     const editando = !!p;
     const canaisAtivos = p ? (p.canais || []) : [];
     const margemMinima = p ? (Number(p.margemMinima) || MARGEM_MINIMA_PADRAO) : MARGEM_MINIMA_PADRAO;
+    const tipo = p?.tipo || 'simples';
 
     const html = `
       <div class="modal-overlay ativo" id="modal-produto">
@@ -531,6 +615,25 @@ const MODULO_PRODUTOS = (() => {
           <div class="modal__body">
             <form id="form-produto" onsubmit="MODULO_PRODUTOS.salvar(event)">
 
+              <!-- Tipo -->
+              <div class="prod-tipo-selector">
+                <label class="prod-tipo-opcao">
+                  <input type="radio" name="prod-tipo" value="simples" ${tipo === 'simples' ? 'checked' : ''} onchange="MODULO_PRODUTOS.aoMudarTipo()" />
+                  <div class="prod-tipo-opcao__box">
+                    <div class="prod-tipo-opcao__titulo">Produto Simples</div>
+                    <div class="prod-tipo-opcao__desc">Preço vem da Precificação</div>
+                  </div>
+                </label>
+                <label class="prod-tipo-opcao">
+                  <input type="radio" name="prod-tipo" value="composto" ${tipo === 'composto' ? 'checked' : ''} onchange="MODULO_PRODUTOS.aoMudarTipo()" />
+                  <div class="prod-tipo-opcao__box">
+                    <div class="prod-tipo-opcao__titulo">Kit (composto)</div>
+                    <div class="prod-tipo-opcao__desc">Custo = soma dos componentes</div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Categoria + SKU -->
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="prod-categoria">Categoria <span class="form-obrigatorio">*</span></label>
@@ -552,9 +655,10 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
+              <!-- Nome + Descrição -->
               <div class="form-grupo">
                 <label for="prod-nome">Nome <span class="form-obrigatorio">*</span></label>
-                <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Chaveiro Coração" />
+                <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Cartão Duplo" />
               </div>
 
               <div class="form-grupo">
@@ -562,22 +666,52 @@ const MODULO_PRODUTOS = (() => {
                 <textarea id="prod-descricao" placeholder="Detalhes do produto (opcional)">${escaparHTML(p?.descricao || '')}</textarea>
               </div>
 
-              <div class="form-linha-3">
-                <div class="form-grupo">
-                  <label for="prod-custo">Custo real (R$)</label>
-                  <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
-                  <span class="form-ajuda">Vem do Precificador.</span>
-                </div>
-                <div class="form-grupo">
-                  <label for="prod-preco-varejo">Preço varejo (R$)</label>
-                  <input id="prod-preco-varejo" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
-                </div>
-                <div class="form-grupo">
-                  <label for="prod-preco-atacado">Preço atacado (R$)</label>
-                  <input id="prod-preco-atacado" type="number" step="0.01" min="0" value="${p?.precoAtacado ?? ''}" placeholder="0,00" />
+              <!-- Bloco Simples: custo + preço manual -->
+              <div id="prod-bloco-simples" style="${tipo === 'simples' ? '' : 'display:none;'}">
+                <div class="form-linha-3">
+                  <div class="form-grupo">
+                    <label for="prod-custo">Custo real (R$)</label>
+                    <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
+                    <span class="form-ajuda">Vem do Precificador.</span>
+                  </div>
+                  <div class="form-grupo">
+                    <label for="prod-preco-varejo">Preço varejo (R$)</label>
+                    <input id="prod-preco-varejo" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
+                  </div>
+                  <div class="form-grupo">
+                    <label for="prod-preco-atacado">Preço atacado (R$)</label>
+                    <input id="prod-preco-atacado" type="number" step="0.01" min="0" value="${p?.precoAtacado ?? ''}" placeholder="0,00" />
+                  </div>
                 </div>
               </div>
 
+              <!-- Bloco Composto: componentes + custo calculado -->
+              <div id="prod-bloco-composto" style="${tipo === 'composto' ? '' : 'display:none;'}">
+                <div class="prod-kit-secao">
+                  <div class="prod-kit-secao__header">
+                    <h3 class="prod-kit-secao__titulo">Componentes do Kit</h3>
+                    <button type="button" class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.abrirModalComponente()">
+                      + Adicionar componente
+                    </button>
+                  </div>
+                  <div id="prod-kit-lista">
+                    ${renderListaComponentes()}
+                  </div>
+                </div>
+
+                <div class="form-linha-2">
+                  <div class="form-grupo">
+                    <label for="prod-preco-varejo-kit">Preço varejo (R$)</label>
+                    <input id="prod-preco-varejo-kit" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
+                  </div>
+                  <div class="form-grupo">
+                    <label for="prod-preco-atacado-kit">Preço atacado (R$)</label>
+                    <input id="prod-preco-atacado-kit" type="number" step="0.01" min="0" value="${p?.precoAtacado ?? ''}" placeholder="0,00" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Margem mínima + preview -->
               <div class="prod-margem-bloco">
                 <div class="form-grupo">
                   <label for="prod-margem-minima">Margem mínima aceitável (%)</label>
@@ -589,6 +723,7 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
+              <!-- Estoque -->
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="prod-estoque">Estoque atual</label>
@@ -608,6 +743,7 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
+              <!-- Canais -->
               <div class="form-grupo">
                 <label>Canais de venda</label>
                 ${canaisDisponiveis().length === 0 ? `
@@ -615,20 +751,13 @@ const MODULO_PRODUTOS = (() => {
                     <span class="alerta__icone">
                       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                     </span>
-                    <div class="alerta__conteudo">
-                      Nenhum canal cadastrado ainda.
-                    </div>
+                    <div class="alerta__conteudo">Nenhum canal cadastrado ainda.</div>
                   </div>
                 ` : `
                   <div class="prod-canais-grid">
                     ${canaisDisponiveis().map(c => `
                       <label class="cfg-check">
-                        <input
-                          type="checkbox"
-                          value="${c.id}"
-                          ${canaisAtivos.map(String).includes(String(c.id)) ? 'checked' : ''}
-                          data-canal
-                        />
+                        <input type="checkbox" value="${c.id}" ${canaisAtivos.map(String).includes(String(c.id)) ? 'checked' : ''} data-canal />
                         <span>${escaparHTML(c.nome)}</span>
                       </label>
                     `).join('')}
@@ -636,6 +765,7 @@ const MODULO_PRODUTOS = (() => {
                 `}
               </div>
 
+              <!-- Status -->
               <div class="form-grupo">
                 <label for="prod-status">Status</label>
                 <select id="prod-status">
@@ -667,17 +797,184 @@ const MODULO_PRODUTOS = (() => {
     }, 50);
   }
 
+  function aoMudarTipo() {
+    const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
+    document.getElementById('prod-bloco-simples').style.display = tipo === 'simples' ? '' : 'none';
+    document.getElementById('prod-bloco-composto').style.display = tipo === 'composto' ? '' : 'none';
+    atualizarPreviewMargem();
+  }
+
+  function renderListaComponentes() {
+    if (componentesTemporarios.length === 0) {
+      return `
+        <div class="prod-kit-vazio">
+          <p>Nenhum componente adicionado ainda.</p>
+          <button type="button" class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.abrirModalComponente()">
+            + Adicionar o primeiro componente
+          </button>
+        </div>
+      `;
+    }
+
+    const total = calcularCustoComponentes(componentesTemporarios);
+
+    return `
+      <table class="tabela tabela-componentes">
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th class="tabela__numero">Qtd</th>
+            <th class="tabela__numero">Custo un.</th>
+            <th class="tabela__numero">Subtotal</th>
+            <th class="tabela__acao"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${componentesTemporarios.map((c, idx) => `
+            <tr>
+              <td>
+                <div class="produto-nome">${escaparHTML(c.nome)}</div>
+                ${c.sku ? `<span class="sku">${escaparHTML(c.sku)}</span>` : ''}
+              </td>
+              <td class="tabela__numero">${c.quantidade}</td>
+              <td class="tabela__numero">${formatarMoeda(c.custoUnitario)}</td>
+              <td class="tabela__numero peso-semibold">${formatarMoeda((Number(c.custoUnitario) || 0) * (Number(c.quantidade) || 0))}</td>
+              <td class="tabela__acao">
+                <button type="button" class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_PRODUTOS.removerComponente(${idx})">
+                  <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="text-right peso-semibold">Custo total do kit</td>
+            <td class="tabela__numero peso-bold text-principal">${formatarMoeda(total)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
+  }
+
+  function atualizarListaComponentes() {
+    const container = document.getElementById('prod-kit-lista');
+    if (container) container.innerHTML = renderListaComponentes();
+  }
+
+  /* ==========================================================
+     11. MODAL DE COMPONENTE
+     ========================================================== */
+
+  function abrirModalComponente() {
+    const disponiveis = produtosDisponiveisComoComponente(produtoEditandoId);
+
+    if (disponiveis.length === 0) {
+      alert('Nenhum produto simples disponível para adicionar como componente. Cadastre produtos simples primeiro.');
+      return;
+    }
+
+    const html = `
+      <div class="modal-overlay ativo" id="modal-componente" style="z-index: 700">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">Adicionar componente</h2>
+            <button class="modal__fechar" onclick="MODULO_PRODUTOS.fecharModalComponente()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="modal__body">
+            <div class="form-grupo">
+              <label for="comp-produto">Componente <span class="form-obrigatorio">*</span></label>
+              <select id="comp-produto">
+                <option value="">Selecione um produto</option>
+                ${disponiveis.map(p => `
+                  <option
+                    value="${p.id}"
+                    data-nome="${escaparHTML(p.nome)}"
+                    data-sku="${escaparHTML(p.sku)}"
+                    data-custo="${p.custo}"
+                  >
+                    ${escaparHTML(p.sku)} — ${escaparHTML(p.nome)} · ${formatarMoeda(p.custo)}
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+
+            <div class="form-grupo">
+              <label for="comp-qtd">Quantidade</label>
+              <input id="comp-qtd" type="number" min="1" step="1" value="1" />
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_PRODUTOS.fecharModalComponente()">Cancelar</button>
+            <button class="btn btn--primario" onclick="MODULO_PRODUTOS.adicionarComponente()">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-componente')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('comp-produto')?.focus(), 50);
+  }
+
+  function fecharModalComponente() {
+    document.getElementById('modal-componente')?.remove();
+  }
+
+  function adicionarComponente() {
+    const sel = document.getElementById('comp-produto');
+    const opt = sel && sel.value ? sel.options[sel.selectedIndex] : null;
+    const quantidade = Number(document.getElementById('comp-qtd').value) || 0;
+
+    if (!sel || !sel.value) return alert('Selecione um produto.');
+    if (quantidade <= 0) return alert('Informe a quantidade.');
+
+    const produtoId = Number(sel.value);
+    const nome = opt.dataset.nome;
+    const sku = opt.dataset.sku;
+    const custoUnitario = Number(opt.dataset.custo || 0);
+
+    // Se o componente já existe, só soma a quantidade
+    const existente = componentesTemporarios.find(c => Number(c.produtoId) === produtoId);
+    if (existente) {
+      existente.quantidade += quantidade;
+    } else {
+      componentesTemporarios.push({
+        produtoId,
+        nome,
+        sku,
+        quantidade,
+        custoUnitario
+      });
+    }
+
+    atualizarListaComponentes();
+    atualizarPreviewMargem();
+    fecharModalComponente();
+  }
+
+  function removerComponente(idx) {
+    componentesTemporarios.splice(idx, 1);
+    atualizarListaComponentes();
+    atualizarPreviewMargem();
+  }
+
+  /* ==========================================================
+     12. PREVIEW DE MARGEM
+     ========================================================== */
+
   function renderPreviewMargem(custo, preco, minima) {
     const c = Number(custo) || 0;
     const p = Number(preco) || 0;
     const m = Number(minima) || MARGEM_MINIMA_PADRAO;
 
     if (p <= 0) {
-      return `
-        <div class="prod-margem-preview__vazio">
-          Informe custo e preço para ver a margem.
-        </div>
-      `;
+      return `<div class="prod-margem-preview__vazio">Informe custo e preço para ver a margem.</div>`;
     }
 
     const lucro = p - c;
@@ -701,19 +998,24 @@ const MODULO_PRODUTOS = (() => {
         <span>Margem</span>
         <strong class="${ok ? 'text-sucesso' : 'text-critico'}">${formatarPercentual(margem)}</strong>
       </div>
-      ${!ok ? `
-        <div class="prod-margem-aviso">
-          ⚠️ Margem abaixo do mínimo de ${formatarPercentual(m)}.
-        </div>
-      ` : ''}
+      ${!ok ? `<div class="prod-margem-aviso">⚠️ Margem abaixo do mínimo de ${formatarPercentual(m)}.</div>` : ''}
     `;
   }
 
   function atualizarPreviewMargem() {
-    const custo = Number(document.getElementById('prod-custo')?.value) || 0;
-    const preco = Number(document.getElementById('prod-preco-varejo')?.value) || 0;
-    const minima = Number(document.getElementById('prod-margem-minima')?.value) || MARGEM_MINIMA_PADRAO;
+    const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
+    let custo = 0;
+    let preco = 0;
 
+    if (tipo === 'simples') {
+      custo = Number(document.getElementById('prod-custo')?.value) || 0;
+      preco = Number(document.getElementById('prod-preco-varejo')?.value) || 0;
+    } else {
+      custo = calcularCustoComponentes(componentesTemporarios);
+      preco = Number(document.getElementById('prod-preco-varejo-kit')?.value) || 0;
+    }
+
+    const minima = Number(document.getElementById('prod-margem-minima')?.value) || MARGEM_MINIMA_PADRAO;
     const el = document.getElementById('prod-margem-preview');
     if (el) el.innerHTML = renderPreviewMargem(custo, preco, minima);
   }
@@ -721,10 +1023,11 @@ const MODULO_PRODUTOS = (() => {
   function fecharModal() {
     document.getElementById('modal-produto')?.remove();
     produtoEditandoId = null;
+    componentesTemporarios = [];
   }
 
   /* ==========================================================
-     11. SKU
+     13. SKU
      ========================================================== */
 
   function gerarSkuAutomatico(codigoCategoria) {
@@ -763,25 +1066,48 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     12. SALVAR
+     14. SALVAR
      ========================================================== */
 
   function salvar(event) {
     event.preventDefault();
 
+    const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
+
     const canaisSelecionados = Array.from(
       document.querySelectorAll('input[data-canal]:checked')
     ).map(i => Number(i.value));
 
+    let custo = 0;
+    let precoVarejo = 0;
+    let precoAtacado = 0;
+    let componentes = [];
+
+    if (tipo === 'simples') {
+      custo = Number(document.getElementById('prod-custo').value) || 0;
+      precoVarejo = Number(document.getElementById('prod-preco-varejo').value) || 0;
+      precoAtacado = Number(document.getElementById('prod-preco-atacado').value) || 0;
+    } else {
+      if (componentesTemporarios.length === 0) {
+        return alert('Adicione pelo menos um componente ao kit.');
+      }
+      componentes = sincronizarComponentes(componentesTemporarios);
+      custo = calcularCustoComponentes(componentes);
+      precoVarejo = Number(document.getElementById('prod-preco-varejo-kit').value) || 0;
+      precoAtacado = Number(document.getElementById('prod-preco-atacado-kit').value) || 0;
+    }
+
     const dados = {
+      tipo,
+      componentes,
       categoria:     document.getElementById('prod-categoria').value,
       sku:           document.getElementById('prod-sku').value.trim(),
       nome:          document.getElementById('prod-nome').value.trim(),
       descricao:     document.getElementById('prod-descricao').value.trim(),
-      custo:         document.getElementById('prod-custo').value,
-      precoVarejo:   document.getElementById('prod-preco-varejo').value,
-      precoAtacado:  document.getElementById('prod-preco-atacado').value,
-      margemMinima:  document.getElementById('prod-margem-minima').value,
+      custo,
+      precoVarejo,
+      precoAtacado,
+      margemMinima:  Number(document.getElementById('prod-margem-minima').value) || MARGEM_MINIMA_PADRAO,
       estoqueAtual:  document.getElementById('prod-estoque').value,
       estoqueMinimo: document.getElementById('prod-estoque-min').value,
       unidade:       document.getElementById('prod-unidade').value,
@@ -812,7 +1138,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     13. EXCLUSÃO
+     15. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
@@ -828,7 +1154,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     14. RERENDER
+     16. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -844,7 +1170,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     15. API PÚBLICA
+     17. API PÚBLICA
      ========================================================== */
 
   return {
@@ -852,6 +1178,11 @@ const MODULO_PRODUTOS = (() => {
     abrirNovo,
     abrirEdicao,
     fecharModal,
+    aoMudarTipo,
+    abrirModalComponente,
+    fecharModalComponente,
+    adicionarComponente,
+    removerComponente,
     salvar,
     confirmarExclusao,
     gerarSkuAutomatico,
@@ -862,6 +1193,7 @@ const MODULO_PRODUTOS = (() => {
     alterarFiltroStatus,
     alterarFiltroCanal,
     alterarFiltroMargem,
+    alterarFiltroTipo,
     alternarStatus,
     alternarSelecao,
     alternarTodos,
