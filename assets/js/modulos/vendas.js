@@ -1,17 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO VENDAS
+   PRAFICAR ERP — MÓDULO VENDAS (v3 com desconto e bonificação)
    Arquivo: assets/js/modulos/vendas.js
-   Descrição: registro de vendas por canal, com cálculo do
-              lucro líquido real (descontando taxa % do canal,
-              taxa fixa, frete pago pelo vendedor) e baixa de
-              estoque dos produtos.
-
-   Fórmula do lucro líquido:
-     lucro = preco_venda
-           - custo_real_do_produto
-           - (preco_venda * taxa_percentual_canal)
-           - taxa_fixa_canal
-           - frete_pago_pelo_vendedor
+   Descrição: registro de vendas por canal com lucro líquido real,
+              desconto por item, bonificação e alerta de prejuízo.
    ============================================================ */
 
 const MODULO_VENDAS = (() => {
@@ -29,8 +20,10 @@ const MODULO_VENDAS = (() => {
   let filtroStatus = '';
   let vendaEditandoId = null;
 
+  let itensVendaTemporarios = [];
+
   /* ==========================================================
-     2. FORMAS DE PAGAMENTO E STATUS
+     2. CONSTANTES
      ========================================================== */
 
   const FORMAS_PAGAMENTO = [
@@ -50,6 +43,14 @@ const MODULO_VENDAS = (() => {
     { codigo: 'cancelada', nome: 'Cancelada', cor: 'critico' }
   ];
 
+  const MOTIVOS_BONIFICACAO = [
+    { codigo: 'brinde',       nome: 'Brinde' },
+    { codigo: 'cortesia',     nome: 'Cortesia' },
+    { codigo: 'amostra',      nome: 'Amostra grátis' },
+    { codigo: 'agradecimento',nome: 'Agradecimento' },
+    { codigo: 'outro',        nome: 'Outro' }
+  ];
+
   function nomeFormaPagamento(codigo) {
     const f = FORMAS_PAGAMENTO.find(x => x.codigo === codigo);
     return f ? f.nome : '—';
@@ -57,6 +58,11 @@ const MODULO_VENDAS = (() => {
 
   function statusInfo(codigo) {
     return STATUS_VENDA.find(s => s.codigo === codigo) || STATUS_VENDA[0];
+  }
+
+  function nomeMotivoBonificacao(codigo) {
+    const m = MOTIVOS_BONIFICACAO.find(x => x.codigo === codigo);
+    return m ? m.nome : '—';
   }
 
   /* ==========================================================
@@ -75,6 +81,13 @@ const MODULO_VENDAS = (() => {
 
   function formatarMoeda(v) {
     const n = Number(v) || 0;
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function formatarMoedaFina(v) {
+    const n = Number(v) || 0;
+    if (n === 0) return 'R$ 0,00';
+    if (n < 0.01) return `R$ ${n.toFixed(4).replace('.', ',')}`;
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
@@ -100,7 +113,9 @@ const MODULO_VENDAS = (() => {
   }
 
   function listarProdutosAtivos() {
-    return (window.MODULO_PRODUTOS?._listar() || []).filter(p => p.status === 'ativo');
+    const lista = (window.MODULO_PRODUTOS?._listar() || []).filter(p => p.status === 'ativo');
+    // Ordem alfabética
+    return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
   function buscarCanal(id) {
@@ -112,7 +127,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     5. CÁLCULO DO LUCRO LÍQUIDO
+     5. CÁLCULO DA VENDA COM DESCONTO E BONIFICAÇÃO
      ========================================================== */
 
   function calcularVenda(itens, canalId, freteVendedor) {
@@ -121,22 +136,44 @@ const MODULO_VENDAS = (() => {
     const taxaFixa = canal ? Number(canal.taxaFixa) || 0 : 0;
     const frete = Number(freteVendedor) || 0;
 
-    let subtotal = 0;
+    let subtotalTabela = 0;   // preço de tabela × quantidade
+    let subtotalPraticado = 0; // preço praticado (com desconto/bonificação) × quantidade
+    let descontoTotal = 0;
     let custoTotal = 0;
+    let bonificacoes = 0;
 
     itens.forEach(item => {
-      const sub = (Number(item.preco) || 0) * (Number(item.quantidade) || 0);
-      const custo = (Number(item.custo) || 0) * (Number(item.quantidade) || 0);
-      subtotal += sub;
-      custoTotal += custo;
+      const qtd = Number(item.quantidade) || 0;
+      const precoTabela = Number(item.preco) || 0;
+      const desconto = Number(item.desconto) || 0;
+      const bonificacao = item.bonificacao === true;
+
+      const precoPraticado = bonificacao ? 0 : Math.max(0, precoTabela - desconto);
+
+      subtotalTabela += precoTabela * qtd;
+      subtotalPraticado += precoPraticado * qtd;
+      descontoTotal += (precoTabela - precoPraticado) * qtd;
+      custoTotal += (Number(item.custo) || 0) * qtd;
+
+      if (bonificacao) bonificacoes += qtd;
     });
 
-    const taxaCanalValor = subtotal * (taxaPct / 100);
-    const lucro = subtotal - custoTotal - taxaCanalValor - taxaFixa - frete;
-    const margem = subtotal > 0 ? (lucro / subtotal) * 100 : 0;
+    const taxaCanalValor = subtotalPraticado * (taxaPct / 100);
+    const lucro = subtotalPraticado - custoTotal - taxaCanalValor - taxaFixa - frete;
+    const margem = subtotalPraticado > 0 ? (lucro / subtotalPraticado) * 100 : 0;
+
+    // Análise de viabilidade
+    const precoMinimoParaLucro = calcularPrecoMinimo(
+      custoTotal,
+      taxaPct,
+      taxaFixa,
+      frete
+    );
 
     return {
-      subtotal,
+      subtotalTabela,
+      subtotalPraticado,
+      descontoTotal,
       custoTotal,
       taxaPct,
       taxaFixa,
@@ -144,8 +181,18 @@ const MODULO_VENDAS = (() => {
       frete,
       lucro,
       margem,
+      bonificacoes,
+      precoMinimoParaLucro,
       canal
     };
+  }
+
+  function calcularPrecoMinimo(custoTotal, taxaPct, taxaFixa, frete) {
+    // preço tal que lucro = 0
+    // preco × (1 - taxaPct/100) = custoTotal + taxaFixa + frete
+    const divisor = 1 - (taxaPct / 100);
+    if (divisor <= 0.01) return 0;
+    return Math.round(((custoTotal + taxaFixa + frete) / divisor) * 100) / 100;
   }
 
   /* ==========================================================
@@ -153,7 +200,7 @@ const MODULO_VENDAS = (() => {
      ========================================================== */
 
   function criarVenda(dados) {
-    const venda = {
+    const v = {
       id: proximoId++,
       numero: gerarNumero(),
       cliente: dados.cliente || '',
@@ -168,19 +215,15 @@ const MODULO_VENDAS = (() => {
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
-    vendas.push(venda);
-
-    // Baixa de estoque
-    baixarEstoque(venda);
-
-    return venda;
+    vendas.push(v);
+    baixarEstoque(v);
+    return v;
   }
 
   function atualizarVenda(id, dados) {
     const idx = vendas.findIndex(v => v.id === id);
     if (idx === -1) return null;
 
-    // Reverte a baixa anterior
     estornarEstoque(vendas[idx]);
 
     vendas[idx] = {
@@ -190,7 +233,6 @@ const MODULO_VENDAS = (() => {
       atualizadoEm: new Date().toISOString()
     };
 
-    // Reaplica baixa se não estiver cancelada
     if (vendas[idx].status !== 'cancelada') {
       baixarEstoque(vendas[idx]);
     }
@@ -202,7 +244,6 @@ const MODULO_VENDAS = (() => {
     const v = vendas.find(x => x.id === id);
     if (!v) return false;
 
-    // Se não estava cancelada, estorna estoque
     if (v.status !== 'cancelada') {
       estornarEstoque(v);
     }
@@ -218,7 +259,6 @@ const MODULO_VENDAS = (() => {
 
   /* ==========================================================
      7. BAIXA E ESTORNO DE ESTOQUE
-     (mexe diretamente no array em memória de MODULO_PRODUTOS)
      ========================================================== */
 
   function baixarEstoque(venda) {
@@ -253,7 +293,7 @@ const MODULO_VENDAS = (() => {
         if (!alvo.includes(t)) return false;
       }
       return true;
-    });
+    }).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
   }
 
   function alterarFiltroBusca(v) { filtroBusca = v; rerenderTabela(); }
@@ -261,16 +301,18 @@ const MODULO_VENDAS = (() => {
   function alterarFiltroStatus(v) { filtroStatus = v; rerender(); }
 
   /* ==========================================================
-     9. KPIs DO TOPO
+     9. KPIs
      ========================================================== */
 
   function calcularKPIs() {
     const ativas = vendas.filter(v => v.status !== 'cancelada');
-    const faturamento = ativas.reduce((acc, v) => acc + (Number(v.totais?.subtotal) || 0), 0);
+    const faturamento = ativas.reduce((acc, v) => acc + (Number(v.totais?.subtotalPraticado) || 0), 0);
     const lucro = ativas.reduce((acc, v) => acc + (Number(v.totais?.lucro) || 0), 0);
+    const descontos = ativas.reduce((acc, v) => acc + (Number(v.totais?.descontoTotal) || 0), 0);
+    const bonificacoes = ativas.reduce((acc, v) => acc + (Number(v.totais?.bonificacoes) || 0), 0);
     const qtd = ativas.length;
     const ticket = qtd > 0 ? faturamento / qtd : 0;
-    return { faturamento, lucro, qtd, ticket };
+    return { faturamento, lucro, descontos, bonificacoes, qtd, ticket };
   }
 
   /* ==========================================================
@@ -278,15 +320,13 @@ const MODULO_VENDAS = (() => {
      ========================================================== */
 
   function render() {
-    const kpis = calcularKPIs();
+    const k = calcularKPIs();
 
     return `
       <div class="pagina-header">
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Vendas</h1>
-          <p class="pagina-header__subtitulo">
-            Registre vendas com lucro líquido real por canal.
-          </p>
+          <p class="pagina-header__subtitulo">Registre vendas com lucro líquido real por canal.</p>
         </div>
         <div class="pagina-header__acoes">
           <button class="btn btn--primario" onclick="MODULO_VENDAS.abrirNovo()">
@@ -303,8 +343,8 @@ const MODULO_VENDAS = (() => {
               <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
             </span>
           </div>
-          <div class="kpi__valor">${formatarMoeda(kpis.faturamento)}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">${kpis.qtd} ${kpis.qtd === 1 ? 'venda' : 'vendas'}</div>
+          <div class="kpi__valor">${formatarMoeda(k.faturamento)}</div>
+          <div class="kpi__variacao kpi__variacao--neutra">${k.qtd} ${k.qtd === 1 ? 'venda' : 'vendas'}</div>
         </div>
 
         <div class="kpi">
@@ -314,30 +354,30 @@ const MODULO_VENDAS = (() => {
               <svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
             </span>
           </div>
-          <div class="kpi__valor">${formatarMoeda(kpis.lucro)}</div>
-          <div class="kpi__variacao kpi__variacao--positiva">Já com taxas descontadas</div>
+          <div class="kpi__valor ${k.lucro >= 0 ? 'text-sucesso' : 'text-critico'}">${formatarMoeda(k.lucro)}</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Taxas descontadas</div>
         </div>
 
         <div class="kpi">
           <div class="kpi__topo">
-            <span class="kpi__label">Ticket médio</span>
+            <span class="kpi__label">Descontos</span>
             <span class="kpi__icone">
-              <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+              <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="2"/><circle cx="15" cy="15" r="2"/><path d="M20 4 4 20"/></svg>
             </span>
           </div>
-          <div class="kpi__valor">${formatarMoeda(kpis.ticket)}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">Por venda</div>
+          <div class="kpi__valor text-atencao">${formatarMoeda(k.descontos)}</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Concedidos</div>
         </div>
 
         <div class="kpi">
           <div class="kpi__topo">
-            <span class="kpi__label">Canceladas</span>
+            <span class="kpi__label">Bonificações</span>
             <span class="kpi__icone">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
             </span>
           </div>
-          <div class="kpi__valor">${vendas.filter(v => v.status === 'cancelada').length}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">No período</div>
+          <div class="kpi__valor">${k.bonificacoes}</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Unidades doadas</div>
         </div>
       </div>
 
@@ -355,9 +395,7 @@ const MODULO_VENDAS = (() => {
         <select class="filtros-vendas__select" onchange="MODULO_VENDAS.alterarFiltroCanal(this.value)">
           <option value="">Todos os canais</option>
           ${listarCanaisAtivos().map(c => `
-            <option value="${c.id}" ${String(filtroCanal) === String(c.id) ? 'selected' : ''}>
-              ${escaparHTML(c.nome)}
-            </option>
+            <option value="${c.id}" ${String(filtroCanal) === String(c.id) ? 'selected' : ''}>${escaparHTML(c.nome)}</option>
           `).join('')}
         </select>
 
@@ -394,7 +432,7 @@ const MODULO_VENDAS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${vendas.length === 0
-                ? 'Registre a primeira venda. O lucro é calculado automaticamente considerando a taxa do canal, taxa fixa e frete pago por você.'
+                ? 'Registre a primeira venda. O sistema avisa se a venda der prejuízo.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${vendas.length === 0 ? `
@@ -437,22 +475,26 @@ const MODULO_VENDAS = (() => {
     const s = statusInfo(v.status);
     const lucro = Number(v.totais?.lucro) || 0;
     const margem = Number(v.totais?.margem) || 0;
+    const temBonificacao = (Number(v.totais?.bonificacoes) || 0) > 0;
+    const temDesconto = (Number(v.totais?.descontoTotal) || 0) > 0;
 
     return `
       <tr>
         <td><span class="sku">${escaparHTML(v.numero)}</span></td>
         <td>${escaparHTML(v.cliente || '—')}</td>
-        <td>
-          <span class="badge badge--info">${escaparHTML(v.canalNome)}</span>
-        </td>
-        <td class="tabela__numero peso-semibold">${formatarMoeda(v.totais?.subtotal)}</td>
+        <td><span class="badge badge--info">${escaparHTML(v.canalNome)}</span></td>
+        <td class="tabela__numero peso-semibold">${formatarMoeda(v.totais?.subtotalPraticado)}</td>
         <td class="tabela__numero ${lucro >= 0 ? 'text-sucesso peso-semibold' : 'text-critico peso-semibold'}">
           ${formatarMoeda(lucro)}
         </td>
         <td class="tabela__numero">${margem.toFixed(1).replace('.', ',')}%</td>
         <td>${escaparHTML(nomeFormaPagamento(v.formaPagamento))}</td>
         <td>
-          <span class="badge badge--${s.cor}">${s.nome}</span>
+          <div class="venda-badges">
+            <span class="badge badge--${s.cor}">${s.nome}</span>
+            ${temDesconto ? '<span class="badge badge--atencao">Desconto</span>' : ''}
+            ${temBonificacao ? '<span class="badge badge--info">Brinde</span>' : ''}
+          </div>
         </td>
         <td class="tabela__acao">
           <div class="acoes-linha">
@@ -469,13 +511,13 @@ const MODULO_VENDAS = (() => {
       </tr>
     `;
   }
-
-  /* ==========================================================
+     /* ==========================================================
      12. MODAL — NOVA VENDA
      ========================================================== */
 
   function abrirNovo() {
     vendaEditandoId = null;
+    itensVendaTemporarios = [];
     abrirModal();
   }
 
@@ -524,23 +566,15 @@ const MODULO_VENDAS = (() => {
       <div class="form-linha">
         <div class="form-grupo">
           <label for="venda-cliente">Cliente</label>
-          <input
-            id="venda-cliente"
-            type="text"
-            placeholder="Nome do cliente"
-          />
+          <input id="venda-cliente" type="text" placeholder="Nome do cliente" />
         </div>
 
         <div class="form-grupo">
-          <label for="venda-canal">Canal de venda <span class="form-obrigatorio">*</span></label>
-          <select
-            id="venda-canal"
-            required
-            onchange="MODULO_VENDAS.atualizarResumoVenda()"
-          >
+          <label for="venda-canal">Canal de venda</label>
+          <select id="venda-canal" onchange="MODULO_VENDAS.atualizarResumoVenda()">
             <option value="">Venda direta (sem canal)</option>
             ${listarCanaisAtivos().map(c => `
-              <option value="${c.id}" data-taxa="${c.taxaPercentual}" data-fixa="${c.taxaFixa}" data-frete="${c.freteResponsavel}">
+              <option value="${c.id}">
                 ${escaparHTML(c.nome)} — ${c.taxaPercentual}% + ${formatarMoeda(c.taxaFixa)}
               </option>
             `).join('')}
@@ -622,28 +656,39 @@ const MODULO_VENDAS = (() => {
           <tr>
             <th>Produto</th>
             <th class="tabela__numero">Qtd</th>
-            <th class="tabela__numero">Preço un.</th>
+            <th class="tabela__numero">Tabela</th>
+            <th class="tabela__numero">Desconto</th>
+            <th class="tabela__numero">Praticado</th>
             <th class="tabela__numero">Subtotal</th>
             <th class="tabela__acao"></th>
           </tr>
         </thead>
         <tbody>
-          ${itens.map((i, idx) => `
-            <tr>
-              <td>
-                <div class="enc-item-nome">${escaparHTML(i.nome)}</div>
-                ${i.sku ? `<span class="sku">${escaparHTML(i.sku)}</span>` : ''}
-              </td>
-              <td class="tabela__numero">${i.quantidade}</td>
-              <td class="tabela__numero">${formatarMoeda(i.preco)}</td>
-              <td class="tabela__numero peso-semibold">${formatarMoeda((Number(i.preco) || 0) * (Number(i.quantidade) || 0))}</td>
-              <td class="tabela__acao">
-                <button type="button" class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_VENDAS.removerItem(${idx})">
-                  <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-              </td>
-            </tr>
-          `).join('')}
+          ${itens.map((i, idx) => {
+            const precoPraticado = i.bonificacao ? 0 : Math.max(0, (Number(i.preco) || 0) - (Number(i.desconto) || 0));
+            const subtotal = precoPraticado * (Number(i.quantidade) || 0);
+            return `
+              <tr>
+                <td>
+                  <div class="enc-item-nome">${escaparHTML(i.nome)}</div>
+                  ${i.sku ? `<span class="sku">${escaparHTML(i.sku)}</span>` : ''}
+                  ${i.bonificacao ? `<span class="badge badge--info mt-1">${escaparHTML(nomeMotivoBonificacao(i.motivoBonificacao))}</span>` : ''}
+                </td>
+                <td class="tabela__numero">${i.quantidade}</td>
+                <td class="tabela__numero">${formatarMoeda(i.preco)}</td>
+                <td class="tabela__numero ${i.desconto > 0 ? 'text-atencao' : ''}">
+                  ${i.bonificacao ? '—' : formatarMoeda(i.desconto)}
+                </td>
+                <td class="tabela__numero peso-semibold">${formatarMoeda(precoPraticado)}</td>
+                <td class="tabela__numero peso-semibold">${formatarMoeda(subtotal)}</td>
+                <td class="tabela__acao">
+                  <button type="button" class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_VENDAS.removerItem(${idx})">
+                    <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>
     `;
@@ -658,7 +703,7 @@ const MODULO_VENDAS = (() => {
 
     const html = `
       <div class="modal-overlay ativo" id="modal-item-venda" style="z-index: 700">
-        <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal modal--grande" role="dialog" aria-modal="true">
           <div class="modal__header">
             <h2 class="modal__titulo">Adicionar item</h2>
             <button class="modal__fechar" onclick="MODULO_VENDAS.fecharModalItem()" aria-label="Fechar">
@@ -686,11 +731,6 @@ const MODULO_VENDAS = (() => {
               </select>
             </div>
 
-            <div class="form-grupo">
-              <label for="venda-item-nome">Nome <span class="form-obrigatorio">*</span></label>
-              <input id="venda-item-nome" type="text" placeholder="Nome do item" />
-            </div>
-
             <div class="form-linha">
               <div class="form-grupo">
                 <label for="venda-item-qtd">Quantidade</label>
@@ -698,9 +738,48 @@ const MODULO_VENDAS = (() => {
                 <span class="form-ajuda" id="venda-item-estoque-aviso"></span>
               </div>
               <div class="form-grupo">
-                <label for="venda-item-preco">Preço unitário (R$)</label>
-                <input id="venda-item-preco" type="number" min="0" step="0.01" placeholder="0,00" />
+                <label for="venda-item-preco">Preço tabela (R$)</label>
+                <input id="venda-item-preco" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_VENDAS.recalcularPreviewItem()" />
               </div>
+            </div>
+
+            <div class="venda-item-tipo">
+              <label class="venda-item-tipo__opcao">
+                <input type="radio" name="venda-item-tipo" value="normal" checked onchange="MODULO_VENDAS.aoMudarTipoItem()" />
+                <span>Venda normal</span>
+              </label>
+              <label class="venda-item-tipo__opcao">
+                <input type="radio" name="venda-item-tipo" value="desconto" onchange="MODULO_VENDAS.aoMudarTipoItem()" />
+                <span>Com desconto</span>
+              </label>
+              <label class="venda-item-tipo__opcao">
+                <input type="radio" name="venda-item-tipo" value="bonificacao" onchange="MODULO_VENDAS.aoMudarTipoItem()" />
+                <span>Bonificação (brinde)</span>
+              </label>
+            </div>
+
+            <div class="form-linha" id="venda-item-desconto-wrapper" style="display:none;">
+              <div class="form-grupo">
+                <label for="venda-item-desconto">Desconto (R$)</label>
+                <input id="venda-item-desconto" type="number" min="0" step="0.01" value="0" oninput="MODULO_VENDAS.recalcularPreviewItem()" />
+              </div>
+              <div class="form-grupo">
+                <label for="venda-item-desconto-pct">Desconto (%)</label>
+                <input id="venda-item-desconto-pct" type="number" min="0" max="100" step="1" value="0" oninput="MODULO_VENDAS.aplicarDescontoPorPct()" />
+              </div>
+            </div>
+
+            <div class="form-grupo" id="venda-item-bonificacao-wrapper" style="display:none;">
+              <label for="venda-item-motivo">Motivo da bonificação</label>
+              <select id="venda-item-motivo">
+                ${MOTIVOS_BONIFICACAO.map(m => `
+                  <option value="${m.codigo}">${m.nome}</option>
+                `).join('')}
+              </select>
+            </div>
+
+            <div class="venda-item-preview" id="venda-item-preview">
+              ${renderPreviewItem(0, 0, 0)}
             </div>
           </div>
 
@@ -725,7 +804,6 @@ const MODULO_VENDAS = (() => {
     const sel = document.getElementById('venda-item-produto');
     if (!sel || !sel.value) return;
     const opt = sel.options[sel.selectedIndex];
-    document.getElementById('venda-item-nome').value = opt.dataset.nome || '';
     document.getElementById('venda-item-preco').value = opt.dataset.preco || '';
 
     const aviso = document.getElementById('venda-item-estoque-aviso');
@@ -734,33 +812,94 @@ const MODULO_VENDAS = (() => {
       aviso.textContent = `Estoque disponível: ${estoque} un`;
       aviso.style.color = estoque <= 0 ? 'var(--cor-critico)' : 'var(--cor-texto-secundario)';
     }
+
+    recalcularPreviewItem();
   }
 
-  let itensVendaTemporarios = [];
+  function aoMudarTipoItem() {
+    const tipo = document.querySelector('input[name="venda-item-tipo"]:checked')?.value || 'normal';
+    document.getElementById('venda-item-desconto-wrapper').style.display = tipo === 'desconto' ? 'grid' : 'none';
+    document.getElementById('venda-item-bonificacao-wrapper').style.display = tipo === 'bonificacao' ? 'block' : 'none';
+    recalcularPreviewItem();
+  }
+
+  function aplicarDescontoPorPct() {
+    const preco = Number(document.getElementById('venda-item-preco')?.value) || 0;
+    const pct = Number(document.getElementById('venda-item-desconto-pct')?.value) || 0;
+    const desconto = Math.round(preco * (pct / 100) * 100) / 100;
+    document.getElementById('venda-item-desconto').value = desconto.toFixed(2);
+    recalcularPreviewItem();
+  }
+
+  function recalcularPreviewItem() {
+    const preco = Number(document.getElementById('venda-item-preco')?.value) || 0;
+    const tipo = document.querySelector('input[name="venda-item-tipo"]:checked')?.value || 'normal';
+    const desconto = tipo === 'desconto' ? Number(document.getElementById('venda-item-desconto')?.value) || 0 : 0;
+    const bonificacao = tipo === 'bonificacao';
+
+    const precoPraticado = bonificacao ? 0 : Math.max(0, preco - desconto);
+
+    document.getElementById('venda-item-preview').innerHTML =
+      renderPreviewItem(preco, precoPraticado, desconto);
+  }
+
+  function renderPreviewItem(preco, praticado, desconto) {
+    return `
+      <div class="venda-item-preview__linha">
+        <span>Preço tabela</span>
+        <strong>${formatarMoeda(preco)}</strong>
+      </div>
+      ${desconto > 0 ? `
+        <div class="venda-item-preview__linha">
+          <span>Desconto</span>
+          <strong class="text-atencao">− ${formatarMoeda(desconto)}</strong>
+        </div>
+      ` : ''}
+      <div class="venda-item-preview__linha venda-item-preview__linha--destaque">
+        <span>Preço praticado</span>
+        <strong>${formatarMoeda(praticado)}</strong>
+      </div>
+    `;
+  }
 
   function adicionarItem() {
     const sel = document.getElementById('venda-item-produto');
     const opt = sel && sel.value ? sel.options[sel.selectedIndex] : null;
 
-    const nome = document.getElementById('venda-item-nome').value.trim();
     const quantidade = Number(document.getElementById('venda-item-qtd').value) || 0;
     const preco = Number(document.getElementById('venda-item-preco').value) || 0;
+    const tipo = document.querySelector('input[name="venda-item-tipo"]:checked')?.value || 'normal';
+    const desconto = tipo === 'desconto' ? Number(document.getElementById('venda-item-desconto').value) || 0 : 0;
+    const bonificacao = tipo === 'bonificacao';
+    const motivoBonificacao = bonificacao ? document.getElementById('venda-item-motivo').value : null;
 
-    if (!nome) return alert('Informe o nome do item.');
+    if (!sel || !sel.value) return alert('Selecione um produto.');
     if (quantidade <= 0) return alert('Informe a quantidade.');
 
-    const produtoId = opt && sel.value ? Number(sel.value) : null;
-    const sku = opt ? opt.dataset.sku : '';
-    const custo = opt ? Number(opt.dataset.custo || 0) : 0;
-    const estoque = opt ? Number(opt.dataset.estoque || 0) : null;
+    const produtoId = Number(sel.value);
+    const nome = opt.dataset.nome;
+    const sku = opt.dataset.sku;
+    const custo = Number(opt.dataset.custo || 0);
+    const estoque = Number(opt.dataset.estoque || 0);
 
-    // Bloqueia venda acima do estoque disponível
-    if (estoque !== null && quantidade > estoque) {
+    if (quantidade > estoque) {
       return alert(`Estoque insuficiente. Disponível: ${estoque} un.`);
     }
 
+    if (desconto > preco) {
+      return alert('Desconto maior que o preço.');
+    }
+
     itensVendaTemporarios.push({
-      produtoId, nome, sku, quantidade, preco, custo
+      produtoId,
+      nome,
+      sku,
+      quantidade,
+      preco,
+      custo,
+      desconto,
+      bonificacao,
+      motivoBonificacao
     });
 
     atualizarListaItensForm();
@@ -780,7 +919,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     15. RESUMO EM TEMPO REAL
+     15. RESUMO E ALERTA DE PREJUÍZO
      ========================================================== */
 
   function atualizarResumoVenda() {
@@ -793,12 +932,21 @@ const MODULO_VENDAS = (() => {
     const frete = Number(document.getElementById('venda-frete')?.value) || 0;
     const r = calcularVenda(itensVendaTemporarios, canalId, frete);
 
+    const temPrejuizo = r.lucro < 0 && itensVendaTemporarios.length > 0;
+    const margemBaixa = r.margem < 30 && r.lucro >= 0 && itensVendaTemporarios.length > 0;
+
     return `
       <div class="venda-resumo__grid">
         <div class="venda-resumo__item">
           <span class="venda-resumo__label">Subtotal</span>
-          <span class="venda-resumo__valor">${formatarMoeda(r.subtotal)}</span>
+          <span class="venda-resumo__valor">${formatarMoeda(r.subtotalPraticado)}</span>
         </div>
+        ${r.descontoTotal > 0 ? `
+          <div class="venda-resumo__item">
+            <span class="venda-resumo__label">Descontos</span>
+            <span class="venda-resumo__valor text-atencao">− ${formatarMoeda(r.descontoTotal)}</span>
+          </div>
+        ` : ''}
         <div class="venda-resumo__item">
           <span class="venda-resumo__label">Custo dos produtos</span>
           <span class="venda-resumo__valor">− ${formatarMoeda(r.custoTotal)}</span>
@@ -826,6 +974,31 @@ const MODULO_VENDAS = (() => {
           <span class="venda-resumo__valor">${r.margem.toFixed(1).replace('.', ',')}%</span>
         </div>
       </div>
+
+      ${temPrejuizo ? `
+        <div class="alerta alerta--critico mt-4">
+          <span class="alerta__icone">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          </span>
+          <div class="alerta__conteudo">
+            <div class="alerta__titulo">⚠️ Esta venda vai dar prejuízo de ${formatarMoeda(Math.abs(r.lucro))}</div>
+            Para não ter prejuízo, o preço mínimo seria <strong>${formatarMoeda(r.precoMinimoParaLucro)}</strong>.
+            Verifique a taxa do canal e o frete pago por você.
+          </div>
+        </div>
+      ` : ''}
+
+      ${margemBaixa ? `
+        <div class="alerta alerta--atencao mt-4">
+          <span class="alerta__icone">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </span>
+          <div class="alerta__conteudo">
+            <div class="alerta__titulo">Margem abaixo de 30%</div>
+            Esta venda tem margem de ${r.margem.toFixed(1).replace('.', ',')}%. Considere revisar o preço ou o canal.
+          </div>
+        </div>
+      ` : ''}
     `;
   }
 
@@ -844,6 +1017,17 @@ const MODULO_VENDAS = (() => {
     const r = calcularVenda(itensVendaTemporarios, canalId, frete);
     const canal = buscarCanal(canalId);
 
+    // Bloqueio com confirmação em caso de prejuízo
+    if (r.lucro < 0) {
+      const continuar = confirm(
+        `⚠️ ATENÇÃO\n\n` +
+        `Esta venda vai dar PREJUÍZO de ${formatarMoeda(Math.abs(r.lucro))}.\n\n` +
+        `Preço mínimo para não ter prejuízo: ${formatarMoeda(r.precoMinimoParaLucro)}\n\n` +
+        `Deseja continuar mesmo assim?`
+      );
+      if (!continuar) return;
+    }
+
     const dados = {
       cliente: document.getElementById('venda-cliente').value.trim(),
       canalId: canalId || '',
@@ -854,22 +1038,23 @@ const MODULO_VENDAS = (() => {
       freteVendedor: frete,
       observacoes: document.getElementById('venda-obs').value.trim(),
       totais: {
-        subtotal: r.subtotal,
+        subtotalTabela: r.subtotalTabela,
+        subtotalPraticado: r.subtotalPraticado,
+        descontoTotal: r.descontoTotal,
         custoTotal: r.custoTotal,
         taxaPct: r.taxaPct,
         taxaFixa: r.taxaFixa,
         taxaCanalValor: r.taxaCanalValor,
         frete: r.frete,
         lucro: r.lucro,
-        margem: r.margem
+        margem: r.margem,
+        bonificacoes: r.bonificacoes
       }
     };
 
     criarVenda(dados);
 
-    // Limpa estado
     itensVendaTemporarios = [];
-
     fecharModal();
     rerender();
   }
@@ -910,22 +1095,31 @@ const MODULO_VENDAS = (() => {
                   <tr>
                     <th>Produto</th>
                     <th class="tabela__numero">Qtd</th>
-                    <th class="tabela__numero">Preço un.</th>
+                    <th class="tabela__numero">Tabela</th>
+                    <th class="tabela__numero">Desconto</th>
+                    <th class="tabela__numero">Praticado</th>
                     <th class="tabela__numero">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${v.itens.map(i => `
-                    <tr>
-                      <td>
-                        <div class="enc-item-nome">${escaparHTML(i.nome)}</div>
-                        ${i.sku ? `<span class="sku">${escaparHTML(i.sku)}</span>` : ''}
-                      </td>
-                      <td class="tabela__numero">${i.quantidade}</td>
-                      <td class="tabela__numero">${formatarMoeda(i.preco)}</td>
-                      <td class="tabela__numero peso-semibold">${formatarMoeda((Number(i.preco) || 0) * (Number(i.quantidade) || 0))}</td>
-                    </tr>
-                  `).join('')}
+                  ${v.itens.map(i => {
+                    const precoPraticado = i.bonificacao ? 0 : Math.max(0, (Number(i.preco) || 0) - (Number(i.desconto) || 0));
+                    const subtotal = precoPraticado * (Number(i.quantidade) || 0);
+                    return `
+                      <tr>
+                        <td>
+                          <div class="enc-item-nome">${escaparHTML(i.nome)}</div>
+                          ${i.sku ? `<span class="sku">${escaparHTML(i.sku)}</span>` : ''}
+                          ${i.bonificacao ? `<span class="badge badge--info mt-1">${escaparHTML(nomeMotivoBonificacao(i.motivoBonificacao))}</span>` : ''}
+                        </td>
+                        <td class="tabela__numero">${i.quantidade}</td>
+                        <td class="tabela__numero">${formatarMoeda(i.preco)}</td>
+                        <td class="tabela__numero">${i.bonificacao ? '—' : formatarMoeda(i.desconto)}</td>
+                        <td class="tabela__numero peso-semibold">${formatarMoeda(precoPraticado)}</td>
+                        <td class="tabela__numero peso-semibold">${formatarMoeda(subtotal)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
                 </tbody>
               </table>
             </div>
@@ -935,8 +1129,14 @@ const MODULO_VENDAS = (() => {
               <div class="calculo-detalhado">
                 <div class="calculo-linha">
                   <span>Subtotal</span>
-                  <span>${formatarMoeda(v.totais?.subtotal)}</span>
+                  <span>${formatarMoeda(v.totais?.subtotalPraticado)}</span>
                 </div>
+                ${Number(v.totais?.descontoTotal) > 0 ? `
+                  <div class="calculo-linha">
+                    <span>Descontos</span>
+                    <span class="text-atencao">− ${formatarMoeda(v.totais?.descontoTotal)}</span>
+                  </div>
+                ` : ''}
                 <div class="calculo-linha">
                   <span>Custo dos produtos</span>
                   <span>− ${formatarMoeda(v.totais?.custoTotal)}</span>
@@ -1031,6 +1231,9 @@ const MODULO_VENDAS = (() => {
     abrirModalItem,
     fecharModalItem,
     preencherItemProduto,
+    aoMudarTipoItem,
+    aplicarDescontoPorPct,
+    recalcularPreviewItem,
     adicionarItem,
     removerItem,
     atualizarResumoVenda,
@@ -1041,12 +1244,12 @@ const MODULO_VENDAS = (() => {
     alterarFiltroBusca,
     alterarFiltroCanal,
     alterarFiltroStatus,
-    // Uso futuro
     _listar: () => [...vendas],
     _buscar: buscarVenda,
     _calcularVenda: calcularVenda,
     FORMAS_PAGAMENTO,
-    STATUS_VENDA
+    STATUS_VENDA,
+    MOTIVOS_BONIFICACAO
   };
 
 })();
