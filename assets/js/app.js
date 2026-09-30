@@ -1,19 +1,17 @@
 /* ============================================================
-   PRAFICAR ERP — APP PRINCIPAL (VERSÃO FINAL)
+   PRAFICAR ERP — APP PRINCIPAL (v3 com calculadora)
    Arquivo: assets/js/app.js
-   Descrição: inicialização, menu lateral, header e ícones.
-              Todas as telas dos módulos vivem em
+   Descrição: inicialização, menu lateral, header, ícones e
+              botão da calculadora flutuante.
+              As telas dos módulos vivem em
               assets/js/modulos/*.js e registram seu próprio
               window.renderXxx.
-
-   Este arquivo NÃO define mais nenhuma função renderXxx.
-   Apenas inicializa a estrutura geral do sistema.
    ============================================================ */
 
 const APP_PRAFICAR = (() => {
 
   /* ==========================================================
-     1. ÍCONES SVG (inline, sem dependências externas)
+     1. ÍCONES SVG
      ========================================================== */
 
   const ICONES = {
@@ -37,6 +35,7 @@ const APP_PRAFICAR = (() => {
     pacote:       '<svg viewBox="0 0 24 24"><path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>',
     alerta:       '<svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
     relogio:      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+    calculadora:  '<svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="16" y2="18"/></svg>',
     user:         '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
   };
 
@@ -98,7 +97,7 @@ const APP_PRAFICAR = (() => {
      ========================================================== */
 
   function iniciar() {
-    // Injeta o menu lateral
+    // Menu lateral
     const navMenu = document.getElementById('sidebar-menu');
     if (navMenu) navMenu.innerHTML = renderMenu();
 
@@ -128,12 +127,20 @@ const APP_PRAFICAR = (() => {
     const h = document.getElementById('header-acoes');
     if (h) {
       h.innerHTML = `
+        <button class="header__acao" id="btn-calculadora" title="Calculadora">
+          ${ICONES.calculadora}
+        </button>
         <button class="header__acao" title="Ajuda">${ICONES.ajuda}</button>
         <button class="header__acao" title="Notificações">
           ${ICONES.sino}
           <span class="header__acao-notificacao"></span>
         </button>
       `;
+
+      // Listener do botão da calculadora
+      document.getElementById('btn-calculadora')?.addEventListener('click', () => {
+        window.CALCULADORA_PRAFICAR?.alternar();
+      });
     }
 
     // Campo de busca global
