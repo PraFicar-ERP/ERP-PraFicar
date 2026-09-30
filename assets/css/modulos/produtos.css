@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v4)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v5 com KIT)
    Arquivo: assets/css/modulos/produtos.css
    ============================================================ */
 
@@ -53,6 +53,10 @@
 .produto-nome {
   font-weight: var(--peso-medio);
   color: var(--cor-texto-principal);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
 }
 
 .produto-desc {
@@ -70,6 +74,13 @@
   font-weight: var(--peso-regular);
   color: var(--cor-texto-secundario);
   opacity: 0.85;
+  margin-top: 2px;
+}
+
+.produto-kit-info {
+  font-size: var(--texto-xs);
+  color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
   margin-top: 2px;
 }
 
@@ -127,7 +138,7 @@
    ============================================================ */
 
 #modal-produto .modal {
-  max-width: 720px;
+  max-width: 780px;
 }
 
 #modal-produto .form-grupo:last-child {
@@ -145,8 +156,131 @@
   box-shadow: var(--sombra-foco);
 }
 
+.form-linha-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--esp-3);
+}
+
 /* ============================================================
-   5. BLOCO DE MARGEM (DENTRO DO MODAL)
+   5. SELETOR DE TIPO (SIMPLES / COMPOSTO)
+   ============================================================ */
+
+.prod-tipo-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+}
+
+.prod-tipo-opcao {
+  cursor: pointer;
+  user-select: none;
+}
+
+.prod-tipo-opcao input {
+  display: none;
+}
+
+.prod-tipo-opcao__box {
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border: 2px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  transition: border-color var(--transicao-rapida),
+              background-color var(--transicao-rapida);
+}
+
+.prod-tipo-opcao:hover .prod-tipo-opcao__box {
+  background-color: var(--azul-suave);
+}
+
+.prod-tipo-opcao input:checked + .prod-tipo-opcao__box {
+  background-color: var(--azul-suave);
+  border-color: var(--azul-medio);
+}
+
+.prod-tipo-opcao__titulo {
+  font-size: var(--texto-base);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-1);
+}
+
+.prod-tipo-opcao input:checked + .prod-tipo-opcao__box .prod-tipo-opcao__titulo {
+  color: var(--azul-marinho);
+}
+
+.prod-tipo-opcao__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  line-height: var(--linha-normal);
+}
+
+/* ============================================================
+   6. SEÇÃO DE COMPONENTES DO KIT
+   ============================================================ */
+
+.prod-kit-secao {
+  margin: var(--esp-5) 0;
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  border: 1px solid var(--cor-borda-suave);
+}
+
+.prod-kit-secao__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.prod-kit-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin: 0;
+}
+
+.prod-kit-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  background-color: var(--branco);
+}
+
+.tabela-componentes {
+  font-size: var(--texto-sm);
+  background-color: var(--branco);
+  border-radius: var(--raio-sm);
+  overflow: hidden;
+}
+
+.tabela-componentes thead {
+  background-color: var(--branco);
+}
+
+.tabela-componentes tfoot td {
+  padding-top: var(--esp-3);
+  padding-bottom: var(--esp-3);
+  border-top: 2px solid var(--cor-borda-suave);
+  border-bottom: none;
+}
+
+/* ============================================================
+   7. BLOCO DE MARGEM (DENTRO DO MODAL)
    ============================================================ */
 
 .prod-margem-bloco {
@@ -218,7 +352,7 @@
 }
 
 /* ============================================================
-   6. CANAIS DE VENDA NO PRODUTO
+   8. CANAIS DE VENDA
    ============================================================ */
 
 .prod-canais-grid {
@@ -260,7 +394,15 @@
 }
 
 /* ============================================================
-   7. TOGGLE DE ATIVO/INATIVO
+   9. MODAL DE COMPONENTE
+   ============================================================ */
+
+#modal-componente .modal {
+  max-width: 520px;
+}
+
+/* ============================================================
+   10. TOGGLE DE ATIVO/INATIVO
    ============================================================ */
 
 .toggle-ativo {
@@ -313,7 +455,7 @@
 }
 
 /* ============================================================
-   8. BARRA DE AÇÕES EM MASSA
+   11. BARRA DE AÇÕES EM MASSA
    ============================================================ */
 
 .barra-acoes-massa {
@@ -382,7 +524,7 @@
 }
 
 /* ============================================================
-   9. RESPONSIVO
+   12. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 768px) {
@@ -407,6 +549,10 @@
     grid-template-columns: 1fr;
   }
 
+  .prod-tipo-selector {
+    grid-template-columns: 1fr;
+  }
+
   .barra-acoes-massa {
     bottom: var(--esp-4);
     padding: var(--esp-2) var(--esp-4);
@@ -419,5 +565,9 @@
 
   .barra-acoes-massa .btn {
     padding: 0 var(--esp-3);
+  }
+
+  #modal-produto .modal {
+    max-width: 100%;
   }
 }
