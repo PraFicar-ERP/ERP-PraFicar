@@ -1,10 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v3 com toggle)
+   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v4)
    Arquivo: assets/js/modulos/produtos.js
-   Descrição: cadastro, listagem, edição e exclusão lógica de
-              produtos. Canais de venda por produto. Custo real
-              e preço de venda herdados do Precificador.
-              Toggle de ativo/inativo + ação em massa.
+   Descrição: cadastro, listagem, edição e exclusão lógica.
+              - Margem mínima editável por produto
+              - Alerta quando margem cair abaixo do mínimo
+              - Ordem alfabética por nome
+              - Toggle de ativo/inativo + ação em massa
+              - Canais de venda por produto
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -20,12 +22,15 @@ const MODULO_PRODUTOS = (() => {
   let filtroBusca = '';
   let filtroStatus = '';
   let filtroCanal = '';
+  let filtroMargem = '';       // '' | 'abaixo' | 'ok'
 
   let produtoEditandoId = null;
   let selecionados = new Set();
 
+  const MARGEM_MINIMA_PADRAO = 30;
+
   /* ==========================================================
-     2. CATEGORIAS (mesmas do sku.js)
+     2. CATEGORIAS / CANAIS
      ========================================================== */
 
   function categorias() {
@@ -55,6 +60,11 @@ const MODULO_PRODUTOS = (() => {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function formatarPercentual(v) {
+    const n = Number(v) || 0;
+    return `${n.toFixed(1).replace('.', ',')}%`;
+  }
+
   function escaparHTML(t) {
     if (t === null || t === undefined) return '';
     return String(t)
@@ -66,7 +76,26 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     4. CRUD
+     4. CÁLCULO DE MARGEM
+     ========================================================== */
+
+  function calcularMargem(produto) {
+    const custo = Number(produto.custo) || 0;
+    const preco = Number(produto.precoVarejo) || 0;
+    if (preco <= 0) return { margem: 0, lucro: 0 };
+    const lucro = preco - custo;
+    const margem = (lucro / preco) * 100;
+    return { margem, lucro };
+  }
+
+  function margemAbaixoDoMinimo(produto) {
+    const { margem } = calcularMargem(produto);
+    const minima = Number(produto.margemMinima) || MARGEM_MINIMA_PADRAO;
+    return margem < minima && Number(produto.precoVarejo) > 0;
+  }
+
+  /* ==========================================================
+     5. CRUD
      ========================================================== */
 
   function criarProduto(dados) {
@@ -79,6 +108,7 @@ const MODULO_PRODUTOS = (() => {
       custo: Number(dados.custo) || 0,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
+      margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
       unidade: dados.unidade || 'un',
@@ -111,6 +141,7 @@ const MODULO_PRODUTOS = (() => {
       custo: dados.custo,
       precoVarejo: dados.precoVarejo,
       precoAtacado: dados.precoAtacado || dados.precoVarejo,
+      margemMinima: dados.margemMinima || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: dados.estoqueMinimo || 5,
       estoqueAtual: 0,
       unidade: dados.unidade || 'un',
@@ -135,6 +166,7 @@ const MODULO_PRODUTOS = (() => {
       custo: Number(dados.custo) || 0,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
+      margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
       canais: Array.isArray(dados.canais) ? dados.canais : produtos[idx].canais,
@@ -169,7 +201,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     5. SELEÇÃO EM MASSA
+     6. SELEÇÃO EM MASSA
      ========================================================== */
 
   function alternarSelecao(id) {
@@ -244,14 +276,18 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     6. FILTROS
+     7. FILTROS
      ========================================================== */
 
   function produtosFiltrados() {
-    return produtos.filter(p => {
+    const lista = produtos.filter(p => {
       if (filtroCategoria && p.categoria !== filtroCategoria) return false;
       if (filtroStatus && p.status !== filtroStatus) return false;
       if (filtroCanal && !(p.canais || []).map(String).includes(String(filtroCanal))) return false;
+
+      if (filtroMargem === 'abaixo' && !margemAbaixoDoMinimo(p)) return false;
+      if (filtroMargem === 'ok' && margemAbaixoDoMinimo(p)) return false;
+
       if (filtroBusca) {
         const t = filtroBusca.toLowerCase();
         const alvo = `${p.sku} ${p.nome} ${p.descricao}`.toLowerCase();
@@ -259,24 +295,31 @@ const MODULO_PRODUTOS = (() => {
       }
       return true;
     });
+
+    // Ordem alfabética por nome
+    return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
   function alterarFiltroCategoria(v) { filtroCategoria = v; rerender(); }
   function alterarFiltroBusca(v)     { filtroBusca = v; rerenderTabela(); }
   function alterarFiltroStatus(v)    { filtroStatus = v; rerender(); }
   function alterarFiltroCanal(v)     { filtroCanal = v; rerender(); }
+  function alterarFiltroMargem(v)    { filtroMargem = v; rerender(); }
 
   /* ==========================================================
-     7. RENDER — TELA PRINCIPAL
+     8. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
+    const abaixoDoMinimo = produtos.filter(p => p.status === 'ativo' && margemAbaixoDoMinimo(p)).length;
+
     return `
       <div class="pagina-header">
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Produtos & Estoque</h1>
           <p class="pagina-header__subtitulo">
             ${produtos.length} ${produtos.length === 1 ? 'produto cadastrado' : 'produtos cadastrados'}
+            ${abaixoDoMinimo > 0 ? ` · <span class="text-atencao">${abaixoDoMinimo} com margem abaixo do mínimo</span>` : ''}
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -311,6 +354,12 @@ const MODULO_PRODUTOS = (() => {
           `).join('')}
         </select>
 
+        <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroMargem(this.value)">
+          <option value="">Todas as margens</option>
+          <option value="abaixo" ${filtroMargem === 'abaixo' ? 'selected' : ''}>⚠️ Margem abaixo do mínimo</option>
+          <option value="ok"     ${filtroMargem === 'ok'     ? 'selected' : ''}>✅ Margem adequada</option>
+        </select>
+
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroStatus(this.value)">
           <option value="">Todos os status</option>
           <option value="ativo"   ${filtroStatus === 'ativo'   ? 'selected' : ''}>Ativos</option>
@@ -325,7 +374,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     8. RENDER — TABELA
+     9. RENDER — TABELA
      ========================================================== */
 
   function renderTabela() {
@@ -363,10 +412,7 @@ const MODULO_PRODUTOS = (() => {
             <thead>
               <tr>
                 <th style="width: 40px;">
-                  <input
-                    type="checkbox"
-                    onchange="MODULO_PRODUTOS.alternarTodos(this.checked)"
-                  />
+                  <input type="checkbox" onchange="MODULO_PRODUTOS.alternarTodos(this.checked)" />
                 </th>
                 <th>SKU</th>
                 <th>Produto</th>
@@ -374,7 +420,7 @@ const MODULO_PRODUTOS = (() => {
                 <th class="tabela__numero">Estoque</th>
                 <th class="tabela__numero">Custo</th>
                 <th class="tabela__numero">Varejo</th>
-                <th>Canais</th>
+                <th class="tabela__numero">Margem</th>
                 <th>Status</th>
                 <th class="tabela__acao"></th>
               </tr>
@@ -398,9 +444,9 @@ const MODULO_PRODUTOS = (() => {
         ? 'text-atencao peso-semibold'
         : '';
 
-    const canaisProduto = (p.canais || [])
-      .map(id => nomeCanal(id))
-      .filter(n => n !== '—');
+    const { margem } = calcularMargem(p);
+    const minima = Number(p.margemMinima) || MARGEM_MINIMA_PADRAO;
+    const margemOk = margem >= minima;
 
     return `
       <tr>
@@ -422,12 +468,9 @@ const MODULO_PRODUTOS = (() => {
         </td>
         <td class="tabela__numero">${formatarMoeda(p.custo)}</td>
         <td class="tabela__numero">${formatarMoeda(p.precoVarejo)}</td>
-        <td>
-          ${canaisProduto.length === 0
-            ? '<span class="text-secundario">—</span>'
-            : canaisProduto.slice(0, 2).map(c => `<span class="badge badge--info">${escaparHTML(c)}</span>`).join(' ')
-          }
-          ${canaisProduto.length > 2 ? `<span class="badge badge--neutro">+${canaisProduto.length - 2}</span>` : ''}
+        <td class="tabela__numero ${margemOk ? 'text-sucesso' : 'text-critico peso-semibold'}">
+          ${formatarPercentual(margem)}
+          <div class="produto-margem-min">mín: ${formatarPercentual(minima)}</div>
         </td>
         <td>
           <label class="toggle-ativo">
@@ -455,9 +498,8 @@ const MODULO_PRODUTOS = (() => {
       </tr>
     `;
   }
-
-  /* ==========================================================
-     9. MODAL DE PRODUTO
+     /* ==========================================================
+     10. MODAL DE PRODUTO
      ========================================================== */
 
   function abrirNovo() {
@@ -474,6 +516,7 @@ const MODULO_PRODUTOS = (() => {
     const p = produtoEditandoId ? buscarProduto(produtoEditandoId) : null;
     const editando = !!p;
     const canaisAtivos = p ? (p.canais || []) : [];
+    const margemMinima = p ? (Number(p.margemMinima) || MARGEM_MINIMA_PADRAO) : MARGEM_MINIMA_PADRAO;
 
     const html = `
       <div class="modal-overlay ativo" id="modal-produto">
@@ -522,16 +565,27 @@ const MODULO_PRODUTOS = (() => {
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="prod-custo">Custo real (R$)</label>
-                  <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" />
+                  <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
                   <span class="form-ajuda">Vem do Precificador.</span>
                 </div>
                 <div class="form-grupo">
                   <label for="prod-preco-varejo">Preço varejo (R$)</label>
-                  <input id="prod-preco-varejo" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" />
+                  <input id="prod-preco-varejo" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
                 </div>
                 <div class="form-grupo">
                   <label for="prod-preco-atacado">Preço atacado (R$)</label>
                   <input id="prod-preco-atacado" type="number" step="0.01" min="0" value="${p?.precoAtacado ?? ''}" placeholder="0,00" />
+                </div>
+              </div>
+
+              <div class="prod-margem-bloco">
+                <div class="form-grupo">
+                  <label for="prod-margem-minima">Margem mínima aceitável (%)</label>
+                  <input id="prod-margem-minima" type="number" step="1" min="0" max="95" value="${margemMinima}" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
+                  <span class="form-ajuda">Abaixo disso, o sistema avisa nas vendas e no dashboard.</span>
+                </div>
+                <div class="prod-margem-preview" id="prod-margem-preview">
+                  ${renderPreviewMargem(p?.custo || 0, p?.precoVarejo || 0, margemMinima)}
                 </div>
               </div>
 
@@ -543,7 +597,6 @@ const MODULO_PRODUTOS = (() => {
                 <div class="form-grupo">
                   <label for="prod-estoque-min">Estoque mínimo</label>
                   <input id="prod-estoque-min" type="number" step="1" min="0" value="${p?.estoqueMinimo ?? 0}" />
-                  <span class="form-ajuda">Alerta quando ficar abaixo.</span>
                 </div>
                 <div class="form-grupo">
                   <label for="prod-unidade">Unidade</label>
@@ -563,7 +616,7 @@ const MODULO_PRODUTOS = (() => {
                       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                     </span>
                     <div class="alerta__conteudo">
-                      Nenhum canal cadastrado. Cadastre canais no módulo Canais de Venda primeiro.
+                      Nenhum canal cadastrado ainda.
                     </div>
                   </div>
                 ` : `
@@ -580,7 +633,6 @@ const MODULO_PRODUTOS = (() => {
                       </label>
                     `).join('')}
                   </div>
-                  <span class="form-ajuda">Marque os canais onde este produto será vendido.</span>
                 `}
               </div>
 
@@ -615,13 +667,64 @@ const MODULO_PRODUTOS = (() => {
     }, 50);
   }
 
+  function renderPreviewMargem(custo, preco, minima) {
+    const c = Number(custo) || 0;
+    const p = Number(preco) || 0;
+    const m = Number(minima) || MARGEM_MINIMA_PADRAO;
+
+    if (p <= 0) {
+      return `
+        <div class="prod-margem-preview__vazio">
+          Informe custo e preço para ver a margem.
+        </div>
+      `;
+    }
+
+    const lucro = p - c;
+    const margem = (lucro / p) * 100;
+    const ok = margem >= m;
+
+    return `
+      <div class="prod-margem-preview__linha">
+        <span>Custo</span>
+        <strong>${formatarMoeda(c)}</strong>
+      </div>
+      <div class="prod-margem-preview__linha">
+        <span>Preço</span>
+        <strong>${formatarMoeda(p)}</strong>
+      </div>
+      <div class="prod-margem-preview__linha">
+        <span>Lucro</span>
+        <strong class="${lucro >= 0 ? 'text-sucesso' : 'text-critico'}">${formatarMoeda(lucro)}</strong>
+      </div>
+      <div class="prod-margem-preview__linha prod-margem-preview__linha--destaque">
+        <span>Margem</span>
+        <strong class="${ok ? 'text-sucesso' : 'text-critico'}">${formatarPercentual(margem)}</strong>
+      </div>
+      ${!ok ? `
+        <div class="prod-margem-aviso">
+          ⚠️ Margem abaixo do mínimo de ${formatarPercentual(m)}.
+        </div>
+      ` : ''}
+    `;
+  }
+
+  function atualizarPreviewMargem() {
+    const custo = Number(document.getElementById('prod-custo')?.value) || 0;
+    const preco = Number(document.getElementById('prod-preco-varejo')?.value) || 0;
+    const minima = Number(document.getElementById('prod-margem-minima')?.value) || MARGEM_MINIMA_PADRAO;
+
+    const el = document.getElementById('prod-margem-preview');
+    if (el) el.innerHTML = renderPreviewMargem(custo, preco, minima);
+  }
+
   function fecharModal() {
     document.getElementById('modal-produto')?.remove();
     produtoEditandoId = null;
   }
 
   /* ==========================================================
-     10. SKU
+     11. SKU
      ========================================================== */
 
   function gerarSkuAutomatico(codigoCategoria) {
@@ -660,7 +763,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     11. SALVAR
+     12. SALVAR
      ========================================================== */
 
   function salvar(event) {
@@ -671,18 +774,19 @@ const MODULO_PRODUTOS = (() => {
     ).map(i => Number(i.value));
 
     const dados = {
-      categoria:    document.getElementById('prod-categoria').value,
-      sku:          document.getElementById('prod-sku').value.trim(),
-      nome:         document.getElementById('prod-nome').value.trim(),
-      descricao:    document.getElementById('prod-descricao').value.trim(),
-      custo:        document.getElementById('prod-custo').value,
-      precoVarejo:  document.getElementById('prod-preco-varejo').value,
-      precoAtacado: document.getElementById('prod-preco-atacado').value,
-      estoqueAtual: document.getElementById('prod-estoque').value,
-      estoqueMinimo:document.getElementById('prod-estoque-min').value,
-      unidade:      document.getElementById('prod-unidade').value,
-      canais:       canaisSelecionados,
-      status:       document.getElementById('prod-status').value
+      categoria:     document.getElementById('prod-categoria').value,
+      sku:           document.getElementById('prod-sku').value.trim(),
+      nome:          document.getElementById('prod-nome').value.trim(),
+      descricao:     document.getElementById('prod-descricao').value.trim(),
+      custo:         document.getElementById('prod-custo').value,
+      precoVarejo:   document.getElementById('prod-preco-varejo').value,
+      precoAtacado:  document.getElementById('prod-preco-atacado').value,
+      margemMinima:  document.getElementById('prod-margem-minima').value,
+      estoqueAtual:  document.getElementById('prod-estoque').value,
+      estoqueMinimo: document.getElementById('prod-estoque-min').value,
+      unidade:       document.getElementById('prod-unidade').value,
+      canais:        canaisSelecionados,
+      status:        document.getElementById('prod-status').value
     };
 
     if (!dados.categoria) return alert('Selecione uma categoria.');
@@ -708,14 +812,14 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     12. EXCLUSÃO
+     13. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
     const p = buscarProduto(id);
     if (!p) return;
     const ok = confirm(
-      `Deseja desativar o produto "${p.nome}" (${p.sku})?\n\n` +
+      `Desativar o produto "${p.nome}" (${p.sku})?\n\n` +
       `O produto continuará no histórico, mas não aparecerá como ativo.`
     );
     if (!ok) return;
@@ -724,7 +828,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     13. RERENDER
+     14. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -738,342 +842,41 @@ const MODULO_PRODUTOS = (() => {
     const wrapper = document.getElementById('tabela-produtos-wrapper');
     if (wrapper) wrapper.innerHTML = renderTabela();
   }
-   /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v3)
-   Arquivo: assets/css/modulos/produtos.css
-   ============================================================ */
 
-/* ============================================================
-   1. FILTROS
-   ============================================================ */
+  /* ==========================================================
+     15. API PÚBLICA
+     ========================================================== */
 
-.filtros-produtos {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-3);
-  margin-bottom: var(--esp-5);
-  flex-wrap: wrap;
-}
+  return {
+    render,
+    abrirNovo,
+    abrirEdicao,
+    fecharModal,
+    salvar,
+    confirmarExclusao,
+    gerarSkuAutomatico,
+    regenerarSku,
+    atualizarPreviewMargem,
+    alterarFiltroCategoria,
+    alterarFiltroBusca,
+    alterarFiltroStatus,
+    alterarFiltroCanal,
+    alterarFiltroMargem,
+    alternarStatus,
+    alternarSelecao,
+    alternarTodos,
+    ativarSelecionados,
+    desativarSelecionados,
+    limparSelecao,
+    _listar: () => [...produtos],
+    _buscar: buscarProduto,
+    _criarDoPrecificador,
+    _calcularMargem: calcularMargem,
+    _margemAbaixoDoMinimo: margemAbaixoDoMinimo,
+    MARGEM_MINIMA_PADRAO
+  };
 
-.filtros-produtos__busca {
-  position: relative;
-  flex: 1;
-  min-width: 240px;
-}
+})();
 
-.filtros-produtos__busca svg {
-  position: absolute;
-  left: var(--esp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  stroke: var(--cor-texto-secundario);
-  fill: none;
-  stroke-width: 2;
-  pointer-events: none;
-}
-
-.filtros-produtos__busca input {
-  padding-left: var(--esp-10);
-  height: 38px;
-}
-
-.filtros-produtos__select {
-  width: auto;
-  min-width: 160px;
-  height: 38px;
-  padding: 0 var(--esp-10) 0 var(--esp-3);
-}
-
-/* ============================================================
-   2. COLUNAS
-   ============================================================ */
-
-.produto-nome {
-  font-weight: var(--peso-medio);
-  color: var(--cor-texto-principal);
-}
-
-.produto-desc {
-  font-size: var(--texto-xs);
-  color: var(--cor-texto-secundario);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 260px;
-}
-
-/* ============================================================
-   3. AÇÕES DA LINHA
-   ============================================================ */
-
-.acoes-linha {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--esp-1);
-}
-
-.btn-icone {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--raio-sm);
-  color: var(--cor-texto-secundario);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: background-color var(--transicao-rapida),
-              color var(--transicao-rapida),
-              border-color var(--transicao-rapida);
-  cursor: pointer;
-}
-
-.btn-icone:hover {
-  background-color: var(--azul-suave);
-  color: var(--azul-medio);
-  border-color: rgba(46, 111, 168, 0.15);
-}
-
-.btn-icone--perigo:hover {
-  background-color: var(--cor-critico-fundo);
-  color: var(--cor-critico);
-  border-color: rgba(217, 58, 58, 0.2);
-}
-
-.btn-icone svg {
-  width: 15px;
-  height: 15px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ============================================================
-   4. MODAL DE PRODUTO
-   ============================================================ */
-
-#modal-produto .modal {
-  max-width: 720px;
-}
-
-#modal-produto .form-grupo:last-child {
-  margin-bottom: 0;
-}
-
-#modal-produto input[readonly] {
-  background-color: var(--azul-suave);
-  color: var(--azul-marinho);
-  cursor: default;
-}
-
-#modal-produto input[readonly]:focus {
-  border-color: var(--cor-primaria);
-  box-shadow: var(--sombra-foco);
-}
-
-/* ============================================================
-   5. CANAIS DE VENDA NO PRODUTO
-   ============================================================ */
-
-.prod-canais-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--esp-2);
-  margin-top: var(--esp-2);
-}
-
-.cfg-check {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-2);
-  padding: var(--esp-2) var(--esp-3);
-  background-color: var(--cinza-50);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-sm);
-  font-size: var(--texto-sm);
-  color: var(--cor-texto-padrao);
-  cursor: pointer;
-  transition: background-color var(--transicao-rapida),
-              border-color var(--transicao-rapida);
-  user-select: none;
-}
-
-.cfg-check:hover {
-  background-color: var(--azul-suave);
-  border-color: rgba(46, 111, 168, 0.2);
-}
-
-.cfg-check input[type="checkbox"] {
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.cfg-check input[type="checkbox"]:checked + span {
-  color: var(--azul-marinho);
-  font-weight: var(--peso-semibold);
-}
-
-/* ============================================================
-   6. TOGGLE DE ATIVO/INATIVO
-   ============================================================ */
-
-.toggle-ativo {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--esp-2);
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle-ativo input {
-  display: none;
-}
-
-.toggle-ativo__slider {
-  width: 36px;
-  height: 20px;
-  background-color: var(--cinza-300);
-  border-radius: var(--raio-pill);
-  position: relative;
-  transition: background-color var(--transicao-rapida);
-  flex-shrink: 0;
-}
-
-.toggle-ativo__slider::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background-color: var(--branco);
-  border-radius: 50%;
-  transition: transform var(--transicao-rapida);
-  box-shadow: var(--sombra-xs);
-}
-
-.toggle-ativo input:checked + .toggle-ativo__slider {
-  background-color: var(--verde);
-}
-
-.toggle-ativo input:checked + .toggle-ativo__slider::after {
-  transform: translateX(16px);
-}
-
-.toggle-ativo__label {
-  font-size: var(--texto-sm);
-  font-weight: var(--peso-medio);
-  color: var(--cor-texto-padrao);
-}
-
-/* ============================================================
-   7. BARRA DE AÇÕES EM MASSA
-   ============================================================ */
-
-.barra-acoes-massa {
-  position: fixed;
-  bottom: var(--esp-6);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--esp-3);
-  padding: var(--esp-3) var(--esp-5);
-  background-color: var(--azul-marinho);
-  border-radius: var(--raio-pill);
-  box-shadow: 0 12px 32px rgba(27, 58, 92, 0.3);
-  z-index: 700;
-  animation: barra-slide-up 0.25s ease;
-}
-
-@keyframes barra-slide-up {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.barra-acoes-massa__contador {
-  font-size: var(--texto-sm);
-  font-weight: var(--peso-semibold);
-  color: var(--branco);
-  padding-right: var(--esp-3);
-  border-right: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.barra-acoes-massa .btn {
-  height: 32px;
-  padding: 0 var(--esp-4);
-  font-size: var(--texto-sm);
-}
-
-.barra-acoes-massa .btn--sucesso {
-  background-color: var(--verde);
-  border-color: var(--verde);
-  color: var(--branco);
-}
-
-.barra-acoes-massa .btn--secundario {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--branco);
-}
-
-.barra-acoes-massa .btn--secundario:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.barra-acoes-massa .btn--ghost {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.barra-acoes-massa .btn--ghost:hover {
-  color: var(--branco);
-}
-
-/* ============================================================
-   8. RESPONSIVO
-   ============================================================ */
-
-@media (max-width: 768px) {
-  .filtros-produtos {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filtros-produtos__select {
-    width: 100%;
-  }
-
-  .produto-desc {
-    max-width: 160px;
-  }
-
-  .prod-canais-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .barra-acoes-massa {
-    bottom: var(--esp-4);
-    padding: var(--esp-2) var(--esp-4);
-    gap: var(--esp-2);
-  }
-
-  .barra-acoes-massa__contador {
-    font-size: var(--texto-xs);
-  }
-
-  .barra-acoes-massa .btn {
-    padding: 0 var(--esp-3);
-  }
-}
+window.MODULO_PRODUTOS = MODULO_PRODUTOS;
+window.renderProdutos = MODULO_PRODUTOS.render;
