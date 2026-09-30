@@ -1,0 +1,206 @@
+/* ============================================================
+   PRAFICAR ERP — VARIÁVEIS GLOBAIS
+   Arquivo: assets/css/variables.css
+   Descrição: paleta, tipografia, espaçamentos, sombras,
+              raios, z-index e breakpoints.
+   Regra: TODOS os outros CSS devem referenciar estas variáveis.
+          Nunca usar valor hardcoded em outros arquivos.
+   ============================================================ */
+
+:root {
+
+  /* ==========================================================
+     1. PALETA — extraída da logo oficial
+     Não alterar, deformar ou redesenhar a logo.
+     ========================================================== */
+
+  /* Azuis da marca */
+  --azul-marinho:      #1B3A5C;   /* texto principal da logo */
+  --azul-medio:        #2E6FA8;   /* coração, contorno da tag */
+  --azul-claro:        #A8C8E4;   /* traços finos, detalhes */
+  --azul-suave:        #E8F1FA;   /* fundo de destaque leve */
+
+  /* Neutros da marca */
+  --branco:            #FFFFFF;
+  --cinza-tag:         #F0F2F5;   /* sombra suave da tag */
+
+  /* Cores funcionais (status) */
+  --verde:             #2E9E5B;   /* sucesso, estoque normal */
+  --verde-suave:       #E6F5EC;
+  --ambar:             #E8A72B;   /* atenção, estoque baixo */
+  --ambar-suave:       #FDF4E1;
+  --vermelho:          #D93A3A;   /* crítico, erro */
+  --vermelho-suave:    #FBE9E9;
+
+  /* Escala de cinzas para interface */
+  --cinza-50:          #FBFCFE;
+  --cinza-100:         #F7F9FC;   /* fundo de cards */
+  --cinza-200:         #E8EDF3;   /* bordas suaves */
+  --cinza-300:         #D6DCE4;   /* bordas médias */
+  --cinza-400:         #9AA7B8;   /* texto secundário */
+  --cinza-500:         #6B7688;   /* texto terciário */
+  --cinza-600:         #55606F;   /* texto padrão alternativo */
+  --cinza-700:         #445060;   /* texto padrão */
+  --cinza-800:         #2A3340;   /* títulos secundários */
+  --cinza-900:         #1F2733;   /* títulos principais */
+
+  /* ==========================================================
+     2. APLICAÇÕES SEMÂNTICAS
+     Use estas nos componentes, não as cores brutas acima.
+     ========================================================== */
+
+  /* Fundos */
+  --cor-fundo-app:        var(--cinza-100);
+  --cor-fundo-card:       var(--branco);
+  --cor-fundo-sidebar:    var(--azul-marinho);
+  --cor-fundo-header:     var(--branco);
+  --cor-fundo-hover:      var(--cinza-100);
+  --cor-fundo-ativo:      var(--azul-suave);
+
+  /* Textos */
+  --cor-texto-principal:  var(--cinza-900);
+  --cor-texto-padrao:     var(--cinza-700);
+  --cor-texto-secundario: var(--cinza-400);
+  --cor-texto-inverso:    var(--branco);
+  --cor-texto-link:       var(--azul-medio);
+
+  /* Bordas */
+  --cor-borda-suave:      var(--cinza-200);
+  --cor-borda-media:      var(--cinza-300);
+  --cor-borda-forte:      var(--cinza-400);
+
+  /* Ações */
+  --cor-primaria:         var(--azul-medio);
+  --cor-primaria-hover:   var(--azul-marinho);
+  --cor-primaria-ativa:   var(--azul-marinho);
+  --cor-secundaria:       var(--branco);
+  --cor-secundaria-hover: var(--cinza-100);
+
+  /* Status */
+  --cor-sucesso:          var(--verde);
+  --cor-sucesso-fundo:    var(--verde-suave);
+  --cor-atencao:          var(--ambar);
+  --cor-atencao-fundo:    var(--ambar-suave);
+  --cor-critico:          var(--vermelho);
+  --cor-critico-fundo:    var(--vermelho-suave);
+
+  /* ==========================================================
+     3. TIPOGRAFIA
+     Sans-serif altamente legível. Sem fontes decorativas.
+     ========================================================== */
+
+  --fonte-base: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont,
+                'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Tamanhos */
+  --texto-xs:    0.75rem;    /* 12px */
+  --texto-sm:    0.8125rem;  /* 13px */
+  --texto-base:  0.875rem;   /* 14px — padrão da interface */
+  --texto-md:    1rem;       /* 16px */
+  --texto-lg:    1.125rem;   /* 18px */
+  --texto-xl:    1.375rem;   /* 22px */
+  --texto-2xl:   1.75rem;    /* 28px */
+  --texto-3xl:   2.25rem;    /* 36px */
+
+  /* Pesos */
+  --peso-regular:  400;
+  --peso-medio:    500;
+  --peso-semibold: 600;
+  --peso-bold:     700;
+
+  /* Alturas de linha */
+  --linha-apertada:  1.2;
+  --linha-normal:    1.5;
+  --linha-ampla:     1.7;
+
+  /* Espaçamento entre letras */
+  --letra-apertada:  -0.01em;
+  --letra-normal:    0;
+  --letra-ampla:     0.02em;
+  --letra-caps:      0.06em;   /* para textos em maiúsculas */
+
+  /* ==========================================================
+     4. ESPAÇAMENTOS — escala de 4px
+     ========================================================== */
+
+  --esp-1:   4px;
+  --esp-2:   8px;
+  --esp-3:   12px;
+  --esp-4:   16px;
+  --esp-5:   20px;
+  --esp-6:   24px;
+  --esp-8:   32px;
+  --esp-10:  40px;
+  --esp-12:  48px;
+  --esp-16:  64px;
+
+  /* ==========================================================
+     5. RAIOS DE BORDA
+     ========================================================== */
+
+  --raio-xs:  3px;
+  --raio-sm:  5px;
+  --raio-md:  8px;
+  --raio-lg:  12px;
+  --raio-xl:  16px;
+  --raio-pill: 999px;
+
+  /* ==========================================================
+     6. SOMBRAS — sutis, enterprise
+     ========================================================== */
+
+  --sombra-xs:  0 1px 2px rgba(27, 58, 92, 0.04);
+  --sombra-sm:  0 1px 3px rgba(27, 58, 92, 0.06),
+                0 1px 2px rgba(27, 58, 92, 0.04);
+  --sombra-md:  0 4px 12px rgba(27, 58, 92, 0.08),
+                0 2px 4px rgba(27, 58, 92, 0.04);
+  --sombra-lg:  0 12px 28px rgba(27, 58, 92, 0.10),
+                0 4px 8px rgba(27, 58, 92, 0.05);
+  --sombra-foco: 0 0 0 3px rgba(46, 111, 168, 0.20);
+
+  /* ==========================================================
+     7. TRANSIÇÕES
+     ========================================================== */
+
+  --transicao-rapida:  120ms ease;
+  --transicao-padrao:  180ms ease;
+  --transicao-suave:   260ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ==========================================================
+     8. Z-INDEX — escala organizada
+     ========================================================== */
+
+  --z-base:       1;
+  --z-dropdown:   100;
+  --z-sticky:     200;
+  --z-fixo:       300;
+  --z-sidebar:    400;
+  --z-overlay:    500;
+  --z-modal:      600;
+  --z-toast:      700;
+  --z-tooltip:    800;
+
+  /* ==========================================================
+     9. LAYOUT — dimensões fixas
+     ========================================================== */
+
+  --largura-sidebar:          240px;
+  --largura-sidebar-recolhida: 64px;
+  --altura-header:             64px;
+  --largura-max-conteudo:      1440px;
+
+  /* ==========================================================
+     10. BREAKPOINTS — referência para media queries
+     (não é possível usar var() em media query,
+      mas fica documentado para padronizar o time)
+     ========================================================== */
+
+  /* --bp-mobile:   480px   */
+  /* --bp-tablet:   768px   */
+  /* --bp-desktop:  1024px  */
+  /* --bp-wide:     1440px  */
+}
+
+/* ============================================================
+   FIM DO ARQUIVO
+   ============================================================ */
