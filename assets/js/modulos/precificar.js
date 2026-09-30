@@ -17,10 +17,9 @@ const MODULO_PRECIFICAR = (() => {
      1. ESTADO EM MEMÓRIA
      ========================================================== */
 
-  let precificacoes = [];   // histórico em memória
+  let precificacoes = [];
   let proximoId = 1;
 
-  // Estado do formulário em construção
   let form = novoForm();
 
   function novoForm() {
@@ -29,7 +28,7 @@ const MODULO_PRECIFICAR = (() => {
       categoria: '',
       quantidadeProduzida: 1,
       perdaPercentual: 0,
-      insumos: [],               // [{nome, custoUnitario, quantidade}]
+      insumos: [],
       maoDeObra: { valorHora: 0, minutos: 0 },
       energia: 0,
       embalagem: 0,
@@ -75,22 +74,18 @@ const MODULO_PRECIFICAR = (() => {
   function calcular() {
     const qtd = Math.max(1, Number(form.quantidadeProduzida) || 1);
 
-    // --- Insumos ---
     const custoInsumos = form.insumos.reduce((acc, i) => {
       return acc + (Number(i.custoUnitario) || 0) * (Number(i.quantidade) || 0);
     }, 0);
 
-    // --- Mão de obra ---
     const custoMaoDeObra =
       (Number(form.maoDeObra.valorHora) || 0) *
       ((Number(form.maoDeObra.minutos) || 0) / 60);
 
-    // --- Outros custos diretos ---
     const custoEnergia   = Number(form.energia) || 0;
     const custoEmbalagem = Number(form.embalagem) || 0;
     const custoOutros    = Number(form.outrosCustos) || 0;
 
-    // --- Custo base de produção (lote) ---
     const custoBaseLote =
       custoInsumos +
       custoMaoDeObra +
@@ -98,7 +93,6 @@ const MODULO_PRECIFICAR = (() => {
       custoEmbalagem +
       custoOutros;
 
-    // --- Perdas ---
     const perdaPct = Math.min(99, Math.max(0, Number(form.perdaPercentual) || 0));
     const producaoUtil = qtd * (1 - perdaPct / 100);
     const fatorPerda = producaoUtil > 0 ? (qtd / producaoUtil) : 1;
@@ -106,14 +100,11 @@ const MODULO_PRECIFICAR = (() => {
     const custoLoteComPerda = custoBaseLote * fatorPerda;
     const custoUnitario = custoLoteComPerda / qtd;
 
-    // --- Canal ---
     const canal = window.MODULO_CANAIS?._buscar(form.canalId);
     const taxaPct = canal ? Number(canal.taxaPercentual) || 0 : 0;
     const taxaFixa = canal ? Number(canal.taxaFixa) || 0 : 0;
     const freteVendedor = Number(form.freteVendedor) || 0;
 
-    // --- Preço sugerido ---
-    // preco = (custoUnitario + taxaFixa + frete) / (1 - margem - taxaPct)
     const margem = Math.min(95, Math.max(0, Number(form.margemDesejada) || 0)) / 100;
     const divisor = 1 - margem - (taxaPct / 100);
     const custoFixoPorUnidade = taxaFixa + freteVendedor;
@@ -122,12 +113,10 @@ const MODULO_PRECIFICAR = (() => {
     if (divisor > 0.01) {
       precoSugerido = (custoUnitario + custoFixoPorUnidade) / divisor;
     } else {
-      // Margem + taxa inviáveis — evita divisão por zero
       precoSugerido = (custoUnitario + custoFixoPorUnidade) * 3;
     }
     precoSugerido = arredondar2(precoSugerido);
 
-    // --- Lucro líquido real no preço sugerido ---
     const taxaCanalValor = precoSugerido * (taxaPct / 100);
     const lucroLiquido = precoSugerido - custoUnitario - taxaCanalValor - taxaFixa - freteVendedor;
     const margemReal = precoSugerido > 0 ? (lucroLiquido / precoSugerido) * 100 : 0;
@@ -184,12 +173,8 @@ const MODULO_PRECIFICAR = (() => {
 
       <div class="precificar-layout">
 
-        <!-- =============================================
-             COLUNA ESQUERDA — FORMULÁRIO
-             ============================================= -->
         <div class="precificar-form">
 
-          <!-- 1. Produto -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">1. Produto</h3>
@@ -236,7 +221,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 2. Insumos -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">2. Insumos</h3>
@@ -249,7 +233,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 3. Custos adicionais -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">3. Mão de obra e outros custos</h3>
@@ -318,7 +301,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 4. Canal e margem -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">4. Canal de venda e margem</h3>
@@ -372,76 +354,8 @@ const MODULO_PRECIFICAR = (() => {
 
         </div>
 
-        <!-- =============================================
-             COLUNA DIREITA — RESULTADO
-             ============================================= -->
         <div class="precificar-resultado">
-          <div class="resultado-card">
-
-            <div class="resultado-card__header">
-              <span class="resultado-card__label">Custo real</span>
-              <span class="resultado-card__valor">${formatarMoeda(r.custoUnitario)}</span>
-              <span class="resultado-card__sub">por unidade</span>
-            </div>
-
-            <div class="resultado-card__destaque">
-              <span class="resultado-card__label">Preço sugerido</span>
-              <span class="resultado-card__preco">${formatarMoeda(r.precoSugerido)}</span>
-            </div>
-
-            <div class="resultado-card__grid">
-              <div class="resultado-card__item">
-                <span class="resultado-card__item-label">Lucro</span>
-                <span class="resultado-card__item-valor ${r.lucroLiquido >= 0 ? 'text-sucesso' : 'text-critico'}">
-                  ${formatarMoeda(r.lucroLiquido)}
-                </span>
-              </div>
-              <div class="resultado-card__item">
-                <span class="resultado-card__item-label">Margem</span>
-                <span class="resultado-card__item-valor ${r.margemReal >= Number(form.margemDesejada) - 1 ? 'text-sucesso' : 'text-atencao'}">
-                  ${formatarPercentual(r.margemReal)}
-                </span>
-              </div>
-            </div>
-
-            <button
-              class="btn btn--ghost btn--bloco resultado-card__detalhes"
-              onclick="MODULO_PRECIFICAR.toggleDetalhes()"
-              id="btn-ver-calculo"
-            >
-              Ver cálculo
-            </button>
-
-            <div class="resultado-detalhes hidden" id="resultado-detalhes">
-              ${renderDetalhesCalculo(r)}
-            </div>
-
-          </div>
-
-          ${r.margemReal < Number(form.margemDesejada) - 1 ? `
-            <div class="alerta alerta--atencao mt-4">
-              <span class="alerta__icone">
-                <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-              </span>
-              <div class="alerta__conteudo">
-                <div class="alerta__titulo">Margem abaixo do desejado</div>
-                O preço sugerido não atinge a margem de ${form.margemDesejada}% por causa da taxa do canal. Considere aumentar o preço ou reduzir custos.
-              </div>
-            </div>
-          ` : ''}
-
-          ${r.lucroLiquido < 0 ? `
-            <div class="alerta alerta--critico mt-4">
-              <span class="alerta__icone">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-              </span>
-              <div class="alerta__conteudo">
-                <div class="alerta__titulo">Prejuízo neste canal</div>
-                O preço está abaixo do custo + taxa + frete. Ajuste a margem ou mude o canal.
-              </div>
-            </div>
-          ` : ''}
-
+          ${renderResultado(r)}
         </div>
 
       </div>
@@ -578,27 +492,6 @@ const MODULO_PRECIFICAR = (() => {
     `;
   }
 
-  /* ==========================================================
-     5. AÇÕES DO FORMULÁRIO
-     ========================================================== */
-
-  function atualizar(campo, valor) {
-    form[campo] = valor;
-    atualizarResultado();
-  }
-
-  function atualizarMaoDeObra(campo, valor) {
-    form.maoDeObra[campo] = valor;
-    atualizarResultado();
-  }
-
-  function atualizarResultado() {
-    const coluna = document.querySelector('.precificar-resultado');
-    if (!coluna) return;
-    const r = calcular();
-    coluna.innerHTML = renderResultado(r);
-  }
-
   function renderResultado(r) {
     return `
       <div class="resultado-card">
@@ -666,6 +559,27 @@ const MODULO_PRECIFICAR = (() => {
     `;
   }
 
+  /* ==========================================================
+     5. AÇÕES DO FORMULÁRIO
+     ========================================================== */
+
+  function atualizar(campo, valor) {
+    form[campo] = valor;
+    atualizarResultado();
+  }
+
+  function atualizarMaoDeObra(campo, valor) {
+    form.maoDeObra[campo] = valor;
+    atualizarResultado();
+  }
+
+  function atualizarResultado() {
+    const coluna = document.querySelector('.precificar-resultado');
+    if (!coluna) return;
+    const r = calcular();
+    coluna.innerHTML = renderResultado(r);
+  }
+
   function toggleDetalhes() {
     const d = document.getElementById('resultado-detalhes');
     if (d) d.classList.toggle('hidden');
@@ -723,7 +637,6 @@ const MODULO_PRECIFICAR = (() => {
 
     setTimeout(() => document.getElementById('ins-nome')?.focus(), 50);
 
-    // Atualiza subtotal em tempo real
     const campos = ['ins-custo', 'ins-qtd'];
     campos.forEach(id => {
       document.getElementById(id)?.addEventListener('input', () => {
@@ -789,4 +702,39 @@ const MODULO_PRECIFICAR = (() => {
 
     precificacoes.push(registro);
 
-    alert(`Precificação salva!\n\nPreço
+    alert(`Precificação salva!\n\nPreço sugerido: ${formatarMoeda(r.precoSugerido)}\nLucro: ${formatarMoeda(r.lucroLiquido)}\nMargem: ${formatarPercentual(r.margemReal)}`);
+  }
+
+  /* ==========================================================
+     8. RERENDER
+     ========================================================== */
+
+  function rerenderForm() {
+    const container = document.getElementById('conteudo-tela');
+    if (container && window.ROUTER_PRAFICAR?.obterRotaAtual() === 'precificar') {
+      container.innerHTML = render();
+    }
+  }
+
+  /* ==========================================================
+     9. API PÚBLICA
+     ========================================================== */
+
+  return {
+    render,
+    atualizar,
+    atualizarMaoDeObra,
+    abrirModalInsumo,
+    fecharModalInsumo,
+    adicionarInsumo,
+    removerInsumo,
+    toggleDetalhes,
+    limpar,
+    salvar,
+    _listar: () => [...precificacoes]
+  };
+
+})();
+
+window.MODULO_PRECIFICAR = MODULO_PRECIFICAR;
+window.renderPrecificar = MODULO_PRECIFICAR.render;
