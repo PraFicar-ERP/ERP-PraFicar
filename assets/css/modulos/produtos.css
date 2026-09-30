@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v5 com KIT)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v6)
    Arquivo: assets/css/modulos/produtos.css
    ============================================================ */
 
@@ -138,7 +138,7 @@
    ============================================================ */
 
 #modal-produto .modal {
-  max-width: 780px;
+  max-width: 820px;
 }
 
 #modal-produto .form-grupo:last-child {
@@ -163,7 +163,7 @@
 }
 
 /* ============================================================
-   5. SELETOR DE TIPO (SIMPLES / COMPOSTO)
+   5. SELETOR DE TIPO
    ============================================================ */
 
 .prod-tipo-selector {
@@ -218,7 +218,7 @@
 }
 
 /* ============================================================
-   6. SEÇÃO DE COMPONENTES DO KIT
+   6. COMPONENTES DO KIT
    ============================================================ */
 
 .prod-kit-secao {
@@ -280,7 +280,100 @@
 }
 
 /* ============================================================
-   7. BLOCO DE MARGEM (DENTRO DO MODAL)
+   7. PREÇOS POR CANAL
+   ============================================================ */
+
+.prod-canal-secao {
+  margin: var(--esp-5) 0;
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  border: 1px solid var(--cor-borda-suave);
+}
+
+.prod-canal-secao__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.prod-canal-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin: 0 0 var(--esp-1);
+}
+
+.prod-canal-secao__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin: 0;
+  line-height: var(--linha-normal);
+}
+
+.prod-canal-vazio {
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  background-color: var(--branco);
+}
+
+.tabela-canais {
+  font-size: var(--texto-sm);
+  background-color: var(--branco);
+  border-radius: var(--raio-sm);
+  overflow: hidden;
+}
+
+.tabela-canais thead {
+  background-color: var(--branco);
+}
+
+.tabela-canais td {
+  padding-top: var(--esp-3);
+  padding-bottom: var(--esp-3);
+}
+
+.input-canal {
+  width: 100%;
+  max-width: 140px;
+  margin-left: auto;
+  height: 36px;
+  padding: 0 var(--esp-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  background-color: var(--branco);
+  border: 1px solid var(--cor-borda-media);
+  border-radius: var(--raio-sm);
+  transition: border-color var(--transicao-rapida),
+              box-shadow var(--transicao-rapida);
+}
+
+.input-canal:focus {
+  border-color: var(--cor-primaria);
+  box-shadow: var(--sombra-foco);
+  outline: none;
+}
+
+.prod-canal-aviso {
+  font-size: 10px;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-critico);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   8. BLOCO DE MARGEM
    ============================================================ */
 
 .prod-margem-bloco {
@@ -352,7 +445,7 @@
 }
 
 /* ============================================================
-   8. CANAIS DE VENDA
+   9. CANAIS DE VENDA (checkbox)
    ============================================================ */
 
 .prod-canais-grid {
@@ -394,7 +487,7 @@
 }
 
 /* ============================================================
-   9. MODAL DE COMPONENTE
+   10. MODAL DE COMPONENTE
    ============================================================ */
 
 #modal-componente .modal {
@@ -402,7 +495,7 @@
 }
 
 /* ============================================================
-   10. TOGGLE DE ATIVO/INATIVO
+   11. TOGGLE DE ATIVO/INATIVO
    ============================================================ */
 
 .toggle-ativo {
@@ -455,7 +548,7 @@
 }
 
 /* ============================================================
-   11. BARRA DE AÇÕES EM MASSA
+   12. BARRA DE AÇÕES EM MASSA
    ============================================================ */
 
 .barra-acoes-massa {
@@ -524,8 +617,18 @@
 }
 
 /* ============================================================
-   12. RESPONSIVO
+   13. RESPONSIVO
    ============================================================ */
+
+@media (max-width: 900px) {
+  .tabela-canais {
+    font-size: var(--texto-xs);
+  }
+
+  .input-canal {
+    max-width: 100px;
+  }
+}
 
 @media (max-width: 768px) {
   .filtros-produtos {
