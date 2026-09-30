@@ -1,14 +1,15 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO INÍCIO / DASHBOARD
+   PRAFICAR ERP — MÓDULO INÍCIO / DASHBOARD (v2)
    Arquivo: assets/js/modulos/inicio.js
-   Descrição: tela inicial com KPIs, alertas, ranking de produtos
-              mais/menos vendidos e lista de reposição de estoque.
+   Descrição: Dashboard com KPIs, ponto de equilíbrio,
+              ranking de produtos, reposição de estoque
+              e alertas inteligentes.
    ============================================================ */
 
 const MODULO_INICIO = (() => {
 
   /* ==========================================================
-     1. ÍCONES LOCAIS
+     1. ÍCONES
      ========================================================== */
 
   const ICONES = {
@@ -23,14 +24,15 @@ const MODULO_INICIO = (() => {
     encomendas: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     qrcode:     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M21 14v3M14 21h3M21 21h.01"/></svg>',
     seta_cima:  '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>',
-    seta_baixo: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>'
+    seta_baixo: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+    alvo:       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'
   };
 
   /* ==========================================================
      2. ESTADO
      ========================================================== */
 
-  let periodoRanking = 30;   // 7, 30, 90
+  let periodoRanking = 30;
 
   /* ==========================================================
      3. UTILITÁRIOS
@@ -41,6 +43,11 @@ const MODULO_INICIO = (() => {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
+  function formatarPercentual(v) {
+    const n = Number(v) || 0;
+    return `${n.toFixed(1).replace('.', ',')}%`;
+  }
+
   function hojeISO() {
     return new Date().toISOString().split('T')[0];
   }
@@ -49,6 +56,15 @@ const MODULO_INICIO = (() => {
     const d = new Date(dataISO + 'T00:00:00');
     d.setDate(d.getDate() + Number(dias || 0));
     return d.toISOString().split('T')[0];
+  }
+
+  function diasNoMes() {
+    const hoje = new Date();
+    return new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+  }
+
+  function diaAtual() {
+    return new Date().getDate();
   }
 
   function escaparHTML(t) {
@@ -62,7 +78,20 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     4. AGREGAÇÃO DE DADOS
+     4. CONFIGURAÇÕES
+     ========================================================== */
+
+  function obterCustosFixos() {
+    try {
+      const raw = localStorage.getItem('praficar_custos_fixos');
+      return raw ? Number(raw) || 0 : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /* ==========================================================
+     5. AGREGAÇÃO DE DADOS
      ========================================================== */
 
   function calcularKPIs() {
@@ -73,7 +102,7 @@ const MODULO_INICIO = (() => {
     if (window.MODULO_VENDAS) {
       const vendas = (window.MODULO_VENDAS._listar() || [])
         .filter(v => v.status !== 'cancelada' && v.criadoEm?.split('T')[0] === hoje);
-      vendasHoje = vendas.reduce((a, v) => a + (Number(v.totais?.subtotal) || 0), 0);
+      vendasHoje = vendas.reduce((a, v) => a + (Number(v.totais?.subtotalPraticado) || 0), 0);
       lucroHoje = vendas.reduce((a, v) => a + (Number(v.totais?.lucro) || 0), 0);
     }
 
@@ -95,12 +124,19 @@ const MODULO_INICIO = (() => {
         .length;
     }
 
+    let produtosMargemBaixa = 0;
+    if (window.MODULO_PRODUTOS?._margemAbaixoDoMinimo) {
+      produtosMargemBaixa = (window.MODULO_PRODUTOS._listar() || [])
+        .filter(p => p.status === 'ativo' && window.MODULO_PRODUTOS._margemAbaixoDoMinimo(p))
+        .length;
+    }
+
+    let contasVencidas = 0;
     let aReceber = 0;
-    let vencidos = 0;
     if (window.MODULO_FINANCEIRO) {
       const k = window.MODULO_FINANCEIRO._calcularKPIs();
       aReceber = k.aReceber || 0;
-      vencidos = k.vencidos || 0;
+      contasVencidas = k.vencidos || 0;
     }
 
     return {
@@ -109,17 +145,73 @@ const MODULO_INICIO = (() => {
       encomendasAbertas,
       encomendasAtrasadas,
       estoqueBaixo,
-      aReceber,
-      vencidos
+      produtosMargemBaixa,
+      contasVencidas,
+      aReceber
     };
   }
 
   /* ==========================================================
-     5. RANKING DE PRODUTOS
+     6. PONTO DE EQUILÍBRIO
+     ========================================================== */
+
+  function calcularPontoEquilibrio() {
+    const custosFixos = obterCustosFixos();
+
+    // Vendas do mês atual
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+    const inicioMes = `${ano}-${mes}-01`;
+    const fimMes = hojeISO();
+
+    const vendas = (window.MODULO_VENDAS?._listar() || []).filter(v => {
+      const data = v.criadoEm?.split('T')[0];
+      return data >= inicioMes && data <= fimMes && v.status !== 'cancelada';
+    });
+
+    const faturamento = vendas.reduce((a, v) => a + (Number(v.totais?.subtotalPraticado) || 0), 0);
+    const lucro = vendas.reduce((a, v) => a + (Number(v.totais?.lucro) || 0), 0);
+    const margemMedia = faturamento > 0 ? (lucro / faturamento) * 100 : 0;
+
+    // Meta = custos fixos ÷ margem média
+    let meta = 0;
+    if (custosFixos > 0 && margemMedia > 0) {
+      meta = custosFixos / (margemMedia / 100);
+    } else if (custosFixos > 0) {
+      // Se não tem margem ainda, usa 50% como padrão
+      meta = custosFixos / 0.5;
+    }
+
+    const atingido = meta > 0 ? Math.min(100, (faturamento / meta) * 100) : 0;
+    const falta = Math.max(0, meta - faturamento);
+
+    const totalDiasMes = diasNoMes();
+    const diaHoje = diaAtual();
+    const diasRestantes = totalDiasMes - diaHoje + 1;
+    const metaDiaria = diasRestantes > 0 ? falta / diasRestantes : 0;
+
+    return {
+      custosFixos,
+      faturamento,
+      lucro,
+      margemMedia,
+      meta,
+      atingido,
+      falta,
+      diasRestantes,
+      metaDiaria,
+      totalDiasMes,
+      diaHoje
+    };
+  }
+
+  /* ==========================================================
+     7. RANKING DE PRODUTOS
      ========================================================== */
 
   function rankingProdutos() {
-    if (!window.MODULO_VENDAS) return { mais: [], menos: [] };
+    if (!window.MODULO_VENDAS) return { mais: [], menos: [], total: 0 };
 
     const hoje = hojeISO();
     const inicio = adicionarDias(hoje, -periodoRanking);
@@ -134,12 +226,7 @@ const MODULO_INICIO = (() => {
       (v.itens || []).forEach(item => {
         const chave = item.sku || item.nome;
         if (!mapa[chave]) {
-          mapa[chave] = {
-            sku: item.sku || '',
-            nome: item.nome,
-            quantidade: 0,
-            faturamento: 0
-          };
+          mapa[chave] = { sku: item.sku || '', nome: item.nome, quantidade: 0, faturamento: 0 };
         }
         mapa[chave].quantidade += Number(item.quantidade) || 0;
         mapa[chave].faturamento += (Number(item.preco) || 0) * (Number(item.quantidade) || 0);
@@ -147,7 +234,6 @@ const MODULO_INICIO = (() => {
     });
 
     const lista = Object.values(mapa);
-
     const mais = [...lista].sort((a, b) => b.quantidade - a.quantidade).slice(0, 5);
     const menos = [...lista].sort((a, b) => a.quantidade - b.quantidade).slice(0, 5);
 
@@ -155,7 +241,7 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     6. PRODUTOS A REPOR
+     8. PRODUTOS PARA REPOR
      ========================================================== */
 
   function produtosParaRepor() {
@@ -180,11 +266,28 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     7. RENDER
+     9. PRODUTOS COM MARGEM BAIXA
+     ========================================================== */
+
+  function produtosMargemBaixa() {
+    if (!window.MODULO_PRODUTOS?._margemAbaixoDoMinimo) return [];
+
+    return (window.MODULO_PRODUTOS._listar() || [])
+      .filter(p => p.status === 'ativo' && window.MODULO_PRODUTOS._margemAbaixoDoMinimo(p))
+      .map(p => {
+        const { margem } = window.MODULO_PRODUTOS._calcularMargem(p);
+        return { ...p, margemCalculada: margem };
+      })
+      .sort((a, b) => a.margemCalculada - b.margemCalculada);
+  }
+
+  /* ==========================================================
+     10. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
     const k = calcularKPIs();
+    const pe = calcularPontoEquilibrio();
 
     return `
       <div class="pagina-header">
@@ -202,7 +305,8 @@ const MODULO_INICIO = (() => {
         </div>
       </div>
 
-      <!-- KPIs -->
+      ${renderAlertasCriticos(k)}
+
       <div class="grid grid--4 mb-6">
         <div class="kpi">
           <div class="kpi__topo">
@@ -241,23 +345,22 @@ const MODULO_INICIO = (() => {
 
         <div class="kpi">
           <div class="kpi__topo">
-            <span class="kpi__label">Precisa repor</span>
-            <span class="kpi__icone">${ICONES.alerta}</span>
+            <span class="kpi__label">A receber</span>
+            <span class="kpi__icone">${ICONES.dinheiro}</span>
           </div>
-          <div class="kpi__valor ${k.estoqueBaixo > 0 ? 'text-atencao' : ''}">${k.estoqueBaixo}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">
-            ${k.estoqueBaixo > 0 ? 'Produtos abaixo do mínimo' : 'Tudo em ordem'}
-          </div>
+          <div class="kpi__valor">${formatarMoeda(k.aReceber)}</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Contas pendentes</div>
         </div>
       </div>
 
-      <!-- Ranking de produtos -->
+      ${renderPontoEquilibrio(pe)}
+
       ${renderRanking()}
 
-      <!-- Precisa repor -->
       ${renderReposicao()}
 
-      <!-- Alertas e atalhos -->
+      ${renderMargemBaixa()}
+
       <div class="grid grid--2">
         <div class="card">
           <div class="card__header">
@@ -300,7 +403,147 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     8. RENDER — RANKING
+     11. RENDER — PONTO DE EQUILÍBRIO
+     ========================================================== */
+
+  function renderPontoEquilibrio(pe) {
+    if (pe.custosFixos === 0) {
+      return `
+        <div class="card mb-6">
+          <div class="card__header">
+            <div>
+              <h3 class="card__titulo">Ponto de equilíbrio</h3>
+              <p class="card__subtitulo">Configure seus custos fixos para ver a meta.</p>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="alerta alerta--info">
+              <span class="alerta__icone">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </span>
+              <div class="alerta__conteudo">
+                <div class="alerta__titulo">Custos fixos não configurados</div>
+                Vá em <strong>Configurações → Preferências</strong> e informe seus custos fixos mensais (aluguel, internet, energia, etc.) para o sistema calcular quanto você precisa vender.
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const atingidoArred = Math.round(pe.atingido);
+    const cor = pe.atingido >= 100 ? 'sucesso' : pe.atingido >= 60 ? 'atencao' : 'critico';
+
+    return `
+      <div class="card mb-6 pe-card">
+        <div class="card__header">
+          <div>
+            <h3 class="card__titulo">Ponto de equilíbrio — Outubro</h3>
+            <p class="card__subtitulo">Meta do mês baseada nos custos fixos e na margem média</p>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="pe-grid">
+            <div class="pe-coluna pe-coluna--esquerda">
+              <div class="pe-linha">
+                <span>Custos fixos mensais</span>
+                <strong>${formatarMoeda(pe.custosFixos)}</strong>
+              </div>
+              <div class="pe-linha">
+                <span>Margem média</span>
+                <strong>${formatarPercentual(pe.margemMedia)}</strong>
+              </div>
+              <div class="pe-linha pe-linha--destaque">
+                <span>Meta mensal</span>
+                <strong>${formatarMoeda(pe.meta)}</strong>
+              </div>
+            </div>
+
+            <div class="pe-coluna pe-coluna--direita">
+              <div class="pe-progresso">
+                <div class="pe-progresso__topo">
+                  <span>${formatarMoeda(pe.faturamento)} vendidos</span>
+                  <span class="pe-progresso__pct pe-progresso__pct--${cor}">${atingidoArred}%</span>
+                </div>
+                <div class="pe-progresso__barra">
+                  <div class="pe-progresso__preenchimento pe-progresso__preenchimento--${cor}" style="width: ${Math.min(100, atingidoArred)}%"></div>
+                </div>
+              </div>
+
+              <div class="pe-restante">
+                ${pe.falta > 0 ? `
+                  <div class="pe-restante__linha">
+                    <span>Falta vender</span>
+                    <strong>${formatarMoeda(pe.falta)}</strong>
+                  </div>
+                  <div class="pe-restante__linha">
+                    <span>Dias restantes</span>
+                    <strong>${pe.diasRestantes}</strong>
+                  </div>
+                  <div class="pe-restante__linha pe-restante__linha--destaque">
+                    <span>Meta diária</span>
+                    <strong>${formatarMoeda(pe.metaDiaria)}</strong>
+                  </div>
+                ` : `
+                  <div class="pe-conquista">
+                    🎉 <strong>Meta atingida!</strong> Você já cobriu todos os custos fixos deste mês.
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     12. RENDER — ALERTAS CRÍTICOS (topo)
+     ========================================================== */
+
+  function renderAlertasCriticos(k) {
+    const alertas = [];
+
+    if (k.produtosMargemBaixa > 0) {
+      alertas.push({
+        tipo: 'atencao',
+        texto: `${k.produtosMargemBaixa} produto${k.produtosMargemBaixa > 1 ? 's' : ''} com margem abaixo do mínimo`,
+        rota: 'produtos'
+      });
+    }
+
+    if (k.encomendasAtrasadas > 0) {
+      alertas.push({
+        tipo: 'critico',
+        texto: `${k.encomendasAtrasadas} encomenda${k.encomendasAtrasadas > 1 ? 's' : ''} atrasada${k.encomendasAtrasadas > 1 ? 's' : ''}`,
+        rota: 'encomendas'
+      });
+    }
+
+    if (k.contasVencidas > 0) {
+      alertas.push({
+        tipo: 'critico',
+        texto: `${k.contasVencidas} conta${k.contasVencidas > 1 ? 's' : ''} vencida${k.contasVencidas > 1 ? 's' : ''}`,
+        rota: 'financeiro'
+      });
+    }
+
+    if (alertas.length === 0) return '';
+
+    return `
+      <div class="alertas-topo">
+        ${alertas.map(a => `
+          <div class="alerta-topo alerta-topo--${a.tipo}" data-rota="${a.rota}">
+            ${ICONES.alerta}
+            <span>${a.texto}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     13. RENDER — RANKING
      ========================================================== */
 
   function renderRanking() {
@@ -322,13 +565,8 @@ const MODULO_INICIO = (() => {
         <div class="card__body">
           <div class="rank-grid">
             <div class="rank-coluna">
-              <div class="rank-coluna__titulo">
-                ${ICONES.seta_cima}
-                Mais vendidos
-              </div>
-              ${mais.length === 0 ? `
-                <div class="rank-vazio">Sem vendas no período</div>
-              ` : mais.map((p, i) => `
+              <div class="rank-coluna__titulo">${ICONES.seta_cima} Mais vendidos</div>
+              ${mais.length === 0 ? `<div class="rank-vazio">Sem vendas no período</div>` : mais.map((p, i) => `
                 <div class="rank-item rank-item--topo">
                   <div class="rank-item__pos">${i + 1}</div>
                   <div class="rank-item__info">
@@ -344,13 +582,8 @@ const MODULO_INICIO = (() => {
             </div>
 
             <div class="rank-coluna">
-              <div class="rank-coluna__titulo">
-                ${ICONES.seta_baixo}
-                Menos vendidos
-              </div>
-              ${menos.length === 0 ? `
-                <div class="rank-vazio">Sem vendas no período</div>
-              ` : menos.map((p, i) => `
+              <div class="rank-coluna__titulo">${ICONES.seta_baixo} Menos vendidos</div>
+              ${menos.length === 0 ? `<div class="rank-vazio">Sem vendas no período</div>` : menos.map((p, i) => `
                 <div class="rank-item rank-item--base">
                   <div class="rank-item__pos">${i + 1}</div>
                   <div class="rank-item__info">
@@ -371,7 +604,7 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     9. RENDER — REPOSIÇÃO
+     14. RENDER — REPOSIÇÃO
      ========================================================== */
 
   function renderReposicao() {
@@ -389,18 +622,12 @@ const MODULO_INICIO = (() => {
                 : `${lista.length} ${lista.length === 1 ? 'produto' : 'produtos'} abaixo do estoque mínimo`}
             </p>
           </div>
-          ${lista.length > 6 ? `
-            <button class="btn btn--ghost btn--sm" data-rota="produtos">
-              Ver todos
-            </button>
-          ` : ''}
+          ${lista.length > 6 ? `<button class="btn btn--ghost btn--sm" data-rota="produtos">Ver todos</button>` : ''}
         </div>
         <div class="card__body">
           ${lista.length === 0 ? `
             <div class="alerta alerta--sucesso">
-              <span class="alerta__icone">
-                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-              </span>
+              <span class="alerta__icone"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>
               <div class="alerta__conteudo">
                 <div class="alerta__titulo">Estoque em ordem</div>
                 Todos os produtos estão acima do estoque mínimo.
@@ -423,12 +650,8 @@ const MODULO_INICIO = (() => {
                       <div class="produto-nome">${escaparHTML(p.nome)}</div>
                       ${p.sku ? `<span class="sku">${escaparHTML(p.sku)}</span>` : ''}
                     </td>
-                    <td class="tabela__numero peso-semibold">
-                      ${p.atual} ${escaparHTML(p.unidade || 'un')}
-                    </td>
-                    <td class="tabela__numero text-secundario">
-                      ${p.minimo}
-                    </td>
+                    <td class="tabela__numero peso-semibold">${p.atual} ${escaparHTML(p.unidade || 'un')}</td>
+                    <td class="tabela__numero text-secundario">${p.minimo}</td>
                     <td>${renderBadgeStatus(p.status)}</td>
                   </tr>
                 `).join('')}
@@ -448,7 +671,59 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     10. RENDER — ALERTAS
+     15. RENDER — MARGEM BAIXA
+     ========================================================== */
+
+  function renderMargemBaixa() {
+    const lista = produtosMargemBaixa();
+    const listaCurta = lista.slice(0, 6);
+
+    if (lista.length === 0) return '';
+
+    return `
+      <div class="card mb-6">
+        <div class="card__header">
+          <div>
+            <h3 class="card__titulo">Produtos com margem abaixo do mínimo</h3>
+            <p class="card__subtitulo">
+              ${lista.length} ${lista.length === 1 ? 'produto precisa' : 'produtos precisam'} de reajuste de preço
+            </p>
+          </div>
+          ${lista.length > 6 ? `<button class="btn btn--ghost btn--sm" data-rota="produtos">Ver todos</button>` : ''}
+        </div>
+        <div class="card__body">
+          <table class="tabela tabela-margem">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th class="tabela__numero">Custo</th>
+                <th class="tabela__numero">Preço</th>
+                <th class="tabela__numero">Margem</th>
+                <th class="tabela__numero">Mínima</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${listaCurta.map(p => `
+                <tr>
+                  <td>
+                    <div class="produto-nome">${escaparHTML(p.nome)}</div>
+                    ${p.sku ? `<span class="sku">${escaparHTML(p.sku)}</span>` : ''}
+                  </td>
+                  <td class="tabela__numero">${formatarMoeda(p.custo)}</td>
+                  <td class="tabela__numero">${formatarMoeda(p.precoVarejo)}</td>
+                  <td class="tabela__numero text-critico peso-semibold">${formatarPercentual(p.margemCalculada)}</td>
+                  <td class="tabela__numero text-secundario">${formatarPercentual(p.margemMinima || 30)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     16. RENDER — ALERTAS DO DIA
      ========================================================== */
 
   function renderAlertas(k) {
@@ -462,11 +737,19 @@ const MODULO_INICIO = (() => {
       });
     }
 
-    if (k.vencidos > 0) {
+    if (k.contasVencidas > 0) {
       alertas.push({
         tipo: 'critico',
         titulo: 'Contas vencidas',
         texto: 'Existem lançamentos em atraso no Financeiro.'
+      });
+    }
+
+    if (k.produtosMargemBaixa > 0) {
+      alertas.push({
+        tipo: 'atencao',
+        titulo: `${k.produtosMargemBaixa} produto${k.produtosMargemBaixa > 1 ? 's' : ''} com margem baixa`,
+        texto: 'Reveja o preço ou reduza custos.'
       });
     }
 
@@ -500,9 +783,8 @@ const MODULO_INICIO = (() => {
       </div>
     `).join('');
   }
-
-  /* ==========================================================
-     11. AÇÕES
+     /* ==========================================================
+     17. AÇÕES
      ========================================================== */
 
   function alterarPeriodoRanking(dias) {
@@ -514,7 +796,7 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     12. API PÚBLICA
+     18. API PÚBLICA
      ========================================================== */
 
   return {
