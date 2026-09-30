@@ -35,7 +35,7 @@ produtos sob encomenda.
 - Relatórios e dashboard executivo
 - QR Code estático e dinâmico
 - Auditoria por usuário
-- Backup e exportação
+- Backup e exportação (JSON e CSV)
 - Controle de acesso **por módulo** e por ação sensível
 
 ### Fora do escopo (nesta versão)
@@ -52,34 +52,58 @@ produtos sob encomenda.
 | Camada | Tecnologia |
 |---|---|
 | Frontend | HTML + CSS + JavaScript (SPA leve) |
-| Banco de dados | Supabase PostgreSQL |
-| Autenticação | Supabase Auth |
-| Segurança | Row Level Security (RLS) |
+| QR Code | qrcode-generator (CDN) |
+| Banco de dados | Supabase PostgreSQL *(integração futura)* |
+| Autenticação | Supabase Auth *(integração futura)* |
+| Segurança | Row Level Security (RLS) *(integração futura)* |
 | Hospedagem | Vercel |
 | Versionamento | GitHub |
 
-> O frontend começa em HTML/CSS/JS puro para entrega rápida.
-> A migração para Next.js + TypeScript está prevista para quando
-> a integração com Supabase for iniciada.
+> Nesta versão, os dados ficam em memória durante a sessão.
+> A migração para Supabase está planejada para a próxima fase.
 
 ---
 
 ## Estrutura de pastas
+
 ERP-PraFicar/
 ├── index.html
-├── assets/
-│ ├── css/
-│ │ ├── variables.css
-│ │ ├── base.css
-│ │ ├── layout.css
-│ │ └── components.css
-│ ├── js/
-│ │ ├── app.js
-│ │ └── router.js
-│ └── img/
-│ └── logo.png
-└── README.md
-
+├── README.md
+└── assets/
+├── css/
+│ ├── variables.css
+│ ├── base.css
+│ ├── layout.css
+│ ├── components.css
+│ ├── sku.css
+│ └── modulos/
+│ ├── produtos.css
+│ ├── canais.css
+│ ├── precificar.css
+│ ├── encomendas.css
+│ ├── vendas.css
+│ ├── financeiro.css
+│ ├── clientes.css
+│ ├── relatorios.css
+│ ├── qrcode.css
+│ └── configuracoes.css
+├── js/
+│ ├── sku.js
+│ ├── router.js
+│ ├── app.js
+│ └── modulos/
+│ ├── produtos.js
+│ ├── canais.js
+│ ├── precificar.js
+│ ├── encomendas.js
+│ ├── vendas.js
+│ ├── financeiro.js
+│ ├── clientes.js
+│ ├── relatorios.js
+│ ├── qrcode.js
+│ └── configuracoes.js
+└── img/
+└── logo.png
 ---
 
 ## Paleta de cores
