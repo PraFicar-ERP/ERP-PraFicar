@@ -459,4 +459,159 @@ const APP_PRAFICAR = (() => {
       <div class="grid grid--3">
         ${[
           { titulo: 'Vendas por período', desc: 'Faturamento e ticket médio.' },
-          { titulo: 'Lucro por canal',    desc: 'Qual canal dá mais luc
+          { titulo: 'Lucro por canal',    desc: 'Qual canal dá mais lucro.' },
+          { titulo: 'Produtos vendidos',  desc: 'Mais vendidos e sazonalidade.' },
+          { titulo: 'Estoque baixo',      desc: 'O que precisa repor.' },
+          { titulo: 'Encomendas',         desc: 'Prazo e status.' },
+          { titulo: 'Clientes',           desc: 'Origem e recompra.' }
+        ].map(r => `
+          <div class="card">
+            <div class="card__body">
+              <h3 class="card__titulo">${r.titulo}</h3>
+              <p class="card__subtitulo">${r.desc}</p>
+              <button class="btn btn--secundario btn--sm mt-3">Abrir</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /* ---------- QR CODE ---------- */
+
+  function renderQRCode() {
+    return `
+      <div class="pagina-header">
+        <div class="pagina-header__info">
+          <h1 class="pagina-header__titulo">QR Code</h1>
+          <p class="pagina-header__subtitulo">Gere códigos para produtos, Pix, catálogo e mais.</p>
+        </div>
+        <div class="pagina-header__acoes">
+          <button class="btn btn--primario">+ Novo QR Code</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__body">
+          <div class="vazio">
+            <div class="vazio__icone">${ICONES.qrcode}</div>
+            <h3 class="vazio__titulo">Nenhum QR Code gerado</h3>
+            <p class="vazio__descricao">
+              QR Codes dinâmicos continuam funcionando mesmo se o destino mudar.
+              Imprima, baixe em PNG, SVG ou PDF.
+            </p>
+            <button class="btn btn--primario">+ Novo QR Code</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ---------- CONFIGURAÇÕES ---------- */
+
+  function renderConfig() {
+    return `
+      <div class="pagina-header">
+        <div class="pagina-header__info">
+          <h1 class="pagina-header__titulo">Configurações</h1>
+          <p class="pagina-header__subtitulo">Usuários, auditoria, backup e preferências.</p>
+        </div>
+      </div>
+
+      <div class="grid grid--2">
+        ${[
+          { titulo: 'Usuários',    desc: 'Quem acessa e quais módulos cada um vê.' },
+          { titulo: 'Auditoria',   desc: 'Histórico de ações por usuário.' },
+          { titulo: 'Backup',      desc: 'Exportação e status do backup.' },
+          { titulo: 'Preferências',desc: 'Categorias de SKU, unidades e margens padrão.' }
+        ].map(c => `
+          <div class="card">
+            <div class="card__body">
+              <h3 class="card__titulo">${c.titulo}</h3>
+              <p class="card__subtitulo">${c.desc}</p>
+              <button class="btn btn--secundario btn--sm mt-3">Abrir</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     4. EXPORTA AS TELAS PARA O ROUTER
+     ========================================================== */
+
+  window.renderInicio      = renderInicio;
+  window.renderProdutos    = renderProdutos;
+  window.renderPrecificar  = renderPrecificar;
+  window.renderCanais      = renderCanais;
+  window.renderEncomendas  = renderEncomendas;
+  window.renderVendas      = renderVendas;
+  window.renderFinanceiro  = renderFinanceiro;
+  window.renderClientes    = renderClientes;
+  window.renderRelatorios  = renderRelatorios;
+  window.renderQRCode      = renderQRCode;
+  window.renderConfig      = renderConfig;
+
+  /* ==========================================================
+     5. INICIALIZAÇÃO
+     ========================================================== */
+
+  function iniciar() {
+    // Injeta o menu lateral
+    const navMenu = document.getElementById('sidebar-menu');
+    if (navMenu) navMenu.innerHTML = renderMenu();
+
+    // Botão de recolher sidebar (desktop)
+    const btnToggle = document.getElementById('btn-toggle-sidebar');
+    if (btnToggle) {
+      btnToggle.addEventListener('click', () => {
+        const app = document.querySelector('.app');
+        if (!app) return;
+        if (window.innerWidth <= 768) {
+          app.classList.toggle('sidebar-aberta');
+        } else {
+          app.classList.toggle('sidebar-recolhida');
+        }
+      });
+    }
+
+    // Overlay (mobile)
+    const overlay = document.getElementById('app-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', () => {
+        document.querySelector('.app')?.classList.remove('sidebar-aberta');
+      });
+    }
+
+    // Inicia o router
+    if (window.ROUTER_PRAFICAR) window.ROUTER_PRAFICAR.iniciar();
+
+    // Ícones do header
+    const h = document.getElementById('header-acoes');
+    if (h) {
+      h.innerHTML = `
+        <button class="header__acao" title="Ajuda">${ICONES.ajuda}</button>
+        <button class="header__acao" title="Notificações">
+          ${ICONES.sino}
+          <span class="header__acao-notificacao"></span>
+        </button>
+      `;
+    }
+
+    const b = document.querySelector('.header__busca');
+    if (b) {
+      b.innerHTML = `
+        ${ICONES.busca}
+        <input type="search" placeholder="Buscar produtos, clientes, encomendas..." />
+      `;
+    }
+  }
+
+  return { iniciar, ICONES };
+
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  APP_PRAFICAR.iniciar();
+});
