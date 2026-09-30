@@ -1,10 +1,10 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v2 com canais)
    Arquivo: assets/css/modulos/produtos.css
    ============================================================ */
 
 /* ============================================================
-   1. BARRA DE FILTROS
+   1. FILTROS
    ============================================================ */
 
 .filtros-produtos {
@@ -41,13 +41,13 @@
 
 .filtros-produtos__select {
   width: auto;
-  min-width: 180px;
+  min-width: 160px;
   height: 38px;
   padding: 0 var(--esp-10) 0 var(--esp-3);
 }
 
 /* ============================================================
-   2. COLUNAS DA TABELA
+   2. COLUNAS
    ============================================================ */
 
 .produto-nome {
@@ -119,7 +119,7 @@
    ============================================================ */
 
 #modal-produto .modal {
-  max-width: 640px;
+  max-width: 720px;
 }
 
 #modal-produto .form-grupo:last-child {
@@ -138,7 +138,49 @@
 }
 
 /* ============================================================
-   5. RESPONSIVO
+   5. CANAIS DE VENDA NO PRODUTO
+   ============================================================ */
+
+.prod-canais-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+
+.cfg-check {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-sm);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  user-select: none;
+}
+
+.cfg-check:hover {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.cfg-check input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.cfg-check input[type="checkbox"]:checked + span {
+  color: var(--azul-marinho);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   6. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 768px) {
@@ -153,5 +195,9 @@
 
   .produto-desc {
     max-width: 160px;
+  }
+
+  .prod-canais-grid {
+    grid-template-columns: 1fr;
   }
 }
