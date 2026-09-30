@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO VENDAS (v3)
+   PRAFICAR ERP — ESTILOS DO MÓDULO VENDAS (v4)
    Arquivo: assets/css/modulos/vendas.css
    ============================================================ */
 
@@ -61,7 +61,7 @@
    ============================================================ */
 
 #modal-venda .modal {
-  max-width: 760px;
+  max-width: 780px;
 }
 
 #modal-venda .form-grupo:last-child {
@@ -121,6 +121,28 @@
 .enc-item-nome {
   font-weight: var(--peso-medio);
   color: var(--cor-texto-principal);
+}
+
+/* Origem do preço */
+.venda-item-origem {
+  font-size: 10px;
+  color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+  margin-top: 2px;
+}
+
+/* Info do canal dentro do modal de item */
+.venda-item-canal-info {
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  margin-bottom: var(--esp-4);
+}
+
+.venda-item-canal-info strong {
+  color: var(--azul-marinho);
 }
 
 /* ============================================================
@@ -320,5 +342,11 @@
   #modal-venda .modal,
   #modal-item-venda .modal {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .venda-resumo__grid {
+    grid-template-columns: 1fr;
   }
 }
