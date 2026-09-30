@@ -24,6 +24,15 @@
 
   <!-- CSS — módulos -->
   <link rel="stylesheet" href="assets/css/modulos/produtos.css" />
+  <link rel="stylesheet" href="assets/css/modulos/canais.css" />
+  <link rel="stylesheet" href="assets/css/modulos/precificar.css" />
+  <link rel="stylesheet" href="assets/css/modulos/encomendas.css" />
+  <link rel="stylesheet" href="assets/css/modulos/vendas.css" />
+  <link rel="stylesheet" href="assets/css/modulos/financeiro.css" />
+  <link rel="stylesheet" href="assets/css/modulos/clientes.css" />
+  <link rel="stylesheet" href="assets/css/modulos/relatorios.css" />
+  <link rel="stylesheet" href="assets/css/modulos/qrcode.css" />
+  <link rel="stylesheet" href="assets/css/modulos/configuracoes.css" />
 </head>
 <body>
 
@@ -97,14 +106,34 @@
   <!-- Overlay mobile -->
   <div class="app-overlay" id="app-overlay"></div>
 
-  <!-- JS — núcleo -->
+  <!-- =====================================================
+       JS — biblioteca externa (QR Code)
+       ===================================================== -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+
+  <!-- =====================================================
+       JS — núcleo
+       ===================================================== -->
   <script src="assets/js/sku.js"></script>
   <script src="assets/js/router.js"></script>
 
-  <!-- JS — módulos -->
+  <!-- =====================================================
+       JS — módulos
+       ===================================================== -->
   <script src="assets/js/modulos/produtos.js"></script>
+  <script src="assets/js/modulos/canais.js"></script>
+  <script src="assets/js/modulos/precificar.js"></script>
+  <script src="assets/js/modulos/encomendas.js"></script>
+  <script src="assets/js/modulos/vendas.js"></script>
+  <script src="assets/js/modulos/financeiro.js"></script>
+  <script src="assets/js/modulos/clientes.js"></script>
+  <script src="assets/js/modulos/relatorios.js"></script>
+  <script src="assets/js/modulos/qrcode.js"></script>
+  <script src="assets/js/modulos/configuracoes.js"></script>
 
-  <!-- JS — app principal (por último) -->
+  <!-- =====================================================
+       JS — app principal (deve ser o último)
+       ===================================================== -->
   <script src="assets/js/app.js"></script>
 
 </body>
