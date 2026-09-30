@@ -1,0 +1,129 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO CLIENTES & FORNECEDORES
+   Arquivo: assets/css/modulos/clientes.css
+   ============================================================ */
+
+/* ============================================================
+   1. ABAS
+   ============================================================ */
+
+.cli-abas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-5);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.cli-aba {
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--texto-base);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  margin-bottom: -1px;
+}
+
+.cli-aba:hover {
+  color: var(--cor-texto-principal);
+}
+
+.cli-aba--ativa {
+  color: var(--azul-medio);
+  border-bottom-color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   2. BARRA DE FILTROS
+   ============================================================ */
+
+.filtros-clientes {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-clientes__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-clientes__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-clientes__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-clientes__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   3. COLUNAS
+   ============================================================ */
+
+.cli-nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.cli-doc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cli-email {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+}
+
+/* ============================================================
+   4. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .cli-abas {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .cli-aba {
+    white-space: nowrap;
+  }
+
+  .filtros-clientes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-clientes__select {
+    width: 100%;
+  }
+}
