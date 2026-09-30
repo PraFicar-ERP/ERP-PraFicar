@@ -7,7 +7,6 @@
   <meta name="description" content="PraFicar ERP — Feito pra lembrar, feito pra ficar." />
   <title>PraFicar ERP</title>
 
-  <!-- Fontes -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -21,6 +20,7 @@
   <link rel="stylesheet" href="assets/css/layout.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
   <link rel="stylesheet" href="assets/css/sku.css" />
+  <link rel="stylesheet" href="assets/css/calculadora.css" />
 
   <!-- CSS — módulos -->
   <link rel="stylesheet" href="assets/css/modulos/produtos.css" />
@@ -38,11 +38,7 @@
 
   <div class="app" id="app">
 
-    <!-- =====================================================
-         SIDEBAR
-         ===================================================== -->
     <aside class="sidebar" id="sidebar">
-
       <div class="sidebar__logo">
         <img src="assets/img/logo.png" alt="PraFicar" onerror="this.style.display='none'" />
         <div class="sidebar__logo-texto">
@@ -51,9 +47,7 @@
         </div>
       </div>
 
-      <nav class="sidebar__nav" id="sidebar-menu">
-        <!-- preenchido via JS -->
-      </nav>
+      <nav class="sidebar__nav" id="sidebar-menu"></nav>
 
       <div class="sidebar__rodape">
         <div class="sidebar__usuario">
@@ -64,14 +58,9 @@
           </div>
         </div>
       </div>
-
     </aside>
 
-    <!-- =====================================================
-         HEADER
-         ===================================================== -->
     <header class="header">
-
       <button class="header__toggle" id="btn-toggle-sidebar" aria-label="Alternar menu">
         <svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
@@ -82,44 +71,27 @@
         <span class="header__breadcrumb-atual">Início</span>
       </div>
 
-      <div class="header__busca">
-        <!-- preenchido via JS -->
-      </div>
-
-      <div class="header__acoes" id="header-acoes">
-        <!-- preenchido via JS -->
-      </div>
-
+      <div class="header__busca"></div>
+      <div class="header__acoes" id="header-acoes"></div>
     </header>
 
-    <!-- =====================================================
-         CONTEÚDO
-         ===================================================== -->
     <main class="conteudo">
-      <div class="conteudo__inner" id="conteudo-tela">
-        <!-- preenchido via JS -->
-      </div>
+      <div class="conteudo__inner" id="conteudo-tela"></div>
     </main>
 
   </div>
 
-  <!-- Overlay mobile -->
   <div class="app-overlay" id="app-overlay"></div>
 
-  <!-- =====================================================
-       JS — biblioteca externa (QR Code)
-       ===================================================== -->
+  <!-- JS — biblioteca QR -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
-  <!-- =====================================================
-       JS — núcleo
-       ===================================================== -->
+  <!-- JS — núcleo -->
   <script src="assets/js/sku.js"></script>
   <script src="assets/js/router.js"></script>
+  <script src="assets/js/calculadora.js"></script>
 
-  <!-- =====================================================
-       JS — módulos (ordem importa)
-       ===================================================== -->
+  <!-- JS — módulos -->
   <script src="assets/js/modulos/inicio.js"></script>
   <script src="assets/js/modulos/produtos.js"></script>
   <script src="assets/js/modulos/canais.js"></script>
@@ -132,9 +104,7 @@
   <script src="assets/js/modulos/qrcode.js"></script>
   <script src="assets/js/modulos/configuracoes.js"></script>
 
-  <!-- =====================================================
-       JS — app principal (deve ser o último)
-       ===================================================== -->
+  <!-- JS — app principal -->
   <script src="assets/js/app.js"></script>
 
 </body>
