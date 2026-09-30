@@ -1,25 +1,25 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS
+   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v2 com canais)
    Arquivo: assets/js/modulos/produtos.js
-   Descrição: cadastro, listagem, edição, exclusão lógica e
-              filtros de produtos. SKU gerado automaticamente
-              no padrão PraFicar via SKU_PRAFICAR.
+   Descrição: cadastro, listagem, edição e exclusão lógica de
+              produtos. Canais de venda por produto. Custo real
+              e preço de venda herdados do Precificador.
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
 
   /* ==========================================================
-     1. ESTADO EM MEMÓRIA
-     (substituído por Supabase na fase de integração)
+     1. ESTADO
      ========================================================== */
 
   let produtos = [];
   let proximoId = 1;
+
   let filtroCategoria = '';
   let filtroBusca = '';
   let filtroStatus = '';
+  let filtroCanal = '';
 
-  // Produto em edição no modal (null = novo)
   let produtoEditandoId = null;
 
   /* ==========================================================
@@ -35,18 +35,27 @@ const MODULO_PRODUTOS = (() => {
     return c ? c.nome : '—';
   }
 
+  function canaisDisponiveis() {
+    return (window.MODULO_CANAIS?._listar() || []).filter(c => c.status === 'ativo');
+  }
+
+  function nomeCanal(id) {
+    const c = window.MODULO_CANAIS?._buscar(id);
+    return c ? c.nome : '—';
+  }
+
   /* ==========================================================
      3. UTILITÁRIOS
      ========================================================== */
 
-  function formatarMoeda(valor) {
-    const n = Number(valor) || 0;
+  function formatarMoeda(v) {
+    const n = Number(v) || 0;
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function escaparHTML(texto) {
-    if (texto === null || texto === undefined) return '';
-    return String(texto)
+  function escaparHTML(t) {
+    if (t === null || t === undefined) return '';
+    return String(t)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -59,7 +68,7 @@ const MODULO_PRODUTOS = (() => {
      ========================================================== */
 
   function criarProduto(dados) {
-    const produto = {
+    const p = {
       id: proximoId++,
       sku: dados.sku,
       nome: dados.nome,
@@ -71,17 +80,16 @@ const MODULO_PRODUTOS = (() => {
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
       unidade: dados.unidade || 'un',
+      canais: Array.isArray(dados.canais) ? dados.canais : [],
       status: dados.status || 'ativo',
+      origemPreco: dados.origemPreco || 'manual', // manual | precificador
+      precificacaoId: dados.precificacaoId || null,
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
-
-    produtos.push(produto);
-
-    // Registra o SKU no gerador para nunca repetir
-    window.SKU_PRAFICAR?.registrarExistente(produto.sku);
-
-    return produto;
+    produtos.push(p);
+    window.SKU_PRAFICAR?.registrarExistente(p.sku);
+    return p;
   }
 
   function atualizarProduto(id, dados) {
@@ -89,7 +97,6 @@ const MODULO_PRODUTOS = (() => {
     if (idx === -1) return null;
 
     const skuAntigo = produtos[idx].sku;
-    const skuNovo = dados.sku;
 
     produtos[idx] = {
       ...produtos[idx],
@@ -99,18 +106,18 @@ const MODULO_PRODUTOS = (() => {
       precoAtacado: Number(dados.precoAtacado) || 0,
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
+      canais: Array.isArray(dados.canais) ? dados.canais : produtos[idx].canais,
       atualizadoEm: new Date().toISOString()
     };
 
-    if (skuNovo && skuNovo !== skuAntigo) {
-      window.SKU_PRAFICAR?.registrarExistente(skuNovo);
+    if (dados.sku && dados.sku !== skuAntigo) {
+      window.SKU_PRAFICAR?.registrarExistente(dados.sku);
     }
 
     return produtos[idx];
   }
 
   function excluirProduto(id) {
-    // Exclusão lógica: marca como inativo
     const idx = produtos.findIndex(p => p.id === id);
     if (idx === -1) return false;
     produtos[idx].status = 'inativo';
@@ -123,13 +130,14 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     5. FILTROS E LISTAGEM
+     5. FILTROS
      ========================================================== */
 
   function produtosFiltrados() {
     return produtos.filter(p => {
       if (filtroCategoria && p.categoria !== filtroCategoria) return false;
       if (filtroStatus && p.status !== filtroStatus) return false;
+      if (filtroCanal && !(p.canais || []).map(String).includes(String(filtroCanal))) return false;
       if (filtroBusca) {
         const t = filtroBusca.toLowerCase();
         const alvo = `${p.sku} ${p.nome} ${p.descricao}`.toLowerCase();
@@ -139,20 +147,10 @@ const MODULO_PRODUTOS = (() => {
     });
   }
 
-  function alterarFiltroCategoria(valor) {
-    filtroCategoria = valor;
-    rerender();
-  }
-
-  function alterarFiltroBusca(valor) {
-    filtroBusca = valor;
-    rerenderTabela();
-  }
-
-  function alterarFiltroStatus(valor) {
-    filtroStatus = valor;
-    rerender();
-  }
+  function alterarFiltroCategoria(v) { filtroCategoria = v; rerender(); }
+  function alterarFiltroBusca(v)     { filtroBusca = v; rerenderTabela(); }
+  function alterarFiltroStatus(v)    { filtroStatus = v; rerender(); }
+  function alterarFiltroCanal(v)     { filtroCanal = v; rerender(); }
 
   /* ==========================================================
      6. RENDER — TELA PRINCIPAL
@@ -188,9 +186,14 @@ const MODULO_PRODUTOS = (() => {
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroCategoria(this.value)">
           <option value="">Todas as categorias</option>
           ${categorias().map(c => `
-            <option value="${c.codigo}" ${filtroCategoria === c.codigo ? 'selected' : ''}>
-              ${c.nome}
-            </option>
+            <option value="${c.codigo}" ${filtroCategoria === c.codigo ? 'selected' : ''}>${c.nome}</option>
+          `).join('')}
+        </select>
+
+        <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroCanal(this.value)">
+          <option value="">Todos os canais</option>
+          ${canaisDisponiveis().map(c => `
+            <option value="${c.id}" ${String(filtroCanal) === String(c.id) ? 'selected' : ''}>${escaparHTML(c.nome)}</option>
           `).join('')}
         </select>
 
@@ -226,7 +229,7 @@ const MODULO_PRODUTOS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${produtos.length === 0
-                ? 'Cadastre seu primeiro produto e o SKU será gerado automaticamente no padrão PraFicar.'
+                ? 'Cadastre seu primeiro produto. O SKU é gerado automaticamente e o custo vem do Precificador.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${produtos.length === 0 ? `
@@ -251,7 +254,7 @@ const MODULO_PRODUTOS = (() => {
                 <th class="tabela__numero">Estoque</th>
                 <th class="tabela__numero">Custo</th>
                 <th class="tabela__numero">Varejo</th>
-                <th class="tabela__numero">Atacado</th>
+                <th>Canais</th>
                 <th>Status</th>
                 <th class="tabela__acao"></th>
               </tr>
@@ -275,6 +278,10 @@ const MODULO_PRODUTOS = (() => {
         ? 'text-atencao peso-semibold'
         : '';
 
+    const canaisProduto = (p.canais || [])
+      .map(id => nomeCanal(id))
+      .filter(n => n !== '—');
+
     return `
       <tr>
         <td><span class="sku">${escaparHTML(p.sku)}</span></td>
@@ -288,7 +295,13 @@ const MODULO_PRODUTOS = (() => {
         </td>
         <td class="tabela__numero">${formatarMoeda(p.custo)}</td>
         <td class="tabela__numero">${formatarMoeda(p.precoVarejo)}</td>
-        <td class="tabela__numero">${formatarMoeda(p.precoAtacado)}</td>
+        <td>
+          ${canaisProduto.length === 0
+            ? '<span class="text-secundario">—</span>'
+            : canaisProduto.slice(0, 2).map(c => `<span class="badge badge--info">${escaparHTML(c)}</span>`).join(' ')
+          }
+          ${canaisProduto.length > 2 ? `<span class="badge badge--neutro">+${canaisProduto.length - 2}</span>` : ''}
+        </td>
         <td>
           ${p.status === 'ativo'
             ? '<span class="badge badge--sucesso">Ativo</span>'
@@ -299,7 +312,7 @@ const MODULO_PRODUTOS = (() => {
             <button class="btn-icone" title="Editar" onclick="MODULO_PRODUTOS.abrirEdicao(${p.id})">
               <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
             </button>
-            <button class="btn-icone btn-icone--perigo" title="Excluir" onclick="MODULO_PRODUTOS.confirmarExclusao(${p.id})">
+            <button class="btn-icone btn-icone--perigo" title="Desativar" onclick="MODULO_PRODUTOS.confirmarExclusao(${p.id})">
               <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
@@ -309,7 +322,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     8. RENDER — MODAL DE PRODUTO
+     8. MODAL DE PRODUTO
      ========================================================== */
 
   function abrirNovo() {
@@ -325,13 +338,11 @@ const MODULO_PRODUTOS = (() => {
   function abrirModal() {
     const p = produtoEditandoId ? buscarProduto(produtoEditandoId) : null;
     const editando = !!p;
-
-    // SKU inicial: vazio para novo, valor atual para edição
-    const skuAtual = p ? p.sku : '';
+    const canaisAtivos = p ? (p.canais || []) : [];
 
     const html = `
       <div class="modal-overlay ativo" id="modal-produto">
-        <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal modal--grande" role="dialog" aria-modal="true">
           <div class="modal__header">
             <h2 class="modal__titulo">${editando ? 'Editar produto' : 'Novo produto'}</h2>
             <button class="modal__fechar" onclick="MODULO_PRODUTOS.fecharModal()" aria-label="Fechar">
@@ -341,126 +352,67 @@ const MODULO_PRODUTOS = (() => {
 
           <div class="modal__body">
             <form id="form-produto" onsubmit="MODULO_PRODUTOS.salvar(event)">
-              <div class="form-grupo">
-                <label for="prod-categoria">Categoria <span class="form-obrigatorio">*</span></label>
-                <select
-                  id="prod-categoria"
-                  required
-                  onchange="MODULO_PRODUTOS.gerarSkuAutomatico(this.value)"
-                >
-                  <option value="">Selecione uma categoria</option>
-                  ${categorias().map(c => `
-                    <option value="${c.codigo}" ${p && p.categoria === c.codigo ? 'selected' : ''}>
-                      ${c.nome}
-                    </option>
-                  `).join('')}
-                </select>
-                <span class="form-ajuda">A categoria define o prefixo do SKU.</span>
-              </div>
 
-              <div class="form-grupo">
-                <label for="prod-sku">SKU <span class="form-obrigatorio">*</span></label>
-                <div class="sku-campo">
-                  <input
-                    id="prod-sku"
-                    type="text"
-                    required
-                    value="${escaparHTML(skuAtual)}"
-                    placeholder="Ex: MP-PF-001"
-                    readonly
-                  />
-                  <button
-                    type="button"
-                    class="sku-campo__regenerar"
-                    title="Gerar novo SKU"
-                    onclick="MODULO_PRODUTOS.regenerarSku()"
-                  >
-                    <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-                  </button>
+              <!-- Categoria e SKU -->
+              <div class="form-linha">
+                <div class="form-grupo">
+                  <label for="prod-categoria">Categoria <span class="form-obrigatorio">*</span></label>
+                  <select id="prod-categoria" required onchange="MODULO_PRODUTOS.gerarSkuAutomatico(this.value)">
+                    <option value="">Selecione uma categoria</option>
+                    ${categorias().map(c => `
+                      <option value="${c.codigo}" ${p && p.categoria === c.codigo ? 'selected' : ''}>${c.nome}</option>
+                    `).join('')}
+                  </select>
                 </div>
-                <span class="form-ajuda">Gerado automaticamente. Você pode regenerar se precisar.</span>
+                <div class="form-grupo">
+                  <label for="prod-sku">SKU <span class="form-obrigatorio">*</span></label>
+                  <div class="sku-campo">
+                    <input id="prod-sku" type="text" required value="${escaparHTML(p?.sku || '')}" readonly />
+                    <button type="button" class="sku-campo__regenerar" title="Regenerar" onclick="MODULO_PRODUTOS.regenerarSku()">
+                      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                    </button>
+                  </div>
+                </div>
               </div>
 
+              <!-- Nome e descrição -->
               <div class="form-grupo">
                 <label for="prod-nome">Nome <span class="form-obrigatorio">*</span></label>
-                <input
-                  id="prod-nome"
-                  type="text"
-                  required
-                  value="${escaparHTML(p?.nome || '')}"
-                  placeholder="Ex: Marca-páginas Coração"
-                />
+                <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Marca-páginas Coração" />
               </div>
 
               <div class="form-grupo">
                 <label for="prod-descricao">Descrição</label>
-                <textarea
-                  id="prod-descricao"
-                  placeholder="Detalhes do produto (opcional)"
-                >${escaparHTML(p?.descricao || '')}</textarea>
+                <textarea id="prod-descricao" placeholder="Detalhes do produto (opcional)">${escaparHTML(p?.descricao || '')}</textarea>
               </div>
 
-              <div class="form-linha">
+              <!-- Custo e preços -->
+              <div class="form-linha-3">
                 <div class="form-grupo">
-                  <label for="prod-custo">Custo (R$)</label>
-                  <input
-                    id="prod-custo"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value="${p?.custo ?? ''}"
-                    placeholder="0,00"
-                  />
+                  <label for="prod-custo">Custo real (R$)</label>
+                  <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" />
+                  <span class="form-ajuda">Vem do Precificador.</span>
                 </div>
-
                 <div class="form-grupo">
                   <label for="prod-preco-varejo">Preço varejo (R$)</label>
-                  <input
-                    id="prod-preco-varejo"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value="${p?.precoVarejo ?? ''}"
-                    placeholder="0,00"
-                  />
+                  <input id="prod-preco-varejo" type="number" step="0.01" min="0" value="${p?.precoVarejo ?? ''}" placeholder="0,00" />
                 </div>
-
                 <div class="form-grupo">
                   <label for="prod-preco-atacado">Preço atacado (R$)</label>
-                  <input
-                    id="prod-preco-atacado"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value="${p?.precoAtacado ?? ''}"
-                    placeholder="0,00"
-                  />
+                  <input id="prod-preco-atacado" type="number" step="0.01" min="0" value="${p?.precoAtacado ?? ''}" placeholder="0,00" />
                 </div>
               </div>
 
-              <div class="form-linha">
+              <!-- Estoque -->
+              <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="prod-estoque">Estoque atual</label>
-                  <input
-                    id="prod-estoque"
-                    type="number"
-                    step="1"
-                    min="0"
-                    value="${p?.estoqueAtual ?? 0}"
-                  />
+                  <input id="prod-estoque" type="number" step="1" min="0" value="${p?.estoqueAtual ?? 0}" />
                 </div>
-
                 <div class="form-grupo">
                   <label for="prod-estoque-min">Estoque mínimo</label>
-                  <input
-                    id="prod-estoque-min"
-                    type="number"
-                    step="1"
-                    min="0"
-                    value="${p?.estoqueMinimo ?? 0}"
-                  />
+                  <input id="prod-estoque-min" type="number" step="1" min="0" value="${p?.estoqueMinimo ?? 0}" />
                 </div>
-
                 <div class="form-grupo">
                   <label for="prod-unidade">Unidade</label>
                   <select id="prod-unidade">
@@ -471,13 +423,45 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
+              <!-- Canais de venda -->
+              <div class="form-grupo">
+                <label>Canais de venda</label>
+                ${canaisDisponiveis().length === 0 ? `
+                  <div class="alerta alerta--info">
+                    <span class="alerta__icone">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    </span>
+                    <div class="alerta__conteudo">
+                      Nenhum canal cadastrado. Cadastre canais no módulo Canais de Venda primeiro.
+                    </div>
+                  </div>
+                ` : `
+                  <div class="prod-canais-grid">
+                    ${canaisDisponiveis().map(c => `
+                      <label class="cfg-check">
+                        <input
+                          type="checkbox"
+                          value="${c.id}"
+                          ${canaisAtivos.map(String).includes(String(c.id)) ? 'checked' : ''}
+                          data-canal
+                        />
+                        <span>${escaparHTML(c.nome)}</span>
+                      </label>
+                    `).join('')}
+                  </div>
+                  <span class="form-ajuda">Marque os canais onde este produto será vendido.</span>
+                `}
+              </div>
+
+              <!-- Status -->
               <div class="form-grupo">
                 <label for="prod-status">Status</label>
                 <select id="prod-status">
-                  <option value="ativo"   ${(p?.status || 'ativo') === 'ativo'   ? 'selected' : ''}>Ativo</option>
+                  <option value="ativo"   ${(p?.status || 'ativo') === 'ativo' ? 'selected' : ''}>Ativo</option>
                   <option value="inativo" ${p?.status === 'inativo' ? 'selected' : ''}>Inativo</option>
                 </select>
               </div>
+
             </form>
           </div>
 
@@ -491,12 +475,9 @@ const MODULO_PRODUTOS = (() => {
       </div>
     `;
 
-    // Injeta no body
-    let existente = document.getElementById('modal-produto');
-    if (existente) existente.remove();
+    document.getElementById('modal-produto')?.remove();
     document.body.insertAdjacentHTML('beforeend', html);
 
-    // Foca o primeiro campo vazio
     setTimeout(() => {
       const foco = document.getElementById('prod-categoria');
       if (foco && !foco.value) foco.focus();
@@ -510,7 +491,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     9. SKU — GERAÇÃO AUTOMÁTICA
+     9. SKU
      ========================================================== */
 
   function gerarSkuAutomatico(codigoCategoria) {
@@ -522,7 +503,6 @@ const MODULO_PRODUTOS = (() => {
       return;
     }
 
-    // Se estiver editando e a categoria não mudou, mantém o SKU atual
     if (produtoEditandoId) {
       const p = buscarProduto(produtoEditandoId);
       if (p && p.categoria === codigoCategoria) {
@@ -541,13 +521,9 @@ const MODULO_PRODUTOS = (() => {
 
   function regenerarSku() {
     const categoria = document.getElementById('prod-categoria')?.value;
-    if (!categoria) {
-      alert('Selecione uma categoria primeiro.');
-      return;
-    }
+    if (!categoria) return alert('Selecione uma categoria primeiro.');
     try {
-      document.getElementById('prod-sku').value =
-        window.SKU_PRAFICAR.gerarProximo(categoria);
+      document.getElementById('prod-sku').value = window.SKU_PRAFICAR.gerarProximo(categoria);
     } catch (e) {
       console.error(e);
     }
@@ -560,6 +536,10 @@ const MODULO_PRODUTOS = (() => {
   function salvar(event) {
     event.preventDefault();
 
+    const canaisSelecionados = Array.from(
+      document.querySelectorAll('input[data-canal]:checked')
+    ).map(i => Number(i.value));
+
     const dados = {
       categoria:    document.getElementById('prod-categoria').value,
       sku:          document.getElementById('prod-sku').value.trim(),
@@ -569,23 +549,20 @@ const MODULO_PRODUTOS = (() => {
       precoVarejo:  document.getElementById('prod-preco-varejo').value,
       precoAtacado: document.getElementById('prod-preco-atacado').value,
       estoqueAtual: document.getElementById('prod-estoque').value,
-      estoqueMinimo:document.getElementById('prod-estoque-min').value,
+      estoqueMinimo: document.getElementById('prod-estoque-min').value,
       unidade:      document.getElementById('prod-unidade').value,
+      canais:       canaisSelecionados,
       status:       document.getElementById('prod-status').value
     };
 
-    // Validações
     if (!dados.categoria) return alert('Selecione uma categoria.');
-    if (!dados.sku)       return alert('SKU inválido.');
+    if (!dados.sku) return alert('SKU inválido.');
     if (!window.SKU_PRAFICAR.validar(dados.sku)) {
       return alert('SKU fora do padrão PraFicar. Use o botão de regenerar.');
     }
-    if (!dados.nome)      return alert('Informe o nome do produto.');
+    if (!dados.nome) return alert('Informe o nome do produto.');
 
-    // Verifica duplicidade de SKU
-    const duplicado = produtos.find(p =>
-      p.sku === dados.sku && p.id !== produtoEditandoId
-    );
+    const duplicado = produtos.find(p => p.sku === dados.sku && p.id !== produtoEditandoId);
     if (duplicado) {
       return alert(`O SKU ${dados.sku} já está em uso pelo produto "${duplicado.nome}".`);
     }
@@ -648,7 +625,7 @@ const MODULO_PRODUTOS = (() => {
     alterarFiltroCategoria,
     alterarFiltroBusca,
     alterarFiltroStatus,
-    // Para uso futuro (Supabase)
+    alterarFiltroCanal,
     _listar: () => [...produtos],
     _buscar: buscarProduto
   };
