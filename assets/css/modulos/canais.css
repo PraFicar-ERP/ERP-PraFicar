@@ -1,0 +1,97 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO CANAIS DE VENDA
+   Arquivo: assets/css/modulos/canais.css
+   ============================================================ */
+
+/* ============================================================
+   1. BARRA DE FILTROS
+   ============================================================ */
+
+.filtros-canais {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-canais__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-canais__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-canais__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-canais__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. COLUNAS
+   ============================================================ */
+
+.canal-nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.canal-obs {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+/* ============================================================
+   3. MODAL DE CANAL
+   ============================================================ */
+
+#modal-canal .modal {
+  max-width: 640px;
+}
+
+#modal-canal .form-grupo:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   4. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-canais {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-canais__select {
+    width: 100%;
+  }
+
+  .canal-obs {
+    max-width: 160px;
+  }
+}
