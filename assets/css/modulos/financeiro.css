@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO FINANCEIRO
+   PRAFICAR ERP — ESTILOS DO MÓDULO FINANCEIRO (v2 com Sangria)
    Arquivo: assets/css/modulos/financeiro.css
    ============================================================ */
 
@@ -24,14 +24,11 @@
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: color var(--transicao-rapida),
-              border-color var(--transicao-rapida);
+  transition: color var(--transicao-rapida), border-color var(--transicao-rapida);
   margin-bottom: -1px;
 }
 
-.fin-aba:hover {
-  color: var(--cor-texto-principal);
-}
+.fin-aba:hover { color: var(--cor-texto-principal); }
 
 .fin-aba--ativa {
   color: var(--azul-medio);
@@ -40,7 +37,7 @@
 }
 
 /* ============================================================
-   2. BARRA DE FILTROS
+   2. FILTROS
    ============================================================ */
 
 .filtros-financeiro {
@@ -83,7 +80,7 @@
 }
 
 /* ============================================================
-   3. COLUNAS
+   3. COLUNAS DA TABELA
    ============================================================ */
 
 .fin-descricao {
@@ -142,9 +139,7 @@
   border-bottom: 1px dashed var(--cor-borda-suave);
 }
 
-.fluxo-semana__linha:last-child {
-  border-bottom: none;
-}
+.fluxo-semana__linha:last-child { border-bottom: none; }
 
 .fluxo-semana__linha--saldo {
   border-top: 1px solid var(--cor-borda-media);
@@ -153,9 +148,7 @@
   font-weight: var(--peso-semibold);
 }
 
-.fluxo-semana__label {
-  color: var(--cor-texto-secundario);
-}
+.fluxo-semana__label { color: var(--cor-texto-secundario); }
 
 .fluxo-semana__valor {
   font-variant-numeric: tabular-nums;
@@ -163,7 +156,225 @@
 }
 
 /* ============================================================
-   5. RESPONSIVO
+   5. SANGRIA
+   ============================================================ */
+
+.sangria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-5);
+}
+
+.sangria__filtros {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-4);
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  flex-wrap: wrap;
+}
+
+.sangria__filtros-titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.sangria__filtros-campos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.sangria__filtros-campos input {
+  height: 38px;
+  width: 160px;
+}
+
+/* Composição da base */
+.sangria__composicao {
+  padding: var(--esp-5);
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+}
+
+.sangria__composicao-titulo {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.sangria__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.sangria__linha:last-child { border-bottom: none; }
+
+.sangria__linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+}
+
+.sangria__linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-md);
+  color: var(--cor-texto-principal);
+  font-weight: var(--peso-semibold);
+}
+
+/* Cards das categorias */
+.sangria__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--esp-4);
+}
+
+.sangria-card {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  padding: var(--esp-5);
+  box-shadow: var(--sombra-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  transition: box-shadow var(--transicao-padrao);
+}
+
+.sangria-card:hover { box-shadow: var(--sombra-sm); }
+
+.sangria-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sangria-card__nome {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+}
+
+.sangria-card__pct {
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  color: var(--azul-medio);
+  font-variant-numeric: tabular-nums;
+}
+
+.sangria-card__valor-principal {
+  font-size: var(--texto-2xl);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  letter-spacing: var(--letra-apertada);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.sangria-card__valor-label {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+}
+
+.sangria-card__detalhes {
+  padding-top: var(--esp-3);
+  border-top: 1px dashed var(--cor-borda-suave);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.sangria-card__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.sangria-card__linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.sangria-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--esp-2);
+}
+
+/* Histórico */
+.sangria__historico {
+  padding: var(--esp-5);
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+}
+
+.sangria__historico-header {
+  margin-bottom: var(--esp-4);
+}
+
+/* Modal resumo */
+.sangria-resumo {
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  margin-bottom: var(--esp-5);
+}
+
+.sangria-resumo__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.sangria-resumo__linha:last-child { border-bottom: none; }
+
+.sangria-resumo__linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.sangria-resumo__linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-md);
+}
+
+.sangria-resumo__linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   6. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 768px) {
@@ -172,24 +383,35 @@
     flex-wrap: nowrap;
   }
 
-  .fin-aba {
-    white-space: nowrap;
-  }
+  .fin-aba { white-space: nowrap; }
 
   .filtros-financeiro {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .filtros-financeiro__select {
-    width: 100%;
+  .filtros-financeiro__select { width: 100%; }
+
+  .fluxo-semanas { grid-template-columns: 1fr; }
+
+  .fin-obs { max-width: 200px; }
+
+  .sangria__filtros {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .fluxo-semanas {
+  .sangria__filtros-campos {
+    flex-wrap: wrap;
+  }
+
+  .sangria__filtros-campos input {
+    flex: 1;
+    min-width: 120px;
+    width: auto;
+  }
+
+  .sangria__cards {
     grid-template-columns: 1fr;
-  }
-
-  .fin-obs {
-    max-width: 200px;
   }
 }
