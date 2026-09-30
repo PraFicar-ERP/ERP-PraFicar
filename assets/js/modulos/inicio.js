@@ -1,8 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO INÍCIO (DASHBOARD)
+   PRAFICAR ERP — MÓDULO INÍCIO / DASHBOARD
    Arquivo: assets/js/modulos/inicio.js
-   Descrição: tela inicial com KPIs, alertas do dia e atalhos.
-              Agrega dados dos outros módulos quando disponíveis.
+   Descrição: tela inicial com KPIs, alertas, ranking de produtos
+              mais/menos vendidos e lista de reposição de estoque.
    ============================================================ */
 
 const MODULO_INICIO = (() => {
@@ -21,11 +21,19 @@ const MODULO_INICIO = (() => {
     precificar: '<svg viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>',
     produtos:   '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
     encomendas: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
-    qrcode:     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M21 14v3M14 21h3M21 21h.01"/></svg>'
+    qrcode:     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M21 14v3M14 21h3M21 21h.01"/></svg>',
+    seta_cima:  '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>',
+    seta_baixo: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>'
   };
 
   /* ==========================================================
-     2. UTILITÁRIOS
+     2. ESTADO
+     ========================================================== */
+
+  let periodoRanking = 30;   // 7, 30, 90
+
+  /* ==========================================================
+     3. UTILITÁRIOS
      ========================================================== */
 
   function formatarMoeda(v) {
@@ -37,8 +45,24 @@ const MODULO_INICIO = (() => {
     return new Date().toISOString().split('T')[0];
   }
 
+  function adicionarDias(dataISO, dias) {
+    const d = new Date(dataISO + 'T00:00:00');
+    d.setDate(d.getDate() + Number(dias || 0));
+    return d.toISOString().split('T')[0];
+  }
+
+  function escaparHTML(t) {
+    if (t === null || t === undefined) return '';
+    return String(t)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   /* ==========================================================
-     3. AGREGAÇÃO DE DADOS
+     4. AGREGAÇÃO DE DADOS
      ========================================================== */
 
   function calcularKPIs() {
@@ -91,7 +115,72 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     4. RENDER
+     5. RANKING DE PRODUTOS
+     ========================================================== */
+
+  function rankingProdutos() {
+    if (!window.MODULO_VENDAS) return { mais: [], menos: [] };
+
+    const hoje = hojeISO();
+    const inicio = adicionarDias(hoje, -periodoRanking);
+
+    const vendas = (window.MODULO_VENDAS._listar() || []).filter(v => {
+      const data = v.criadoEm?.split('T')[0];
+      return data >= inicio && data <= hoje && v.status !== 'cancelada';
+    });
+
+    const mapa = {};
+    vendas.forEach(v => {
+      (v.itens || []).forEach(item => {
+        const chave = item.sku || item.nome;
+        if (!mapa[chave]) {
+          mapa[chave] = {
+            sku: item.sku || '',
+            nome: item.nome,
+            quantidade: 0,
+            faturamento: 0
+          };
+        }
+        mapa[chave].quantidade += Number(item.quantidade) || 0;
+        mapa[chave].faturamento += (Number(item.preco) || 0) * (Number(item.quantidade) || 0);
+      });
+    });
+
+    const lista = Object.values(mapa);
+
+    const mais = [...lista].sort((a, b) => b.quantidade - a.quantidade).slice(0, 5);
+    const menos = [...lista].sort((a, b) => a.quantidade - b.quantidade).slice(0, 5);
+
+    return { mais, menos, total: lista.length };
+  }
+
+  /* ==========================================================
+     6. PRODUTOS A REPOR
+     ========================================================== */
+
+  function produtosParaRepor() {
+    if (!window.MODULO_PRODUTOS) return [];
+
+    return (window.MODULO_PRODUTOS._listar() || [])
+      .filter(p => p.status === 'ativo')
+      .map(p => {
+        const atual = Number(p.estoqueAtual) || 0;
+        const minimo = Number(p.estoqueMinimo) || 0;
+        let status = 'ok';
+        if (atual === 0) status = 'zerado';
+        else if (atual <= minimo) status = 'critico';
+        else if (atual <= minimo * 2) status = 'atencao';
+        return { ...p, atual, minimo, status };
+      })
+      .filter(p => p.status !== 'ok')
+      .sort((a, b) => {
+        const ordem = { zerado: 0, critico: 1, atencao: 2 };
+        return ordem[a.status] - ordem[b.status];
+      });
+  }
+
+  /* ==========================================================
+     7. RENDER
      ========================================================== */
 
   function render() {
@@ -113,6 +202,7 @@ const MODULO_INICIO = (() => {
         </div>
       </div>
 
+      <!-- KPIs -->
       <div class="grid grid--4 mb-6">
         <div class="kpi">
           <div class="kpi__topo">
@@ -151,16 +241,23 @@ const MODULO_INICIO = (() => {
 
         <div class="kpi">
           <div class="kpi__topo">
-            <span class="kpi__label">Estoque baixo</span>
+            <span class="kpi__label">Precisa repor</span>
             <span class="kpi__icone">${ICONES.alerta}</span>
           </div>
           <div class="kpi__valor ${k.estoqueBaixo > 0 ? 'text-atencao' : ''}">${k.estoqueBaixo}</div>
           <div class="kpi__variacao kpi__variacao--neutra">
-            ${k.estoqueBaixo > 0 ? 'Precisa repor' : 'Tudo em ordem'}
+            ${k.estoqueBaixo > 0 ? 'Produtos abaixo do mínimo' : 'Tudo em ordem'}
           </div>
         </div>
       </div>
 
+      <!-- Ranking de produtos -->
+      ${renderRanking()}
+
+      <!-- Precisa repor -->
+      ${renderReposicao()}
+
+      <!-- Alertas e atalhos -->
       <div class="grid grid--2">
         <div class="card">
           <div class="card__header">
@@ -202,6 +299,158 @@ const MODULO_INICIO = (() => {
     `;
   }
 
+  /* ==========================================================
+     8. RENDER — RANKING
+     ========================================================== */
+
+  function renderRanking() {
+    const { mais, menos, total } = rankingProdutos();
+
+    return `
+      <div class="card mb-6">
+        <div class="card__header">
+          <div>
+            <h3 class="card__titulo">Desempenho de produtos</h3>
+            <p class="card__subtitulo">Últimos ${periodoRanking} dias · ${total} ${total === 1 ? 'produto vendido' : 'produtos vendidos'}</p>
+          </div>
+          <div class="rank-periodo">
+            <button class="rank-periodo__btn ${periodoRanking === 7 ? 'rank-periodo__btn--ativo' : ''}" onclick="MODULO_INICIO.alterarPeriodoRanking(7)">7 dias</button>
+            <button class="rank-periodo__btn ${periodoRanking === 30 ? 'rank-periodo__btn--ativo' : ''}" onclick="MODULO_INICIO.alterarPeriodoRanking(30)">30 dias</button>
+            <button class="rank-periodo__btn ${periodoRanking === 90 ? 'rank-periodo__btn--ativo' : ''}" onclick="MODULO_INICIO.alterarPeriodoRanking(90)">90 dias</button>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="rank-grid">
+            <div class="rank-coluna">
+              <div class="rank-coluna__titulo">
+                ${ICONES.seta_cima}
+                Mais vendidos
+              </div>
+              ${mais.length === 0 ? `
+                <div class="rank-vazio">Sem vendas no período</div>
+              ` : mais.map((p, i) => `
+                <div class="rank-item rank-item--topo">
+                  <div class="rank-item__pos">${i + 1}</div>
+                  <div class="rank-item__info">
+                    <div class="rank-item__nome">${escaparHTML(p.nome)}</div>
+                    ${p.sku ? `<span class="sku">${escaparHTML(p.sku)}</span>` : ''}
+                  </div>
+                  <div class="rank-item__num">
+                    <div class="rank-item__qtd">${p.quantidade}</div>
+                    <div class="rank-item__fat">${formatarMoeda(p.faturamento)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="rank-coluna">
+              <div class="rank-coluna__titulo">
+                ${ICONES.seta_baixo}
+                Menos vendidos
+              </div>
+              ${menos.length === 0 ? `
+                <div class="rank-vazio">Sem vendas no período</div>
+              ` : menos.map((p, i) => `
+                <div class="rank-item rank-item--base">
+                  <div class="rank-item__pos">${i + 1}</div>
+                  <div class="rank-item__info">
+                    <div class="rank-item__nome">${escaparHTML(p.nome)}</div>
+                    ${p.sku ? `<span class="sku">${escaparHTML(p.sku)}</span>` : ''}
+                  </div>
+                  <div class="rank-item__num">
+                    <div class="rank-item__qtd">${p.quantidade}</div>
+                    <div class="rank-item__fat">${formatarMoeda(p.faturamento)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     9. RENDER — REPOSIÇÃO
+     ========================================================== */
+
+  function renderReposicao() {
+    const lista = produtosParaRepor();
+    const listaCurta = lista.slice(0, 6);
+
+    return `
+      <div class="card mb-6">
+        <div class="card__header">
+          <div>
+            <h3 class="card__titulo">Precisa repor</h3>
+            <p class="card__subtitulo">
+              ${lista.length === 0
+                ? 'Nenhum produto abaixo do mínimo'
+                : `${lista.length} ${lista.length === 1 ? 'produto' : 'produtos'} abaixo do estoque mínimo`}
+            </p>
+          </div>
+          ${lista.length > 6 ? `
+            <button class="btn btn--ghost btn--sm" data-rota="produtos">
+              Ver todos
+            </button>
+          ` : ''}
+        </div>
+        <div class="card__body">
+          ${lista.length === 0 ? `
+            <div class="alerta alerta--sucesso">
+              <span class="alerta__icone">
+                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <div class="alerta__conteudo">
+                <div class="alerta__titulo">Estoque em ordem</div>
+                Todos os produtos estão acima do estoque mínimo.
+              </div>
+            </div>
+          ` : `
+            <table class="tabela tabela-reposicao">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th class="tabela__numero">Atual</th>
+                  <th class="tabela__numero">Mínimo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${listaCurta.map(p => `
+                  <tr>
+                    <td>
+                      <div class="produto-nome">${escaparHTML(p.nome)}</div>
+                      ${p.sku ? `<span class="sku">${escaparHTML(p.sku)}</span>` : ''}
+                    </td>
+                    <td class="tabela__numero peso-semibold">
+                      ${p.atual} ${escaparHTML(p.unidade || 'un')}
+                    </td>
+                    <td class="tabela__numero text-secundario">
+                      ${p.minimo}
+                    </td>
+                    <td>${renderBadgeStatus(p.status)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBadgeStatus(status) {
+    if (status === 'zerado')  return '<span class="badge badge--critico">Zerado</span>';
+    if (status === 'critico') return '<span class="badge badge--critico">Crítico</span>';
+    if (status === 'atencao') return '<span class="badge badge--atencao">Atenção</span>';
+    return '<span class="badge badge--sucesso">OK</span>';
+  }
+
+  /* ==========================================================
+     10. RENDER — ALERTAS
+     ========================================================== */
+
   function renderAlertas(k) {
     const alertas = [];
 
@@ -209,23 +458,23 @@ const MODULO_INICIO = (() => {
       alertas.push({
         tipo: 'critico',
         titulo: `${k.encomendasAtrasadas} encomenda${k.encomendasAtrasadas > 1 ? 's' : ''} atrasada${k.encomendasAtrasadas > 1 ? 's' : ''}`,
-        texto: 'Verifique o prazo de entrega no módulo Encomendas.'
-      });
-    }
-
-    if (k.estoqueBaixo > 0) {
-      alertas.push({
-        tipo: 'atencao',
-        titulo: `${k.estoqueBaixo} produto${k.estoqueBaixo > 1 ? 's' : ''} com estoque baixo`,
-        texto: 'Considere repor antes de novas vendas.'
+        texto: 'Verifique o prazo no módulo Encomendas.'
       });
     }
 
     if (k.vencidos > 0) {
       alertas.push({
         tipo: 'critico',
-        titulo: `Contas vencidas`,
-        texto: `Existem lançamentos em atraso no Financeiro.`
+        titulo: 'Contas vencidas',
+        texto: 'Existem lançamentos em atraso no Financeiro.'
+      });
+    }
+
+    if (k.estoqueBaixo > 0) {
+      alertas.push({
+        tipo: 'atencao',
+        titulo: `${k.estoqueBaixo} produto${k.estoqueBaixo > 1 ? 's' : ''} para repor`,
+        texto: 'Veja a lista de reposição acima.'
       });
     }
 
@@ -234,8 +483,8 @@ const MODULO_INICIO = (() => {
         <div class="alerta alerta--info">
           <span class="alerta__icone">${ICONES.raio}</span>
           <div class="alerta__conteudo">
-            <div class="alerta__titulo">Bem-vindo ao PraFicar</div>
-            Cadastre canais e produtos para começar. Os alertas aparecem aqui automaticamente.
+            <div class="alerta__titulo">Tudo em ordem</div>
+            Nenhum alerta crítico no momento.
           </div>
         </div>
       `;
@@ -253,11 +502,24 @@ const MODULO_INICIO = (() => {
   }
 
   /* ==========================================================
-     5. API PÚBLICA
+     11. AÇÕES
+     ========================================================== */
+
+  function alterarPeriodoRanking(dias) {
+    periodoRanking = dias;
+    const container = document.getElementById('conteudo-tela');
+    if (container && window.ROUTER_PRAFICAR?.obterRotaAtual() === 'inicio') {
+      container.innerHTML = render();
+    }
+  }
+
+  /* ==========================================================
+     12. API PÚBLICA
      ========================================================== */
 
   return {
-    render
+    render,
+    alterarPeriodoRanking
   };
 
 })();
