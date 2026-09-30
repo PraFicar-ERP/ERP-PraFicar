@@ -1,8 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO VENDAS (v3 com desconto e bonificação)
+   PRAFICAR ERP — MÓDULO VENDAS (v4 com preço por canal)
    Arquivo: assets/js/modulos/vendas.js
-   Descrição: registro de vendas por canal com lucro líquido real,
-              desconto por item, bonificação e alerta de prejuízo.
+   Descrição: vendas com desconto, bonificação e preço por canal.
+              Ao escolher produto, puxa automaticamente o preço
+              específico do canal selecionado.
    ============================================================ */
 
 const MODULO_VENDAS = (() => {
@@ -44,11 +45,11 @@ const MODULO_VENDAS = (() => {
   ];
 
   const MOTIVOS_BONIFICACAO = [
-    { codigo: 'brinde',       nome: 'Brinde' },
-    { codigo: 'cortesia',     nome: 'Cortesia' },
-    { codigo: 'amostra',      nome: 'Amostra grátis' },
-    { codigo: 'agradecimento',nome: 'Agradecimento' },
-    { codigo: 'outro',        nome: 'Outro' }
+    { codigo: 'brinde',        nome: 'Brinde' },
+    { codigo: 'cortesia',      nome: 'Cortesia' },
+    { codigo: 'amostra',       nome: 'Amostra grátis' },
+    { codigo: 'agradecimento', nome: 'Agradecimento' },
+    { codigo: 'outro',         nome: 'Outro' }
   ];
 
   function nomeFormaPagamento(codigo) {
@@ -84,13 +85,6 @@ const MODULO_VENDAS = (() => {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
-  function formatarMoedaFina(v) {
-    const n = Number(v) || 0;
-    if (n === 0) return 'R$ 0,00';
-    if (n < 0.01) return `R$ ${n.toFixed(4).replace('.', ',')}`;
-    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
   function formatarData(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -114,7 +108,6 @@ const MODULO_VENDAS = (() => {
 
   function listarProdutosAtivos() {
     const lista = (window.MODULO_PRODUTOS?._listar() || []).filter(p => p.status === 'ativo');
-    // Ordem alfabética
     return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   }
 
@@ -127,7 +120,36 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     5. CÁLCULO DA VENDA COM DESCONTO E BONIFICAÇÃO
+     5. PREÇO POR CANAL
+     ========================================================== */
+
+  // Retorna o preço do produto para um canal específico
+  function precoDoProdutoNoCanal(produto, canalId) {
+    if (!produto) return { preco: 0, origem: 'sem produto' };
+
+    // Se tem preço específico para o canal, usa
+    if (canalId && produto.precosCanal && produto.precosCanal[canalId] > 0) {
+      return {
+        preco: Number(produto.precosCanal[canalId]),
+        origem: 'preco-canal'
+      };
+    }
+
+    // Senão, usa o preço base de varejo
+    return {
+      preco: Number(produto.precoVarejo) || 0,
+      origem: 'preco-base'
+    };
+  }
+
+  function nomeOrigemPreco(origem, canalNome) {
+    if (origem === 'preco-canal') return `Preço ${canalNome || 'do canal'}`;
+    if (origem === 'preco-base') return 'Preço base';
+    return '—';
+  }
+
+  /* ==========================================================
+     6. CÁLCULO DA VENDA
      ========================================================== */
 
   function calcularVenda(itens, canalId, freteVendedor) {
@@ -136,8 +158,8 @@ const MODULO_VENDAS = (() => {
     const taxaFixa = canal ? Number(canal.taxaFixa) || 0 : 0;
     const frete = Number(freteVendedor) || 0;
 
-    let subtotalTabela = 0;   // preço de tabela × quantidade
-    let subtotalPraticado = 0; // preço praticado (com desconto/bonificação) × quantidade
+    let subtotalTabela = 0;
+    let subtotalPraticado = 0;
     let descontoTotal = 0;
     let custoTotal = 0;
     let bonificacoes = 0;
@@ -162,13 +184,7 @@ const MODULO_VENDAS = (() => {
     const lucro = subtotalPraticado - custoTotal - taxaCanalValor - taxaFixa - frete;
     const margem = subtotalPraticado > 0 ? (lucro / subtotalPraticado) * 100 : 0;
 
-    // Análise de viabilidade
-    const precoMinimoParaLucro = calcularPrecoMinimo(
-      custoTotal,
-      taxaPct,
-      taxaFixa,
-      frete
-    );
+    const precoMinimoParaLucro = calcularPrecoMinimo(custoTotal, taxaPct, taxaFixa, frete);
 
     return {
       subtotalTabela,
@@ -188,15 +204,13 @@ const MODULO_VENDAS = (() => {
   }
 
   function calcularPrecoMinimo(custoTotal, taxaPct, taxaFixa, frete) {
-    // preço tal que lucro = 0
-    // preco × (1 - taxaPct/100) = custoTotal + taxaFixa + frete
     const divisor = 1 - (taxaPct / 100);
     if (divisor <= 0.01) return 0;
     return Math.round(((custoTotal + taxaFixa + frete) / divisor) * 100) / 100;
   }
 
   /* ==========================================================
-     6. CRUD
+     7. CRUD
      ========================================================== */
 
   function criarVenda(dados) {
@@ -243,11 +257,7 @@ const MODULO_VENDAS = (() => {
   function cancelarVenda(id) {
     const v = vendas.find(x => x.id === id);
     if (!v) return false;
-
-    if (v.status !== 'cancelada') {
-      estornarEstoque(v);
-    }
-
+    if (v.status !== 'cancelada') estornarEstoque(v);
     v.status = 'cancelada';
     v.atualizadoEm = new Date().toISOString();
     return true;
@@ -258,7 +268,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     7. BAIXA E ESTORNO DE ESTOQUE
+     8. BAIXA E ESTORNO DE ESTOQUE
      ========================================================== */
 
   function baixarEstoque(venda) {
@@ -280,7 +290,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     8. FILTROS
+     9. FILTROS
      ========================================================== */
 
   function vendasFiltradas() {
@@ -301,7 +311,7 @@ const MODULO_VENDAS = (() => {
   function alterarFiltroStatus(v) { filtroStatus = v; rerender(); }
 
   /* ==========================================================
-     9. KPIs
+     10. KPIs
      ========================================================== */
 
   function calcularKPIs() {
@@ -316,7 +326,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     10. RENDER — TELA PRINCIPAL
+     11. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -414,7 +424,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     11. RENDER — TABELA
+     12. RENDER — TABELA
      ========================================================== */
 
   function renderTabela() {
@@ -432,7 +442,7 @@ const MODULO_VENDAS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${vendas.length === 0
-                ? 'Registre a primeira venda. O sistema avisa se a venda der prejuízo.'
+                ? 'Registre a primeira venda. O preço é puxado automaticamente do canal.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${vendas.length === 0 ? `
@@ -512,7 +522,7 @@ const MODULO_VENDAS = (() => {
     `;
   }
      /* ==========================================================
-     12. MODAL — NOVA VENDA
+     13. MODAL — NOVA VENDA
      ========================================================== */
 
   function abrirNovo() {
@@ -558,7 +568,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     13. FORMULÁRIO DA VENDA
+     14. FORMULÁRIO DA VENDA
      ========================================================== */
 
   function renderFormVenda() {
@@ -570,8 +580,8 @@ const MODULO_VENDAS = (() => {
         </div>
 
         <div class="form-grupo">
-          <label for="venda-canal">Canal de venda</label>
-          <select id="venda-canal" onchange="MODULO_VENDAS.atualizarResumoVenda()">
+          <label for="venda-canal">Canal de venda <span class="form-obrigatorio">*</span></label>
+          <select id="venda-canal" onchange="MODULO_VENDAS.aoMudarCanal()">
             <option value="">Venda direta (sem canal)</option>
             ${listarCanaisAtivos().map(c => `
               <option value="${c.id}">
@@ -579,6 +589,7 @@ const MODULO_VENDAS = (() => {
               </option>
             `).join('')}
           </select>
+          <span class="form-ajuda">O canal define a taxa e o preço do produto.</span>
         </div>
       </div>
 
@@ -638,6 +649,25 @@ const MODULO_VENDAS = (() => {
     `;
   }
 
+  function aoMudarCanal() {
+    // Recalcula o preço de todos os itens já adicionados
+    const canalId = document.getElementById('venda-canal')?.value || '';
+
+    itensVendaTemporarios = itensVendaTemporarios.map(item => {
+      const produto = buscarProduto(item.produtoId);
+      if (!produto) return item;
+      const { preco, origem } = precoDoProdutoNoCanal(produto, canalId);
+      return {
+        ...item,
+        preco,
+        origemPreco: origem
+      };
+    });
+
+    atualizarListaItensForm();
+    atualizarResumoVenda();
+  }
+
   function renderListaItens(itens) {
     if (itens.length === 0) {
       return `
@@ -650,13 +680,17 @@ const MODULO_VENDAS = (() => {
       `;
     }
 
+    const canalId = document.getElementById('venda-canal')?.value || '';
+    const canal = buscarCanal(canalId);
+    const canalNome = canal ? canal.nome : '';
+
     return `
       <table class="tabela tabela-itens">
         <thead>
           <tr>
             <th>Produto</th>
             <th class="tabela__numero">Qtd</th>
-            <th class="tabela__numero">Tabela</th>
+            <th class="tabela__numero">Preço</th>
             <th class="tabela__numero">Desconto</th>
             <th class="tabela__numero">Praticado</th>
             <th class="tabela__numero">Subtotal</th>
@@ -672,6 +706,7 @@ const MODULO_VENDAS = (() => {
                 <td>
                   <div class="enc-item-nome">${escaparHTML(i.nome)}</div>
                   ${i.sku ? `<span class="sku">${escaparHTML(i.sku)}</span>` : ''}
+                  ${i.origemPreco ? `<div class="venda-item-origem">${nomeOrigemPreco(i.origemPreco, canalNome)}</div>` : ''}
                   ${i.bonificacao ? `<span class="badge badge--info mt-1">${escaparHTML(nomeMotivoBonificacao(i.motivoBonificacao))}</span>` : ''}
                 </td>
                 <td class="tabela__numero">${i.quantidade}</td>
@@ -694,11 +729,27 @@ const MODULO_VENDAS = (() => {
     `;
   }
 
+  function atualizarListaItensForm() {
+    const container = document.getElementById('venda-lista-itens');
+    if (container) container.innerHTML = renderListaItens(itensVendaTemporarios);
+  }
+
   /* ==========================================================
-     14. MODAL DE ITEM
+     15. MODAL DE ITEM
      ========================================================== */
 
   function abrirModalItem() {
+    const canalId = document.getElementById('venda-canal')?.value || '';
+    const canal = buscarCanal(canalId);
+
+    if (!canalId) {
+      const ok = confirm(
+        'Nenhum canal selecionado.\n\n' +
+        'Sem canal, o preço será o base (varejo). Deseja continuar?'
+      );
+      if (!ok) return;
+    }
+
     const produtos = listarProdutosAtivos();
 
     const html = `
@@ -712,6 +763,23 @@ const MODULO_VENDAS = (() => {
           </div>
 
           <div class="modal__body">
+            ${canal ? `
+              <div class="venda-item-canal-info">
+                <strong>Canal:</strong> ${escaparHTML(canal.nome)}
+                <span class="text-secundario">· ${canal.taxaPercentual}% + ${formatarMoeda(canal.taxaFixa)}</span>
+              </div>
+            ` : `
+              <div class="alerta alerta--atencao">
+                <span class="alerta__icone">
+                  <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                </span>
+                <div class="alerta__conteudo">
+                  <div class="alerta__titulo">Sem canal selecionado</div>
+                  O preço base será usado. Sem taxa de canal.
+                </div>
+              </div>
+            `}
+
             <div class="form-grupo">
               <label for="venda-item-produto">Produto</label>
               <select id="venda-item-produto" onchange="MODULO_VENDAS.preencherItemProduto()">
@@ -721,7 +789,6 @@ const MODULO_VENDAS = (() => {
                     value="${p.id}"
                     data-nome="${escaparHTML(p.nome)}"
                     data-sku="${escaparHTML(p.sku)}"
-                    data-preco="${p.precoVarejo}"
                     data-custo="${p.custo}"
                     data-estoque="${p.estoqueAtual}"
                   >
@@ -740,6 +807,7 @@ const MODULO_VENDAS = (() => {
               <div class="form-grupo">
                 <label for="venda-item-preco">Preço tabela (R$)</label>
                 <input id="venda-item-preco" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_VENDAS.recalcularPreviewItem()" />
+                <span class="form-ajuda" id="venda-item-preco-origem"></span>
               </div>
             </div>
 
@@ -803,8 +871,29 @@ const MODULO_VENDAS = (() => {
   function preencherItemProduto() {
     const sel = document.getElementById('venda-item-produto');
     if (!sel || !sel.value) return;
+
     const opt = sel.options[sel.selectedIndex];
-    document.getElementById('venda-item-preco').value = opt.dataset.preco || '';
+    const produto = buscarProduto(Number(sel.value));
+    const canalId = document.getElementById('venda-canal')?.value || '';
+    const canal = buscarCanal(canalId);
+
+    // Puxa o preço do canal automaticamente
+    const { preco, origem } = precoDoProdutoNoCanal(produto, canalId);
+    document.getElementById('venda-item-preco').value = preco.toFixed(2);
+
+    // Mostra a origem do preço
+    const elOrigem = document.getElementById('venda-item-preco-origem');
+    if (elOrigem) {
+      if (origem === 'preco-canal') {
+        elOrigem.textContent = `Preço ${canal ? canal.nome : 'do canal'}`;
+        elOrigem.style.color = 'var(--azul-medio)';
+        elOrigem.style.fontWeight = '600';
+      } else {
+        elOrigem.textContent = 'Preço base (varejo)';
+        elOrigem.style.color = 'var(--cor-texto-secundario)';
+        elOrigem.style.fontWeight = '';
+      }
+    }
 
     const aviso = document.getElementById('venda-item-estoque-aviso');
     const estoque = Number(opt.dataset.estoque || 0);
@@ -890,6 +979,10 @@ const MODULO_VENDAS = (() => {
       return alert('Desconto maior que o preço.');
     }
 
+    const canalId = document.getElementById('venda-canal')?.value || '';
+    const produto = buscarProduto(produtoId);
+    const { origem } = precoDoProdutoNoCanal(produto, canalId);
+
     itensVendaTemporarios.push({
       produtoId,
       nome,
@@ -899,7 +992,8 @@ const MODULO_VENDAS = (() => {
       custo,
       desconto,
       bonificacao,
-      motivoBonificacao
+      motivoBonificacao,
+      origemPreco: origem
     });
 
     atualizarListaItensForm();
@@ -913,13 +1007,8 @@ const MODULO_VENDAS = (() => {
     atualizarResumoVenda();
   }
 
-  function atualizarListaItensForm() {
-    const container = document.getElementById('venda-lista-itens');
-    if (container) container.innerHTML = renderListaItens(itensVendaTemporarios);
-  }
-
   /* ==========================================================
-     15. RESUMO E ALERTA DE PREJUÍZO
+     16. RESUMO E ALERTA DE PREJUÍZO
      ========================================================== */
 
   function atualizarResumoVenda() {
@@ -983,7 +1072,6 @@ const MODULO_VENDAS = (() => {
           <div class="alerta__conteudo">
             <div class="alerta__titulo">⚠️ Esta venda vai dar prejuízo de ${formatarMoeda(Math.abs(r.lucro))}</div>
             Para não ter prejuízo, o preço mínimo seria <strong>${formatarMoeda(r.precoMinimoParaLucro)}</strong>.
-            Verifique a taxa do canal e o frete pago por você.
           </div>
         </div>
       ` : ''}
@@ -995,7 +1083,7 @@ const MODULO_VENDAS = (() => {
           </span>
           <div class="alerta__conteudo">
             <div class="alerta__titulo">Margem abaixo de 30%</div>
-            Esta venda tem margem de ${r.margem.toFixed(1).replace('.', ',')}%. Considere revisar o preço ou o canal.
+            Considere revisar o preço ou o canal.
           </div>
         </div>
       ` : ''}
@@ -1003,7 +1091,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     16. SALVAR VENDA
+     17. SALVAR VENDA
      ========================================================== */
 
   function salvar() {
@@ -1017,7 +1105,6 @@ const MODULO_VENDAS = (() => {
     const r = calcularVenda(itensVendaTemporarios, canalId, frete);
     const canal = buscarCanal(canalId);
 
-    // Bloqueio com confirmação em caso de prejuízo
     if (r.lucro < 0) {
       const continuar = confirm(
         `⚠️ ATENÇÃO\n\n` +
@@ -1060,7 +1147,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     17. DETALHES DA VENDA
+     18. DETALHES DA VENDA
      ========================================================== */
 
   function verDetalhes(id) {
@@ -1188,7 +1275,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     18. CANCELAMENTO
+     19. CANCELAMENTO
      ========================================================== */
 
   function confirmarCancelamento(id) {
@@ -1204,7 +1291,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     19. RERENDER
+     20. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -1220,7 +1307,7 @@ const MODULO_VENDAS = (() => {
   }
 
   /* ==========================================================
-     20. API PÚBLICA
+     21. API PÚBLICA
      ========================================================== */
 
   return {
@@ -1228,6 +1315,7 @@ const MODULO_VENDAS = (() => {
     abrirNovo,
     abrirModal,
     fecharModal,
+    aoMudarCanal,
     abrirModalItem,
     fecharModalItem,
     preencherItemProduto,
@@ -1247,6 +1335,7 @@ const MODULO_VENDAS = (() => {
     _listar: () => [...vendas],
     _buscar: buscarVenda,
     _calcularVenda: calcularVenda,
+    _precoDoProdutoNoCanal: precoDoProdutoNoCanal,
     FORMAS_PAGAMENTO,
     STATUS_VENDA,
     MOTIVOS_BONIFICACAO
