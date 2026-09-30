@@ -1,15 +1,11 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR (v3)
    Arquivo: assets/css/modulos/precificar.css
-   ============================================================ */
-
-/* ============================================================
-   1. LAYOUT EM 2 COLUNAS
    ============================================================ */
 
 .precificar-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   gap: var(--esp-5);
   align-items: start;
 }
@@ -26,8 +22,29 @@
   top: calc(var(--altura-header) + var(--esp-4));
 }
 
+.form-linha-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-3);
+}
+
+.prec-info-calc {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ============================================================
-   2. LISTA DE INSUMOS
+   1. LISTA DE INSUMOS
    ============================================================ */
 
 .insumos-vazio {
@@ -55,20 +72,191 @@
   border-bottom: none;
 }
 
-.insumo-subtotal {
-  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
-  font-size: var(--texto-md);
-  font-weight: var(--peso-bold);
-  color: var(--azul-marinho);
+/* ============================================================
+   2. BLOCOS DO MODAL DE INSUMO
+   ============================================================ */
+
+.ins-bloco {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.ins-bloco__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ins-bloco__opcional {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-regular);
+  color: var(--cor-texto-secundario);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ins-resultado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+}
+
+.ins-resultado__item {
   padding: var(--esp-3) var(--esp-4);
-  background-color: var(--azul-suave);
+  background-color: var(--cinza-50);
   border-radius: var(--raio-md);
-  letter-spacing: 0.02em;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.ins-resultado__item--destaque {
+  background-color: var(--azul-suave);
+}
+
+.ins-resultado__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.ins-resultado__item--destaque .ins-resultado__label {
+  color: var(--azul-medio);
+}
+
+.ins-resultado__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+}
+
+.ins-resultado__item--destaque .ins-resultado__valor {
+  color: var(--azul-marinho);
 }
 
 /* ============================================================
-   3. CARD DE RESULTADO
+   3. IMPRESSORA
+   ============================================================ */
+
+.prec-impressora-info {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.imp-linha {
+  margin-bottom: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.imp-linha:last-of-type {
+  border-bottom: none;
+}
+
+.imp-linha__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+}
+
+.imp-cor {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.imp-cor--preto   { background-color: #1F2733; }
+.imp-cor--ciano   { background-color: #00B8D4; }
+.imp-cor--magenta { background-color: #E91E63; }
+.imp-cor--amarelo { background-color: #FFC107; }
+
+.imp-totais {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  margin-top: var(--esp-4);
+}
+
+.imp-totais > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+}
+
+.imp-totais strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   4. SLIDER DE MARGEM
+   ============================================================ */
+
+.margem-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+}
+
+.margem-slider__btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-md);
+  background-color: var(--cinza-100);
+  border: 1px solid var(--cor-borda-suave);
+  color: var(--cor-texto-padrao);
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida), color var(--transicao-rapida);
+}
+
+.margem-slider__btn:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+}
+
+.margem-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--azul-medio);
+  height: 6px;
+}
+
+.margem-slider__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  min-width: 64px;
+  text-align: right;
+}
+
+/* ============================================================
+   5. CARD DE RESULTADO
    ============================================================ */
 
 .resultado-card {
@@ -101,7 +289,6 @@
   font-size: var(--texto-2xl);
   font-weight: var(--peso-bold);
   color: var(--cor-texto-principal);
-  letter-spacing: var(--letra-apertada);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -129,19 +316,18 @@
 .resultado-card__preco {
   font-size: var(--texto-3xl);
   font-weight: var(--peso-bold);
-  letter-spacing: var(--letra-apertada);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.resultado-card__grid {
+.resultado-card__grid-3 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   border-bottom: 1px solid var(--cor-borda-suave);
 }
 
 .resultado-card__item {
-  padding: var(--esp-4) var(--esp-5);
+  padding: var(--esp-4) var(--esp-3);
   display: flex;
   flex-direction: column;
   gap: var(--esp-1);
@@ -161,27 +347,75 @@
 }
 
 .resultado-card__item-valor {
-  font-size: var(--texto-xl);
+  font-size: var(--texto-md);
   font-weight: var(--peso-bold);
   font-variant-numeric: tabular-nums;
-  letter-spacing: var(--letra-apertada);
+  color: var(--cor-texto-principal);
 }
 
-.resultado-card__detalhes {
-  border-radius: 0;
-  border-top: 1px solid var(--cor-borda-suave);
-  height: 44px;
-  font-weight: var(--peso-semibold);
+.resultado-card__acrescimo {
+  padding: var(--esp-3) var(--esp-5);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-50);
+}
+
+.resultado-card__acrescimo strong {
+  color: var(--cor-texto-principal);
 }
 
 /* ============================================================
-   4. DETALHAMENTO DO CÁLCULO
+   6. CARD MERCADO
+   ============================================================ */
+
+.card--compacto {
+  box-shadow: var(--sombra-xs);
+}
+
+.mercado-faixas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+}
+
+.mercado-faixa {
+  padding: var(--esp-3);
+  border-radius: var(--raio-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.mercado-faixa--eco     { background-color: var(--verde-suave); color: #1E6B3E; }
+.mercado-faixa--mercado { background-color: var(--azul-suave); color: var(--azul-marinho); }
+.mercado-faixa--premium { background-color: var(--ambar-suave); color: #8A5D0A; }
+
+.mercado-faixa__label {
+  font-size: 10px;
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  opacity: 0.8;
+}
+
+.mercado-faixa__valor {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   7. DETALHAMENTO
    ============================================================ */
 
 .resultado-detalhes {
+  margin-top: var(--esp-3);
   padding: var(--esp-4) var(--esp-5);
   background-color: var(--cinza-50);
-  border-top: 1px solid var(--cor-borda-suave);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
 }
 
 .calculo-detalhado__titulo {
@@ -216,11 +450,53 @@
 
 .calculo-linha span:last-child {
   font-variant-numeric: tabular-nums;
-  font-weight: var(--peso-medio);
 }
 
 /* ============================================================
-   5. RESPONSIVO
+   8. MODAL SALVAR COMO PRODUTO
+   ============================================================ */
+
+.resumo-salvar {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-4) var(--esp-5);
+  margin-bottom: var(--esp-5);
+}
+
+.resumo-salvar__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.resumo-salvar__linha:last-child {
+  border-bottom: none;
+}
+
+.resumo-salvar__linha strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resumo-salvar__linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.resumo-salvar__linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   9. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 1024px) {
@@ -231,5 +507,24 @@
   .precificar-resultado {
     position: static;
     order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .resultado-card__grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .resultado-card__item + .resultado-card__item {
+    border-left: none;
+    border-top: 1px solid var(--cor-borda-suave);
+  }
+
+  .mercado-faixas {
+    grid-template-columns: 1fr;
+  }
+
+  .ins-resultado {
+    grid-template-columns: 1fr;
   }
 }
