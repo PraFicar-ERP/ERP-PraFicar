@@ -22,10 +22,10 @@ produtos sob encomenda.
 ## Escopo desta versão
 
 ### Dentro do escopo
-- Cadastro de insumos e produtos
+- Cadastro de insumos e produtos com **SKU automático** no padrão PraFicar
 - Precificação inteligente (insumo + perdas + mão de obra + energia + embalagem)
 - **Preço por canal de venda** (Instagram, Shopee, Mercado Livre, site, WhatsApp, físico)
-- **Taxas de plataforma** (percentual + fixa)
+- **Taxas de plataforma** (percentual + fixa por canal)
 - **Frete** por canal (vendedor / cliente / dividido)
 - Estoque com reserva, baixa, ajuste e histórico
 - Encomendas com fluxo de status e aprovação de arte
