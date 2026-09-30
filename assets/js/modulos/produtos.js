@@ -1,12 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS (v5 com KIT)
+   PRAFICAR ERP — MÓDULO PRODUTOS (v6 com preço por canal)
    Arquivo: assets/js/modulos/produtos.js
-   Descrição: cadastro, listagem, edição e exclusão lógica.
-              - Tipo: Simples ou Composto (Kit)
-              - Se Composto: componentes + custo automático
-              - Margem mínima editável por produto
-              - Ordem alfabética por nome
+   Descrição: cadastro completo com:
+              - Tipo Simples / Composto (Kit)
+              - Margem mínima editável
+              - Preços específicos por canal
               - Toggle de ativo/inativo + ação em massa
+              - Ordem alfabética + pesquisa
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -27,9 +27,8 @@ const MODULO_PRODUTOS = (() => {
 
   let produtoEditandoId = null;
   let selecionados = new Set();
-
-  // Componentes sendo montados no modal (temporário)
   let componentesTemporarios = [];
+  let precosCanalTemporarios = {}; // { [canalId]: preco }
 
   const MARGEM_MINIMA_PADRAO = 30;
 
@@ -50,12 +49,15 @@ const MODULO_PRODUTOS = (() => {
     return (window.MODULO_CANAIS?._listar() || []).filter(c => c.status === 'ativo');
   }
 
+  function buscarCanal(id) {
+    return window.MODULO_CANAIS?._buscar(id) || null;
+  }
+
   function nomeCanal(id) {
-    const c = window.MODULO_CANAIS?._buscar(id);
+    const c = buscarCanal(id);
     return c ? c.nome : '—';
   }
 
-  // Produtos que podem ser componentes (simples, ativos)
   function produtosDisponiveisComoComponente(excluirId) {
     return produtos
       .filter(p => p.status === 'ativo' && p.tipo !== 'composto' && p.id !== excluirId)
@@ -86,8 +88,12 @@ const MODULO_PRODUTOS = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  function arredondar2(v) {
+    return Math.round((Number(v) + Number.EPSILON) * 100) / 100;
+  }
+
   /* ==========================================================
-     4. CÁLCULO DE MARGEM E CUSTO DO KIT
+     4. CÁLCULOS
      ========================================================== */
 
   function calcularMargem(produto) {
@@ -105,14 +111,12 @@ const MODULO_PRODUTOS = (() => {
     return margem < minima && Number(produto.precoVarejo) > 0;
   }
 
-  // Calcula custo total dos componentes
   function calcularCustoComponentes(componentes) {
     return componentes.reduce((acc, c) => {
       return acc + (Number(c.custoUnitario) || 0) * (Number(c.quantidade) || 0);
     }, 0);
   }
 
-  // Reconstrói os componentes com custo atual do produto
   function sincronizarComponentes(componentes) {
     return componentes.map(c => {
       const produto = buscarProduto(c.produtoId);
@@ -124,6 +128,39 @@ const MODULO_PRODUTOS = (() => {
         custoUnitario: produto ? Number(produto.custo) || 0 : Number(c.custoUnitario) || 0
       };
     });
+  }
+
+  // Sugere preço mínimo para um canal, considerando custo, taxa % + fixa e margem mínima
+  function sugerirPrecoParaCanal(custo, canal, margemMinima) {
+    if (!canal) return 0;
+
+    const taxaPct = Number(canal.taxaPercentual) || 0;
+    const taxaFixa = Number(canal.taxaFixa) || 0;
+    const frete = Number(canal.freteVendedor) || 0;
+    const margem = Math.min(95, Math.max(0, margemMinima)) / 100;
+
+    const divisor = 1 - margem - (taxaPct / 100);
+    if (divisor <= 0.01) return 0;
+
+    return arredondar2((custo + taxaFixa + frete) / divisor);
+  }
+
+  // Calcula margem real de um preço num canal específico
+  function calcularMargemCanal(custo, preco, canal) {
+    if (!canal || preco <= 0) {
+      const lucro = preco - custo;
+      return { margem: preco > 0 ? (lucro / preco) * 100 : 0, lucro };
+    }
+
+    const taxaPct = Number(canal.taxaPercentual) || 0;
+    const taxaFixa = Number(canal.taxaFixa) || 0;
+    const frete = Number(canal.freteVendedor) || 0;
+
+    const taxaCanalValor = preco * (taxaPct / 100);
+    const lucro = preco - custo - taxaCanalValor - taxaFixa - frete;
+    const margem = preco > 0 ? (lucro / preco) * 100 : 0;
+
+    return { margem, lucro, taxaCanalValor, taxaFixa, frete };
   }
 
   /* ==========================================================
@@ -151,6 +188,7 @@ const MODULO_PRODUTOS = (() => {
       custo,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
+      precosCanal: dados.precosCanal || {},     // { [canalId]: preco }
       margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
@@ -220,6 +258,7 @@ const MODULO_PRODUTOS = (() => {
       custo,
       precoVarejo: Number(dados.precoVarejo) || 0,
       precoAtacado: Number(dados.precoAtacado) || 0,
+      precosCanal: dados.precosCanal || produtos[idx].precosCanal || {},
       margemMinima: Number(dados.margemMinima) || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: Number(dados.estoqueMinimo) || 0,
       estoqueAtual: Number(dados.estoqueAtual) || 0,
@@ -231,9 +270,7 @@ const MODULO_PRODUTOS = (() => {
       window.SKU_PRAFICAR?.registrarExistente(dados.sku);
     }
 
-    // Recalcula kits que usam este produto
     recalcularKitsQueUsam(id);
-
     return produtos[idx];
   }
 
@@ -408,7 +445,7 @@ const MODULO_PRODUTOS = (() => {
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroTipo(this.value)">
           <option value="">Todos os tipos</option>
           <option value="simples"  ${filtroTipo === 'simples'  ? 'selected' : ''}>Simples</option>
-          <option value="composto" ${filtroTipo === 'composto' ? 'selected' : ''}>Composto (Kit)</option>
+          <option value="composto" ${filtroTipo === 'composto' ? 'selected' : ''}>Kit</option>
         </select>
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroCategoria(this.value)">
@@ -427,8 +464,8 @@ const MODULO_PRODUTOS = (() => {
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroMargem(this.value)">
           <option value="">Todas as margens</option>
-          <option value="abaixo" ${filtroMargem === 'abaixo' ? 'selected' : ''}>⚠️ Margem abaixo do mínimo</option>
-          <option value="ok"     ${filtroMargem === 'ok'     ? 'selected' : ''}>✅ Margem adequada</option>
+          <option value="abaixo" ${filtroMargem === 'abaixo' ? 'selected' : ''}>⚠️ Margem abaixo</option>
+          <option value="ok"     ${filtroMargem === 'ok'     ? 'selected' : ''}>✅ Margem ok</option>
         </select>
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroStatus(this.value)">
@@ -519,6 +556,7 @@ const MODULO_PRODUTOS = (() => {
     const minima = Number(p.margemMinima) || MARGEM_MINIMA_PADRAO;
     const margemOk = margem >= minima;
     const isKit = p.tipo === 'composto';
+    const temPrecoCanal = p.precosCanal && Object.keys(p.precosCanal).length > 0;
 
     return `
       <tr>
@@ -534,6 +572,7 @@ const MODULO_PRODUTOS = (() => {
           <div class="produto-nome">
             ${escaparHTML(p.nome)}
             ${isKit ? '<span class="badge badge--info">Kit</span>' : ''}
+            ${temPrecoCanal ? '<span class="badge badge--sucesso">Preço por canal</span>' : ''}
           </div>
           ${p.descricao ? `<div class="produto-desc">${escaparHTML(p.descricao)}</div>` : ''}
           ${isKit && p.componentes?.length ? `
@@ -583,6 +622,7 @@ const MODULO_PRODUTOS = (() => {
   function abrirNovo() {
     produtoEditandoId = null;
     componentesTemporarios = [];
+    precosCanalTemporarios = {};
     abrirModal();
   }
 
@@ -592,6 +632,9 @@ const MODULO_PRODUTOS = (() => {
     componentesTemporarios = p && p.tipo === 'composto'
       ? JSON.parse(JSON.stringify(p.componentes || []))
       : [];
+    precosCanalTemporarios = p && p.precosCanal
+      ? { ...p.precosCanal }
+      : {};
     abrirModal();
   }
 
@@ -601,6 +644,9 @@ const MODULO_PRODUTOS = (() => {
     const canaisAtivos = p ? (p.canais || []) : [];
     const margemMinima = p ? (Number(p.margemMinima) || MARGEM_MINIMA_PADRAO) : MARGEM_MINIMA_PADRAO;
     const tipo = p?.tipo || 'simples';
+    const custoAtual = tipo === 'composto'
+      ? calcularCustoComponentes(componentesTemporarios)
+      : Number(p?.custo || 0);
 
     const html = `
       <div class="modal-overlay ativo" id="modal-produto">
@@ -666,12 +712,12 @@ const MODULO_PRODUTOS = (() => {
                 <textarea id="prod-descricao" placeholder="Detalhes do produto (opcional)">${escaparHTML(p?.descricao || '')}</textarea>
               </div>
 
-              <!-- Bloco Simples: custo + preço manual -->
+              <!-- Bloco Simples -->
               <div id="prod-bloco-simples" style="${tipo === 'simples' ? '' : 'display:none;'}">
                 <div class="form-linha-3">
                   <div class="form-grupo">
                     <label for="prod-custo">Custo real (R$)</label>
-                    <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
+                    <input id="prod-custo" type="number" step="0.01" min="0" value="${p?.custo ?? ''}" placeholder="0,00" oninput="MODULO_PRODUTOS.atualizarPreviewMargem(); MODULO_PRODUTOS.atualizarPrecosCanal();" />
                     <span class="form-ajuda">Vem do Precificador.</span>
                   </div>
                   <div class="form-grupo">
@@ -685,7 +731,7 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
-              <!-- Bloco Composto: componentes + custo calculado -->
+              <!-- Bloco Composto -->
               <div id="prod-bloco-composto" style="${tipo === 'composto' ? '' : 'display:none;'}">
                 <div class="prod-kit-secao">
                   <div class="prod-kit-secao__header">
@@ -715,11 +761,29 @@ const MODULO_PRODUTOS = (() => {
               <div class="prod-margem-bloco">
                 <div class="form-grupo">
                   <label for="prod-margem-minima">Margem mínima aceitável (%)</label>
-                  <input id="prod-margem-minima" type="number" step="1" min="0" max="95" value="${margemMinima}" oninput="MODULO_PRODUTOS.atualizarPreviewMargem()" />
-                  <span class="form-ajuda">Abaixo disso, o sistema avisa nas vendas e no dashboard.</span>
+                  <input id="prod-margem-minima" type="number" step="1" min="0" max="95" value="${margemMinima}" oninput="MODULO_PRODUTOS.atualizarPreviewMargem(); MODULO_PRODUTOS.atualizarPrecosCanal();" />
+                  <span class="form-ajuda">Abaixo disso, o sistema avisa nas vendas.</span>
                 </div>
                 <div class="prod-margem-preview" id="prod-margem-preview">
-                  ${renderPreviewMargem(p?.custo || 0, p?.precoVarejo || 0, margemMinima)}
+                  ${renderPreviewMargem(custoAtual, p?.precoVarejo || 0, margemMinima)}
+                </div>
+              </div>
+
+              <!-- PREÇOS POR CANAL -->
+              <div class="prod-canal-secao">
+                <div class="prod-canal-secao__header">
+                  <div>
+                    <h3 class="prod-canal-secao__titulo">Preços por canal</h3>
+                    <p class="prod-canal-secao__desc">
+                      Defina o preço específico para cada canal. Vazio usa o preço base.
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.sugerirPrecosCanal()">
+                    Sugerir preços
+                  </button>
+                </div>
+                <div id="prod-canal-lista">
+                  ${renderListaPrecosCanal(custoAtual, margemMinima)}
                 </div>
               </div>
 
@@ -745,7 +809,7 @@ const MODULO_PRODUTOS = (() => {
 
               <!-- Canais -->
               <div class="form-grupo">
-                <label>Canais de venda</label>
+                <label>Canais onde o produto é vendido</label>
                 ${canaisDisponiveis().length === 0 ? `
                   <div class="alerta alerta--info">
                     <span class="alerta__icone">
@@ -802,7 +866,128 @@ const MODULO_PRODUTOS = (() => {
     document.getElementById('prod-bloco-simples').style.display = tipo === 'simples' ? '' : 'none';
     document.getElementById('prod-bloco-composto').style.display = tipo === 'composto' ? '' : 'none';
     atualizarPreviewMargem();
+    atualizarPrecosCanal();
   }
+
+  /* ==========================================================
+     11. PREÇOS POR CANAL
+     ========================================================== */
+
+  function renderListaPrecosCanal(custo, margemMinima) {
+    const canais = canaisDisponiveis();
+    if (canais.length === 0) {
+      return `<div class="prod-canal-vazio">Cadastre canais primeiro para definir preços específicos.</div>`;
+    }
+
+    const precoBase = obterPrecoBase();
+
+    return `
+      <table class="tabela tabela-canais">
+        <thead>
+          <tr>
+            <th>Canal</th>
+            <th class="tabela__numero">Taxa</th>
+            <th class="tabela__numero">Preço mínimo</th>
+            <th class="tabela__numero">Meu preço</th>
+            <th class="tabela__numero">Margem</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${canais.map(c => {
+            const precoMinimo = sugerirPrecoParaCanal(custo, c, margemMinima);
+            const precoAtual = precosCanalTemporarios[c.id] !== undefined && precosCanalTemporarios[c.id] !== ''
+              ? Number(precosCanalTemporarios[c.id])
+              : precoBase;
+
+            const { margem, lucro } = calcularMargemCanal(custo, precoAtual, c);
+            const margemOk = margem >= margemMinima;
+            const abaixoMinimo = precoAtual > 0 && precoAtual < precoMinimo - 0.01;
+
+            return `
+              <tr>
+                <td>
+                  <div class="produto-nome">${escaparHTML(c.nome)}</div>
+                  <div class="produto-desc">${c.taxaPercentual}% + ${formatarMoeda(c.taxaFixa)}</div>
+                </td>
+                <td class="tabela__numero text-secundario">${formatarMoeda(precoMinimo)}</td>
+                <td class="tabela__numero">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="input-canal"
+                    value="${precosCanalTemporarios[c.id] ?? ''}"
+                    placeholder="${formatarMoeda(precoBase).replace('R$ ', '')}"
+                    oninput="MODULO_PRODUTOS.atualizarPrecoCanal(${c.id}, this.value)"
+                  />
+                </td>
+                <td class="tabela__numero ${margemOk ? 'text-sucesso' : 'text-critico peso-semibold'}">
+                  ${formatarPercentual(margem)}
+                  ${abaixoMinimo ? '<div class="prod-canal-aviso">Abaixo do mínimo</div>' : ''}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function obterPrecoBase() {
+    const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
+    if (tipo === 'simples') {
+      return Number(document.getElementById('prod-preco-varejo')?.value) || 0;
+    }
+    return Number(document.getElementById('prod-preco-varejo-kit')?.value) || 0;
+  }
+
+  function obterCustoAtual() {
+    const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
+    if (tipo === 'simples') {
+      return Number(document.getElementById('prod-custo')?.value) || 0;
+    }
+    return calcularCustoComponentes(componentesTemporarios);
+  }
+
+  function atualizarPrecoCanal(canalId, valor) {
+    if (valor === '' || valor === null) {
+      delete precosCanalTemporarios[canalId];
+    } else {
+      precosCanalTemporarios[canalId] = Number(valor) || 0;
+    }
+    atualizarPrecosCanal();
+  }
+
+  function atualizarPrecosCanal() {
+    const container = document.getElementById('prod-canal-lista');
+    if (!container) return;
+    const custo = obterCustoAtual();
+    const minima = Number(document.getElementById('prod-margem-minima')?.value) || MARGEM_MINIMA_PADRAO;
+    container.innerHTML = renderListaPrecosCanal(custo, minima);
+  }
+
+  function sugerirPrecosCanal() {
+    const custo = obterCustoAtual();
+    const minima = Number(document.getElementById('prod-margem-minima')?.value) || MARGEM_MINIMA_PADRAO;
+
+    if (custo <= 0) {
+      alert('Informe o custo do produto primeiro.');
+      return;
+    }
+
+    canaisDisponiveis().forEach(c => {
+      const precoMin = sugerirPrecoParaCanal(custo, c, minima);
+      if (precoMin > 0) {
+        precosCanalTemporarios[c.id] = precoMin;
+      }
+    });
+
+    atualizarPrecosCanal();
+  }
+
+  /* ==========================================================
+     12. COMPONENTES DO KIT
+     ========================================================== */
 
   function renderListaComponentes() {
     if (componentesTemporarios.length === 0) {
@@ -863,15 +1048,11 @@ const MODULO_PRODUTOS = (() => {
     if (container) container.innerHTML = renderListaComponentes();
   }
 
-  /* ==========================================================
-     11. MODAL DE COMPONENTE
-     ========================================================== */
-
   function abrirModalComponente() {
     const disponiveis = produtosDisponiveisComoComponente(produtoEditandoId);
 
     if (disponiveis.length === 0) {
-      alert('Nenhum produto simples disponível para adicionar como componente. Cadastre produtos simples primeiro.');
+      alert('Nenhum produto simples disponível para adicionar como componente.');
       return;
     }
 
@@ -939,22 +1120,16 @@ const MODULO_PRODUTOS = (() => {
     const sku = opt.dataset.sku;
     const custoUnitario = Number(opt.dataset.custo || 0);
 
-    // Se o componente já existe, só soma a quantidade
     const existente = componentesTemporarios.find(c => Number(c.produtoId) === produtoId);
     if (existente) {
       existente.quantidade += quantidade;
     } else {
-      componentesTemporarios.push({
-        produtoId,
-        nome,
-        sku,
-        quantidade,
-        custoUnitario
-      });
+      componentesTemporarios.push({ produtoId, nome, sku, quantidade, custoUnitario });
     }
 
     atualizarListaComponentes();
     atualizarPreviewMargem();
+    atualizarPrecosCanal();
     fecharModalComponente();
   }
 
@@ -962,10 +1137,11 @@ const MODULO_PRODUTOS = (() => {
     componentesTemporarios.splice(idx, 1);
     atualizarListaComponentes();
     atualizarPreviewMargem();
+    atualizarPrecosCanal();
   }
 
   /* ==========================================================
-     12. PREVIEW DE MARGEM
+     13. PREVIEW DE MARGEM
      ========================================================== */
 
   function renderPreviewMargem(custo, preco, minima) {
@@ -1020,14 +1196,8 @@ const MODULO_PRODUTOS = (() => {
     if (el) el.innerHTML = renderPreviewMargem(custo, preco, minima);
   }
 
-  function fecharModal() {
-    document.getElementById('modal-produto')?.remove();
-    produtoEditandoId = null;
-    componentesTemporarios = [];
-  }
-
   /* ==========================================================
-     13. SKU
+     14. SKU
      ========================================================== */
 
   function gerarSkuAutomatico(codigoCategoria) {
@@ -1065,15 +1235,21 @@ const MODULO_PRODUTOS = (() => {
     }
   }
 
+  function fecharModal() {
+    document.getElementById('modal-produto')?.remove();
+    produtoEditandoId = null;
+    componentesTemporarios = [];
+    precosCanalTemporarios = {};
+  }
+
   /* ==========================================================
-     14. SALVAR
+     15. SALVAR
      ========================================================== */
 
   function salvar(event) {
     event.preventDefault();
 
     const tipo = document.querySelector('input[name="prod-tipo"]:checked')?.value || 'simples';
-
     const canaisSelecionados = Array.from(
       document.querySelectorAll('input[data-canal]:checked')
     ).map(i => Number(i.value));
@@ -1097,9 +1273,17 @@ const MODULO_PRODUTOS = (() => {
       precoAtacado = Number(document.getElementById('prod-preco-atacado-kit').value) || 0;
     }
 
+    // Filtra apenas preços de canal preenchidos
+    const precosCanal = {};
+    Object.keys(precosCanalTemporarios).forEach(canalId => {
+      const valor = Number(precosCanalTemporarios[canalId]);
+      if (valor > 0) precosCanal[canalId] = valor;
+    });
+
     const dados = {
       tipo,
       componentes,
+      precosCanal,
       categoria:     document.getElementById('prod-categoria').value,
       sku:           document.getElementById('prod-sku').value.trim(),
       nome:          document.getElementById('prod-nome').value.trim(),
@@ -1138,7 +1322,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     15. EXCLUSÃO
+     16. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
@@ -1154,7 +1338,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     16. RERENDER
+     17. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -1170,7 +1354,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     17. API PÚBLICA
+     18. API PÚBLICA
      ========================================================== */
 
   return {
@@ -1183,6 +1367,9 @@ const MODULO_PRODUTOS = (() => {
     fecharModalComponente,
     adicionarComponente,
     removerComponente,
+    atualizarPrecoCanal,
+    atualizarPrecosCanal,
+    sugerirPrecosCanal,
     salvar,
     confirmarExclusao,
     gerarSkuAutomatico,
@@ -1205,6 +1392,8 @@ const MODULO_PRODUTOS = (() => {
     _criarDoPrecificador,
     _calcularMargem: calcularMargem,
     _margemAbaixoDoMinimo: margemAbaixoDoMinimo,
+    _calcularMargemCanal: calcularMargemCanal,
+    _sugerirPrecoParaCanal: sugerirPrecoParaCanal,
     MARGEM_MINIMA_PADRAO
   };
 
