@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — APP PRINCIPAL (v3 com calculadora)
+   PRAFICAR ERP — APP PRINCIPAL (v4)
    Arquivo: assets/js/app.js
    Descrição: inicialização, menu lateral, header, ícones e
               botão da calculadora flutuante.
@@ -97,11 +97,9 @@ const APP_PRAFICAR = (() => {
      ========================================================== */
 
   function iniciar() {
-    // Menu lateral
     const navMenu = document.getElementById('sidebar-menu');
     if (navMenu) navMenu.innerHTML = renderMenu();
 
-    // Botão de recolher sidebar (desktop) / abrir (mobile)
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) {
       btnToggle.addEventListener('click', () => {
@@ -115,7 +113,6 @@ const APP_PRAFICAR = (() => {
       });
     }
 
-    // Overlay mobile
     const overlay = document.getElementById('app-overlay');
     if (overlay) {
       overlay.addEventListener('click', () => {
@@ -123,7 +120,6 @@ const APP_PRAFICAR = (() => {
       });
     }
 
-    // Ícones do header
     const h = document.getElementById('header-acoes');
     if (h) {
       h.innerHTML = `
@@ -137,13 +133,11 @@ const APP_PRAFICAR = (() => {
         </button>
       `;
 
-      // Listener do botão da calculadora
       document.getElementById('btn-calculadora')?.addEventListener('click', () => {
         window.CALCULADORA_PRAFICAR?.alternar();
       });
     }
 
-    // Campo de busca global
     const b = document.querySelector('.header__busca');
     if (b) {
       b.innerHTML = `
@@ -152,7 +146,6 @@ const APP_PRAFICAR = (() => {
       `;
     }
 
-    // Inicia o router por último
     if (window.ROUTER_PRAFICAR) window.ROUTER_PRAFICAR.iniciar();
   }
 
