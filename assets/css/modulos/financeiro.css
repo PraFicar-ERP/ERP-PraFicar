@@ -1,0 +1,195 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO FINANCEIRO
+   Arquivo: assets/css/modulos/financeiro.css
+   ============================================================ */
+
+/* ============================================================
+   1. ABAS
+   ============================================================ */
+
+.fin-abas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-5);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.fin-aba {
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--texto-base);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  margin-bottom: -1px;
+}
+
+.fin-aba:hover {
+  color: var(--cor-texto-principal);
+}
+
+.fin-aba--ativa {
+  color: var(--azul-medio);
+  border-bottom-color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   2. BARRA DE FILTROS
+   ============================================================ */
+
+.filtros-financeiro {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-financeiro__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-financeiro__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-financeiro__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-financeiro__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   3. COLUNAS
+   ============================================================ */
+
+.fin-descricao {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.fin-obs {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+/* ============================================================
+   4. FLUXO DE CAIXA
+   ============================================================ */
+
+.fluxo-semanas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--esp-4);
+}
+
+.fluxo-semana {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-4);
+}
+
+.fluxo-semana__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  margin-bottom: var(--esp-1);
+}
+
+.fluxo-semana__periodo {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.fluxo-semana__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.fluxo-semana__linha:last-child {
+  border-bottom: none;
+}
+
+.fluxo-semana__linha--saldo {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-weight: var(--peso-semibold);
+}
+
+.fluxo-semana__label {
+  color: var(--cor-texto-secundario);
+}
+
+.fluxo-semana__valor {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   5. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .fin-abas {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .fin-aba {
+    white-space: nowrap;
+  }
+
+  .filtros-financeiro {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-financeiro__select {
+    width: 100%;
+  }
+
+  .fluxo-semanas {
+    grid-template-columns: 1fr;
+  }
+
+  .fin-obs {
+    max-width: 200px;
+  }
+}
