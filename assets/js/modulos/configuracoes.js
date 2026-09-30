@@ -1,9 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CONFIGURAÇÕES
+   PRAFICAR ERP — MÓDULO CONFIGURAÇÕES (v2)
    Arquivo: assets/js/modulos/configuracoes.js
-   Descrição: gerenciamento de usuários (com acesso por módulo
-              e ações sensíveis), auditoria, backup/exportação
-              e preferências do sistema.
+   Descrição: usuários, auditoria, backup, preferências
+              (incluindo custos fixos mensais).
    ============================================================ */
 
 const MODULO_CONFIG = (() => {
@@ -17,17 +16,20 @@ const MODULO_CONFIG = (() => {
   let proximoIdUsuario = 1;
   let proximoIdLog = 1;
 
-  let abaAtiva = 'usuarios';  // usuarios | auditoria | backup | preferencias
+  let abaAtiva = 'usuarios';
   let usuarioEditandoId = null;
+
+  // Chave do localStorage para preferências
+  const LS_PREFS = 'praficar_preferencias';
 
   let preferencias = {
     margemPadrao: 40,
     estoqueMinimoPadrao: 5,
-    categoriasSku: null
+    custosFixosMensais: 0
   };
 
   /* ==========================================================
-     2. MÓDULOS E AÇÕES SENSÍVEIS DISPONÍVEIS
+     2. MÓDULOS E AÇÕES
      ========================================================== */
 
   const MODULOS_SISTEMA = [
@@ -57,7 +59,37 @@ const MODULO_CONFIG = (() => {
   ];
 
   /* ==========================================================
-     3. USUÁRIO PADRÃO (para uso em single-user)
+     3. PERSISTÊNCIA DE PREFERÊNCIAS
+     ========================================================== */
+
+  function carregarPreferencias() {
+    try {
+      const raw = localStorage.getItem(LS_PREFS);
+      if (raw) {
+        const salvas = JSON.parse(raw);
+        preferencias = { ...preferencias, ...salvas };
+      }
+    } catch (e) {
+      console.error('[PraFicar] Erro ao carregar preferências:', e);
+    }
+  }
+
+  function salvarPreferenciasLocalStorage() {
+    try {
+      localStorage.setItem(LS_PREFS, JSON.stringify(preferencias));
+      // Chave específica para o dashboard ler
+      localStorage.setItem('praficar_custos_fixos', String(preferencias.custosFixosMensais || 0));
+    } catch (e) {
+      console.error('[PraFicar] Erro ao salvar preferências:', e);
+    }
+  }
+
+  function obterPreferencias() {
+    return { ...preferencias };
+  }
+
+  /* ==========================================================
+     4. USUÁRIO PADRÃO
      ========================================================== */
 
   function inicializarUsuarioPadrao() {
@@ -74,11 +106,11 @@ const MODULO_CONFIG = (() => {
       atualizadoEm: new Date().toISOString()
     });
 
-    registrarLog('config', 'usuário_padrao_criado', 'Administrador inicial criado.');
+    registrarLog('config', 'usuario_padrao_criado', 'Administrador inicial criado.');
   }
 
   /* ==========================================================
-     4. UTILITÁRIOS
+     5. UTILITÁRIOS
      ========================================================== */
 
   function escaparHTML(t) {
@@ -98,6 +130,11 @@ const MODULO_CONFIG = (() => {
     return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function formatarMoeda(v) {
+    const n = Number(v) || 0;
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
   function iniciais(nome) {
     if (!nome) return '?';
     const partes = nome.trim().split(/\s+/);
@@ -106,7 +143,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     5. USUÁRIOS
+     6. USUÁRIOS
      ========================================================== */
 
   function criarUsuario(dados) {
@@ -129,7 +166,6 @@ const MODULO_CONFIG = (() => {
     const idx = usuarios.findIndex(u => u.id === id);
     if (idx === -1) return null;
 
-    // Garante que o último admin não seja removido do módulo config
     if (
       usuarios[idx].modulos.includes('config') &&
       !dados.modulos.includes('config')
@@ -154,7 +190,6 @@ const MODULO_CONFIG = (() => {
     const idx = usuarios.findIndex(u => u.id === id);
     if (idx === -1) return false;
 
-    // Não pode excluir o último com acesso a config
     if (usuarios[idx].modulos.includes('config')) {
       const outros = usuarios.filter(u => u.id !== id && u.status === 'ativo' && u.modulos.includes('config'));
       if (outros.length === 0) {
@@ -174,7 +209,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     6. LOGS / AUDITORIA
+     7. LOGS
      ========================================================== */
 
   function registrarLog(modulo, acao, detalhe = '') {
@@ -186,13 +221,11 @@ const MODULO_CONFIG = (() => {
       usuario: 'Administrador',
       data: new Date().toISOString()
     });
-
-    // Limita a 500 registros em memória
     if (logs.length > 500) logs.length = 500;
   }
 
   /* ==========================================================
-     7. BACKUP / EXPORTAÇÃO
+     8. BACKUP / EXPORTAÇÃO
      ========================================================== */
 
   function coletarDados() {
@@ -242,7 +275,6 @@ const MODULO_CONFIG = (() => {
       return;
     }
 
-    // Extrai apenas colunas primitivas
     const colunas = Object.keys(lista[0]).filter(k => {
       const v = lista[0][k];
       return v === null || typeof v !== 'object';
@@ -269,20 +301,26 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     8. PREFERÊNCIAS
+     9. PREFERÊNCIAS
      ========================================================== */
 
   function atualizarPreferencias(campo, valor) {
-    preferencias[campo] = valor;
+    if (campo === 'custosFixosMensais' || campo === 'margemPadrao' || campo === 'estoqueMinimoPadrao') {
+      preferencias[campo] = Number(valor) || 0;
+    } else {
+      preferencias[campo] = valor;
+    }
   }
 
   function salvarPreferencias() {
+    salvarPreferenciasLocalStorage();
     registrarLog('config', 'preferencias_salvas', 'Preferências atualizadas');
     alert('Preferências salvas.');
+    rerender();
   }
 
   /* ==========================================================
-     9. RENDER — TELA PRINCIPAL
+     10. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -292,25 +330,15 @@ const MODULO_CONFIG = (() => {
       <div class="pagina-header">
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Configurações</h1>
-          <p class="pagina-header__subtitulo">
-            Usuários, auditoria, backup e preferências.
-          </p>
+          <p class="pagina-header__subtitulo">Usuários, auditoria, backup e preferências.</p>
         </div>
       </div>
 
       <div class="cfg-abas">
-        <button class="cfg-aba ${abaAtiva === 'usuarios' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('usuarios')">
-          Usuários
-        </button>
-        <button class="cfg-aba ${abaAtiva === 'auditoria' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('auditoria')">
-          Auditoria
-        </button>
-        <button class="cfg-aba ${abaAtiva === 'backup' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('backup')">
-          Backup
-        </button>
-        <button class="cfg-aba ${abaAtiva === 'preferencias' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('preferencias')">
-          Preferências
-        </button>
+        <button class="cfg-aba ${abaAtiva === 'usuarios' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('usuarios')">Usuários</button>
+        <button class="cfg-aba ${abaAtiva === 'auditoria' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('auditoria')">Auditoria</button>
+        <button class="cfg-aba ${abaAtiva === 'backup' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('backup')">Backup</button>
+        <button class="cfg-aba ${abaAtiva === 'preferencias' ? 'cfg-aba--ativa' : ''}" onclick="MODULO_CONFIG.alterarAba('preferencias')">Preferências</button>
       </div>
 
       ${abaAtiva === 'usuarios' ? renderAbaUsuarios() : ''}
@@ -321,7 +349,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     10. ABA USUÁRIOS
+     11. ABA USUÁRIOS
      ========================================================== */
 
   function renderAbaUsuarios() {
@@ -332,9 +360,7 @@ const MODULO_CONFIG = (() => {
             <h2 class="cfg-bloco__titulo">Usuários</h2>
             <p class="cfg-bloco__subtitulo">Quem acessa e quais módulos cada um vê.</p>
           </div>
-          <button class="btn btn--primario" onclick="MODULO_CONFIG.abrirNovoUsuario()">
-            + Novo usuário
-          </button>
+          <button class="btn btn--primario" onclick="MODULO_CONFIG.abrirNovoUsuario()">+ Novo usuário</button>
         </div>
 
         <div class="tabela-wrapper">
@@ -393,7 +419,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     11. ABA AUDITORIA
+     12. ABA AUDITORIA
      ========================================================== */
 
   function renderAbaAuditoria() {
@@ -408,9 +434,7 @@ const MODULO_CONFIG = (() => {
 
         ${logs.length === 0 ? `
           <div class="vazio">
-            <div class="vazio__icone">
-              <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
-            </div>
+            <div class="vazio__icone"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg></div>
             <h3 class="vazio__titulo">Sem registros</h3>
             <p class="vazio__descricao">As ações do sistema aparecerão aqui.</p>
           </div>
@@ -447,7 +471,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     12. ABA BACKUP
+     13. ABA BACKUP
      ========================================================== */
 
   function renderAbaBackup() {
@@ -458,18 +482,14 @@ const MODULO_CONFIG = (() => {
             <h2 class="cfg-bloco__titulo">Backup completo</h2>
             <p class="cfg-bloco__subtitulo">Exportação total em JSON (todos os dados).</p>
           </div>
-          <button class="btn btn--primario" onclick="MODULO_CONFIG.baixarJSON()">
-            Baixar backup
-          </button>
+          <button class="btn btn--primario" onclick="MODULO_CONFIG.baixarJSON()">Baixar backup</button>
         </div>
 
         <div class="alerta alerta--info">
-          <span class="alerta__icone">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-          </span>
+          <span class="alerta__icone"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
           <div class="alerta__conteudo">
             <div class="alerta__titulo">Sobre backup nesta versão</div>
-            O PraFicar ainda está em modo de desenvolvimento com dados em memória. O backup do Supabase (com point-in-time recovery) será ativado quando a integração com banco de dados for concluída.
+            O PraFicar ainda está em desenvolvimento com dados em memória. O backup do Supabase será ativado quando a integração com banco de dados for concluída.
           </div>
         </div>
       </div>
@@ -484,13 +504,13 @@ const MODULO_CONFIG = (() => {
 
         <div class="cfg-exportacoes">
           ${[
-            { chave: 'produtos',     nome: 'Produtos',        icone: 'produtos' },
-            { chave: 'canais',       nome: 'Canais',          icone: 'canais' },
-            { chave: 'encomendas',   nome: 'Encomendas',      icone: 'encomendas' },
-            { chave: 'vendas',       nome: 'Vendas',          icone: 'vendas' },
-            { chave: 'financeiro',   nome: 'Financeiro',      icone: 'financeiro' },
-            { chave: 'clientes',     nome: 'Clientes',        icone: 'clientes' },
-            { chave: 'fornecedores', nome: 'Fornecedores',    icone: 'clientes' }
+            { chave: 'produtos',     nome: 'Produtos' },
+            { chave: 'canais',       nome: 'Canais' },
+            { chave: 'encomendas',   nome: 'Encomendas' },
+            { chave: 'vendas',       nome: 'Vendas' },
+            { chave: 'financeiro',   nome: 'Financeiro' },
+            { chave: 'clientes',     nome: 'Clientes' },
+            { chave: 'fornecedores', nome: 'Fornecedores' }
           ].map(e => `
             <button class="cfg-exportacao" onclick="MODULO_CONFIG.exportarCSV('${e.chave}')">
               <span class="cfg-exportacao__nome">${e.nome}</span>
@@ -503,7 +523,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     13. ABA PREFERÊNCIAS
+     14. ABA PREFERÊNCIAS
      ========================================================== */
 
   function renderAbaPreferencias() {
@@ -530,6 +550,36 @@ const MODULO_CONFIG = (() => {
           </div>
         </div>
 
+        <hr class="divisor" />
+
+        <div class="cfg-bloco__header" style="margin-bottom: var(--esp-4);">
+          <div>
+            <h3 class="cfg-bloco__titulo">Ponto de equilíbrio</h3>
+            <p class="cfg-bloco__subtitulo">Usado no Dashboard para calcular a meta mensal.</p>
+          </div>
+        </div>
+
+        <div class="form-linha">
+          <div class="form-grupo">
+            <label for="pref-custos-fixos">Custos fixos mensais (R$)</label>
+            <input id="pref-custos-fixos" type="number" min="0" step="0.01" value="${preferencias.custosFixosMensais}" oninput="MODULO_CONFIG.atualizarPreferencias('custosFixosMensais', this.value)" />
+            <span class="form-ajuda">
+              Soma de aluguel, internet, energia, água, telefone e outros custos fixos. Ex: 1200.
+            </span>
+          </div>
+
+          <div class="form-grupo">
+            <label>Impacto</label>
+            <div class="cfg-impacto">
+              <span class="cfg-impacto__valor">${formatarMoeda(preferencias.custosFixosMensais)}</span>
+              <span class="cfg-impacto__desc">
+                com margem de ${preferencias.margemPadrao}% → meta de
+                ${formatarMoeda(preferencias.margemPadrao > 0 ? preferencias.custosFixosMensais / (preferencias.margemPadrao / 100) : 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div class="cfg-acoes">
           <button class="btn btn--primario" onclick="MODULO_CONFIG.salvarPreferencias()">Salvar preferências</button>
         </div>
@@ -538,7 +588,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     14. MODAL DE USUÁRIO
+     15. MODAL DE USUÁRIO
      ========================================================== */
 
   function abrirNovoUsuario() {
@@ -646,13 +696,8 @@ const MODULO_CONFIG = (() => {
     if (!nome) return alert('Informe o nome.');
     if (!email) return alert('Informe o e-mail.');
 
-    const modulos = Array.from(
-      document.querySelectorAll('input[data-grupo="modulos"]:checked')
-    ).map(i => i.value);
-
-    const acoes = Array.from(
-      document.querySelectorAll('input[data-grupo="acoes"]:checked')
-    ).map(i => i.value);
+    const modulos = Array.from(document.querySelectorAll('input[data-grupo="modulos"]:checked')).map(i => i.value);
+    const acoes = Array.from(document.querySelectorAll('input[data-grupo="acoes"]:checked')).map(i => i.value);
 
     if (modulos.length === 0) return alert('Selecione pelo menos um módulo.');
 
@@ -677,9 +722,8 @@ const MODULO_CONFIG = (() => {
     const r = excluirUsuario(id);
     if (r) rerender();
   }
-
-  /* ==========================================================
-     15. NAVEGAÇÃO DE ABAS
+     /* ==========================================================
+     16. NAVEGAÇÃO DE ABAS
      ========================================================== */
 
   function alterarAba(aba) {
@@ -688,7 +732,7 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     16. RERENDER
+     17. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -699,7 +743,19 @@ const MODULO_CONFIG = (() => {
   }
 
   /* ==========================================================
-     17. API PÚBLICA
+     18. INICIALIZAÇÃO
+     ========================================================== */
+
+  function inicializar() {
+    carregarPreferencias();
+    salvarPreferenciasLocalStorage(); // garante que a chave do dashboard existe
+  }
+
+  // Inicializa automaticamente ao carregar
+  inicializar();
+
+  /* ==========================================================
+     19. API PÚBLICA
      ========================================================== */
 
   return {
@@ -715,6 +771,7 @@ const MODULO_CONFIG = (() => {
     atualizarPreferencias,
     salvarPreferencias,
     registrarLog,
+    obterPreferencias,
     _listarUsuarios: () => [...usuarios],
     _listarLogs: () => [...logs],
     MODULOS_SISTEMA,
