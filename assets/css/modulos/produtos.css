@@ -1,0 +1,157 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS
+   Arquivo: assets/css/modulos/produtos.css
+   ============================================================ */
+
+/* ============================================================
+   1. BARRA DE FILTROS
+   ============================================================ */
+
+.filtros-produtos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-produtos__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-produtos__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-produtos__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-produtos__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. COLUNAS DA TABELA
+   ============================================================ */
+
+.produto-nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.produto-desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+/* ============================================================
+   3. AÇÕES DA LINHA
+   ============================================================ */
+
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+}
+
+.btn-icone {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  cursor: pointer;
+}
+
+.btn-icone:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+  border-color: rgba(46, 111, 168, 0.15);
+}
+
+.btn-icone--perigo:hover {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border-color: rgba(217, 58, 58, 0.2);
+}
+
+.btn-icone svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   4. MODAL DE PRODUTO
+   ============================================================ */
+
+#modal-produto .modal {
+  max-width: 640px;
+}
+
+#modal-produto .form-grupo:last-child {
+  margin-bottom: 0;
+}
+
+#modal-produto input[readonly] {
+  background-color: var(--azul-suave);
+  color: var(--azul-marinho);
+  cursor: default;
+}
+
+#modal-produto input[readonly]:focus {
+  border-color: var(--cor-primaria);
+  box-shadow: var(--sombra-foco);
+}
+
+/* ============================================================
+   5. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-produtos {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-produtos__select {
+    width: 100%;
+  }
+
+  .produto-desc {
+    max-width: 160px;
+  }
+}
