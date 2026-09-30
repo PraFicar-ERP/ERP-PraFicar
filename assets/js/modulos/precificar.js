@@ -1,11 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v3 com rendimento)
+   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v4 com busca automática)
    Arquivo: assets/js/modulos/precificar.js
    Descrição: calcula custo real e formação de preço.
               - Margem de Lucro, Markup e Acréscimo separados
               - Sem mão de obra, sem energia, sem canal, sem perdas
               - Insumos com rendimento (compra → uso)
               - Impressora tank com 4 tintas
+              - Pesquisa de mercado automática (Mercado Livre)
               - Botão "Salvar como produto"
    ============================================================ */
 
@@ -18,20 +19,28 @@ const MODULO_PRECIFICAR = (() => {
   let precificacoes = [];
   let proximoId = 1;
 
-  // Base de insumos reutilizáveis
   let materiais = [];
 
-  // Impressora
   let impressora = carregarImpressoraPadrao();
 
   let form = novoForm();
+
   let pesquisaMercado = {
+    carregando: false,
+    ok: false,
+    erro: null,
     economico: null,
-    mercado:   null,
-    premium:   null,
-    resultados: 0,
-    data: null
+    mercado: null,
+    premium: null,
+    total: 0,
+    data: null,
+    fonte: null,
+    doCache: false,
+    aviso: null
   };
+
+  let debouncePesquisa = null;
+  let ultimoTermoPesquisado = '';
 
   function novoForm() {
     return {
@@ -130,15 +139,6 @@ const MODULO_PRECIFICAR = (() => {
      4. CÁLCULO DO INSUMO (COM RENDIMENTO)
      ========================================================== */
 
-  /**
-   * Calcula o custo por unidade de uso de um insumo.
-   *
-   * @param {number} precoPago       - preço total pago na compra
-   * @param {number} quantidadeCompra - quantas unidades de compra
-   * @param {number} rendimento      - quantas unidades de uso cada
-   *                                    unidade de compra rende (opcional, default 1)
-   * @returns {object} { custoPorUnidadeCompra, custoPorUnidadeUso }
-   */
   function calcularCustoInsumo(precoPago, quantidadeCompra, rendimento) {
     const preco = Number(precoPago) || 0;
     const qtd = Number(quantidadeCompra) || 0;
@@ -159,7 +159,6 @@ const MODULO_PRECIFICAR = (() => {
   function calcular() {
     const qtdProduzida = Math.max(1, Number(form.quantidadeProduzida) || 1);
 
-    // Custo dos insumos (cada um já tem seu custoPorUnidadeUso calculado)
     const custoInsumos = form.insumos.reduce((acc, i) => {
       return acc + (Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0);
     }, 0);
@@ -240,7 +239,6 @@ const MODULO_PRECIFICAR = (() => {
 
         <div class="precificar-form">
 
-          <!-- 1. PRODUTO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">1. Produto</h3>
@@ -255,6 +253,7 @@ const MODULO_PRECIFICAR = (() => {
                   placeholder="Ex: Chaveiro Coração"
                   oninput="MODULO_PRECIFICAR.atualizar('nome', this.value)"
                 />
+                <span class="form-ajuda">A pesquisa de mercado é feita automaticamente.</span>
               </div>
 
               <div class="form-grupo">
@@ -272,7 +271,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 2. INSUMOS -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">2. Insumos</h3>
@@ -285,7 +283,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 3. IMPRESSÃO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">3. Impressão</h3>
@@ -324,7 +321,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 4. MARGEM -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">4. Margem desejada</h3>
@@ -348,7 +344,6 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
-          <!-- 5. MEU PREÇO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">5. Meu preço de venda</h3>
@@ -500,38 +495,62 @@ const MODULO_PRECIFICAR = (() => {
   function renderCardMercado() {
     const p = pesquisaMercado;
 
+    let conteudo = '';
+
+    if (p.carregando) {
+      conteudo = `
+        <div class="mercado-loading">
+          <div class="mercado-loading__spinner"></div>
+          <span>Buscando preços no Mercado Livre...</span>
+        </div>
+      `;
+    } else if (p.ok) {
+      conteudo = `
+        <div class="mercado-faixas">
+          <div class="mercado-faixa mercado-faixa--eco">
+            <span class="mercado-faixa__label">Econômico</span>
+            <span class="mercado-faixa__valor">${formatarMoeda(p.economico)}</span>
+          </div>
+          <div class="mercado-faixa mercado-faixa--mercado">
+            <span class="mercado-faixa__label">Mercado</span>
+            <span class="mercado-faixa__valor">${formatarMoeda(p.mercado)}</span>
+          </div>
+          <div class="mercado-faixa mercado-faixa--premium">
+            <span class="mercado-faixa__label">Premium</span>
+            <span class="mercado-faixa__valor">${formatarMoeda(p.premium)}</span>
+          </div>
+        </div>
+        <p class="form-ajuda mt-2">
+          ${p.total} ${p.total === 1 ? 'resultado' : 'resultados'} ·
+          ${escaparHTML(p.fonte || 'Mercado Livre')} · ${escaparHTML(p.data || '')}
+          ${p.doCache ? ' · em cache' : ''}
+          ${p.aviso ? ` · ${escaparHTML(p.aviso)}` : ''}
+        </p>
+      `;
+    } else if (p.erro) {
+      conteudo = `<p class="text-secundario">${escaparHTML(p.erro)}</p>`;
+    } else {
+      conteudo = `
+        <p class="text-secundario">
+          Digite o nome do produto (mínimo 3 letras) e a busca será feita automaticamente no Mercado Livre.
+        </p>
+      `;
+    }
+
     return `
-      <div class="card card--compacto mt-4">
+      <div class="card card--compacto mt-4 card-mercado-wrapper">
         <div class="card__header">
           <h3 class="card__titulo">Pesquisa de mercado</h3>
-          <button class="btn btn--ghost btn--sm" onclick="MODULO_PRECIFICAR.abrirModalMercado()">
-            ${p.data ? 'Editar' : 'Cadastrar referência'}
+          <button
+            class="btn btn--ghost btn--sm"
+            onclick="MODULO_PRECIFICAR.forcarAtualizacaoPesquisa()"
+            ${!form.nome.trim() || form.nome.trim().length < 3 ? 'disabled' : ''}
+          >
+            Atualizar
           </button>
         </div>
         <div class="card__body">
-          ${p.data ? `
-            <div class="mercado-faixas">
-              <div class="mercado-faixa mercado-faixa--eco">
-                <span class="mercado-faixa__label">Econômico</span>
-                <span class="mercado-faixa__valor">${formatarMoeda(p.economico)}</span>
-              </div>
-              <div class="mercado-faixa mercado-faixa--mercado">
-                <span class="mercado-faixa__label">Mercado</span>
-                <span class="mercado-faixa__valor">${formatarMoeda(p.mercado)}</span>
-              </div>
-              <div class="mercado-faixa mercado-faixa--premium">
-                <span class="mercado-faixa__label">Premium</span>
-                <span class="mercado-faixa__valor">${formatarMoeda(p.premium)}</span>
-              </div>
-            </div>
-            <p class="form-ajuda mt-2">
-              ${p.resultados} ${p.resultados === 1 ? 'resultado' : 'resultados'} · Atualizado em ${p.data}
-            </p>
-          ` : `
-            <p class="text-secundario">
-              Cadastre faixas de referência manualmente (Econômico, Mercado, Premium) para comparar seu preço com o mercado.
-            </p>
-          `}
+          ${conteudo}
         </div>
       </div>
     `;
@@ -592,11 +611,16 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     8. AÇÕES
+     8. AÇÕES DO FORMULÁRIO
      ========================================================== */
 
   function atualizar(campo, valor) {
     form[campo] = valor;
+
+    if (campo === 'nome') {
+      agendarPesquisa(valor);
+    }
+
     atualizarResultado();
   }
 
@@ -620,615 +644,649 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     9. INSUMOS — MODAL (COM RENDIMENTO)
+     9. PESQUISA DE MERCADO AUTOMÁTICA
      ========================================================== */
 
-  function abrirModalInsumo() {
-    const html = `
-      <div class="modal-overlay ativo" id="modal-insumo">
-        <div class="modal modal--grande" role="dialog" aria-modal="true">
-          <div class="modal__header">
-            <h2 class="modal__titulo">Adicionar insumo</h2>
-            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalInsumo()" aria-label="Fechar">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
+  function agendarPesquisa(termo) {
+    if (debouncePesquisa) clearTimeout(debouncePesquisa);
 
-          <div class="modal__body">
-            <div class="form-grupo">
-              <label>Insumo já cadastrado</label>
-              <select id="ins-material" onchange="MODULO_PRECIFICAR.aoEscolherMaterial()">
-                <option value="">+ Cadastrar novo insumo</option>
-                ${materiais.map((m, idx) => `
-                  <option
-                    value="${idx}"
-                    data-nome="${escaparHTML(m.nome)}"
-                    data-custo="${m.custoPorUnidadeUso}"
-                    data-unidade="${m.unidadeUso}"
-                  >
-                    ${escaparHTML(m.nome)} — ${formatarMoedaFina(m.custoPorUnidadeUso)}/${m.unidadeUso}
-                  </option>
-                `).join('')}
-              </select>
-            </div>
+    const termoLimpo = String(termo || '').trim();
 
-            <div class="form-grupo">
-              <label for="ins-nome">Nome do insumo <span class="form-obrigatorio">*</span></label>
-              <input id="ins-nome" type="text" placeholder="Ex: Adesivo Personalizado" />
-            </div>
-
-            <!-- COMPRA -->
-            <div class="ins-bloco">
-              <div class="ins-bloco__titulo">Compra</div>
-              <div class="form-linha-3">
-                <div class="form-grupo">
-                  <label for="ins-preco-pago">Preço pago (R$)</label>
-                  <input id="ins-preco-pago" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
-                </div>
-                <div class="form-grupo">
-                  <label for="ins-qtd-comprada">Quantidade comprada</label>
-                  <input id="ins-qtd-comprada" type="number" min="0.01" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
-                </div>
-                <div class="form-grupo">
-                  <label for="ins-unidade-compra">Unidade de compra</label>
-                  <select id="ins-unidade-compra" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
-                    <option value="unidade">Unidade</option>
-                    <option value="pacote">Pacote</option>
-                    <option value="caixa">Caixa</option>
-                    <option value="rolo">Rolo</option>
-                    <option value="resma">Resma</option>
-                    <option value="folha">Folha</option>
-                    <option value="litro">Litro</option>
-                    <option value="kg">Kg</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- RENDIMENTO -->
-            <div class="ins-bloco">
-              <div class="ins-bloco__titulo">
-                Rendimento
-                <span class="ins-bloco__opcional">(opcional)</span>
-              </div>
-              <p class="form-ajuda">
-                Use quando 1 unidade de compra rende várias unidades de uso.
-                Ex: 1 folha rende 100 adesivos.
-              </p>
-              <div class="form-linha-3">
-                <div class="form-grupo">
-                  <label for="ins-rendimento">Cada unidade de compra rende</label>
-                  <input id="ins-rendimento" type="number" min="1" step="1" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
-                </div>
-                <div class="form-grupo">
-                  <label for="ins-unidade-uso">Unidade de uso</label>
-                  <select id="ins-unidade-uso" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
-                    <option value="unidade">Unidade</option>
-                    <option value="adesivo">Adesivo</option>
-                    <option value="folha">Folha</option>
-                    <option value="foto">Foto</option>
-                    <option value="metro">Metro</option>
-                    <option value="cm">Centímetro</option>
-                    <option value="ml">ml</option>
-                    <option value="g">g</option>
-                  </select>
-                </div>
-                <div class="form-grupo">
-                  <label>Total de unidades de uso</label>
-                  <div class="prec-info-calc" id="ins-total-uso">1 unidade</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- RESULTADO -->
-            <div class="ins-bloco">
-              <div class="ins-bloco__titulo">Custo calculado</div>
-              <div class="ins-resultado">
-                <div class="ins-resultado__item">
-                  <span class="ins-resultado__label">Custo por unidade de compra</span>
-                  <span class="ins-resultado__valor" id="ins-custo-compra">R$ 0,00</span>
-                </div>
-                <div class="ins-resultado__item ins-resultado__item--destaque">
-                  <span class="ins-resultado__label">Custo por unidade de uso</span>
-                  <span class="ins-resultado__valor" id="ins-custo-uso">R$ 0,00</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- QUANTIDADE USADA -->
-            <div class="ins-bloco">
-              <div class="ins-bloco__titulo">Uso nesta produção</div>
-              <div class="form-linha">
-                <div class="form-grupo">
-                  <label for="ins-qtd-usada">Quantidade usada</label>
-                  <input id="ins-qtd-usada" type="number" min="0" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularSubtotalInsumo()" />
-                </div>
-                <div class="form-grupo">
-                  <label>Subtotal neste produto</label>
-                  <div class="prec-info-calc" id="ins-subtotal">R$ 0,00</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal__footer">
-            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalInsumo()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.adicionarInsumo()">Adicionar insumo</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('modal-insumo')?.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-    setTimeout(() => document.getElementById('ins-nome')?.focus(), 50);
-  }
-
-  function fecharModalInsumo() {
-    document.getElementById('modal-insumo')?.remove();
-  }
-
-  function aoEscolherMaterial() {
-    const sel = document.getElementById('ins-material');
-    if (!sel || !sel.value) return;
-    const opt = sel.options[sel.selectedIndex];
-    const material = materiais[Number(sel.value)];
-    if (!material) return;
-
-    document.getElementById('ins-nome').value = material.nome;
-    document.getElementById('ins-preco-pago').value = material.precoPago;
-    document.getElementById('ins-qtd-comprada').value = material.quantidadeCompra;
-    document.getElementById('ins-unidade-compra').value = material.unidadeCompra || 'unidade';
-    document.getElementById('ins-rendimento').value = material.rendimento || 1;
-    document.getElementById('ins-unidade-uso').value = material.unidadeUso || 'unidade';
-    recalcularCustoInsumo();
-  }
-
-  function recalcularCustoInsumo() {
-    const preco = Number(document.getElementById('ins-preco-pago')?.value) || 0;
-    const qtdCompra = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
-    const rendimento = Number(document.getElementById('ins-rendimento')?.value) || 1;
-
-    const { custoPorUnidadeCompra, custoPorUnidadeUso } =
-      calcularCustoInsumo(preco, qtdCompra, rendimento);
-
-    const elCompra = document.getElementById('ins-custo-compra');
-    const elUso = document.getElementById('ins-custo-uso');
-    const elTotalUso = document.getElementById('ins-total-uso');
-
-    if (elCompra) elCompra.textContent = formatarMoedaFina(custoPorUnidadeCompra);
-    if (elUso) elUso.textContent = formatarMoedaFina(custoPorUnidadeUso);
-    if (elTotalUso) elTotalUso.textContent = `${(qtdCompra * rendimento).toLocaleString('pt-BR')} unidades`;
-
-    recalcularSubtotalInsumo();
-  }
-
-  function recalcularSubtotalInsumo() {
-    const preco = Number(document.getElementById('ins-preco-pago')?.value) || 0;
-    const qtdCompra = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
-    const rendimento = Number(document.getElementById('ins-rendimento')?.value) || 1;
-    const qtdUsada = Number(document.getElementById('ins-qtd-usada')?.value) || 0;
-
-    const { custoPorUnidadeUso } = calcularCustoInsumo(preco, qtdCompra, rendimento);
-    const subtotal = custoPorUnidadeUso * qtdUsada;
-
-    const el = document.getElementById('ins-subtotal');
-    if (el) el.textContent = formatarMoedaFina(subtotal);
-  }
-
-  function adicionarInsumo() {
-    const nome = document.getElementById('ins-nome').value.trim();
-    const preco = Number(document.getElementById('ins-preco-pago').value) || 0;
-    const qtdCompra = Number(document.getElementById('ins-qtd-comprada').value) || 0;
-    const unidadeCompra = document.getElementById('ins-unidade-compra').value;
-    const rendimento = Number(document.getElementById('ins-rendimento').value) || 1;
-    const unidadeUso = document.getElementById('ins-unidade-uso').value;
-    const qtdUsada = Number(document.getElementById('ins-qtd-usada').value) || 0;
-
-    if (!nome) return alert('Informe o nome do insumo.');
-    if (preco <= 0) return alert('Informe o preço pago.');
-    if (qtdCompra <= 0) return alert('Informe a quantidade comprada.');
-    if (rendimento < 1) return alert('O rendimento deve ser pelo menos 1.');
-    if (qtdUsada <= 0) return alert('Informe a quantidade usada.');
-
-    const { custoPorUnidadeCompra, custoPorUnidadeUso } =
-      calcularCustoInsumo(preco, qtdCompra, rendimento);
-
-    // Salva na base de materiais
-    const idxExistente = materiais.findIndex(m => m.nome === nome);
-    const material = {
-      nome,
-      precoPago: preco,
-      quantidadeCompra: qtdCompra,
-      unidadeCompra,
-      rendimento,
-      unidadeUso,
-      custoPorUnidadeCompra,
-      custoPorUnidadeUso,
-      atualizadoEm: new Date().toISOString()
-    };
-
-    if (idxExistente === -1) {
-      materiais.push(material);
-    } else {
-      materiais[idxExistente] = material;
+    if (termoLimpo.length < 3) {
+      pesquisaMercado = {
+        carregando: false, ok: false, erro: null,
+        economico: null, mercado: null, premium: null,
+        total: 0, data: null, fonte: null, doCache: false, aviso: null
+      };
+      atualizarCardMercado();
+      return;
     }
 
-    // Adiciona na precificação com snapshot
-    form.insumos.push({
-      nome,
-      precoPago: preco,
-      quantidadeCompra: qtdCompra,
-      unidadeCompra,
-      rendimento,
-      unidadeUso,
-      custoPorUnidadeCompra,
-      custoPorUnidadeUso,
-      quantidadeUsada: qtdUsada
-    });
+    if (termoLimpo === ultimoTermoPesquisado && pesquisaMercado.ok) return;
 
-    fecharModalInsumo();
-    rerenderForm();
+    debouncePesquisa = setTimeout(() => {
+      executarPesquisa(termoLimpo, false);
+    }, 1000);
   }
 
-  function removerInsumo(idx) {
-    form.insumos.splice(idx, 1);
-    rerenderForm();
-  }
+  async function executarPesquisa(termo, forcar) {
+    if (!window.PESQUISA_MERCADO) return;
 
-  /* ==========================================================
-     10. IMPRESSORA — MODAL
-     ========================================================== */
-
-  function abrirConfigImpressora() {
-    const t = impressora.tintas;
-    const html = `
-      <div class="modal-overlay ativo" id="modal-impressora">
-        <div class="modal modal--grande" role="dialog" aria-modal="true">
-          <div class="modal__header">
-            <h2 class="modal__titulo">Configurar impressora</h2>
-            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalImpressora()" aria-label="Fechar">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <div class="modal__body">
-            <div class="form-grupo">
-              <label for="imp-modelo">Modelo da impressora</label>
-              <input id="imp-modelo" type="text" value="${escaparHTML(impressora.modelo)}" />
-            </div>
-
-            <p class="form-ajuda">
-              Configure preço e rendimento de cada tinta. O custo por página é calculado automaticamente.
-            </p>
-
-            ${['preto', 'ciano', 'magenta', 'amarelo'].map(cor => `
-              <div class="imp-linha">
-                <div class="imp-linha__titulo">
-                  <span class="imp-cor imp-cor--${cor}"></span>
-                  ${cor.charAt(0).toUpperCase() + cor.slice(1)}
-                </div>
-                <div class="form-linha-3">
-                  <div class="form-grupo">
-                    <label>Preço do frasco (R$)</label>
-                    <input
-                      type="number" min="0" step="0.01"
-                      value="${t[cor].preco}"
-                      oninput="MODULO_PRECIFICAR.atualizarImpressora('${cor}', 'preco', this.value)"
-                    />
-                  </div>
-                  <div class="form-grupo">
-                    <label>Rendimento (páginas)</label>
-                    <input
-                      type="number" min="1" step="1"
-                      value="${t[cor].rendimento}"
-                      oninput="MODULO_PRECIFICAR.atualizarImpressora('${cor}', 'rendimento', this.value)"
-                    />
-                  </div>
-                  <div class="form-grupo">
-                    <label>Custo por página</label>
-                    <div class="prec-info-calc" id="imp-custo-${cor}">
-                      ${formatarMoedaFina(t[cor].preco / t[cor].rendimento)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
-
-            <div class="imp-totais">
-              <div>
-                <span>Custo por página preta:</span>
-                <strong id="imp-total-preta">${formatarMoedaFina(custoPorPaginaPreta())}</strong>
-              </div>
-              <div>
-                <span>Custo por página colorida:</span>
-                <strong id="imp-total-colorida">${formatarMoedaFina(custoPorPaginaColorida())}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal__footer">
-            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalImpressora()">Fechar</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('modal-impressora')?.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-  }
-
-  function fecharModalImpressora() {
-    document.getElementById('modal-impressora')?.remove();
-    atualizarResultado();
-  }
-
-  function atualizarImpressora(cor, campo, valor) {
-    impressora.tintas[cor][campo] = Number(valor) || 0;
-
-    const t = impressora.tintas[cor];
-    const el = document.getElementById(`imp-custo-${cor}`);
-    if (el) el.textContent = formatarMoedaFina(t.rendimento > 0 ? t.preco / t.rendimento : 0);
-
-    const elPreta = document.getElementById('imp-total-preta');
-    const elColor = document.getElementById('imp-total-colorida');
-    if (elPreta) elPreta.textContent = formatarMoedaFina(custoPorPaginaPreta());
-    if (elColor) elColor.textContent = formatarMoedaFina(custoPorPaginaColorida());
-  }
-
-  /* ==========================================================
-     11. PESQUISA DE MERCADO — MODAL
-     ========================================================== */
-
-  function abrirModalMercado() {
-    const p = pesquisaMercado;
-    const html = `
-      <div class="modal-overlay ativo" id="modal-mercado">
-        <div class="modal" role="dialog" aria-modal="true">
-          <div class="modal__header">
-            <h2 class="modal__titulo">Referência de mercado</h2>
-            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalMercado()" aria-label="Fechar">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <div class="modal__body">
-            <p class="form-ajuda">
-              Informe faixas de preço do mercado para comparar com seu preço. Apenas referência — não altera automaticamente.
-            </p>
-
-            <div class="form-linha-3">
-              <div class="form-grupo">
-                <label for="merc-eco">Econômico (R$)</label>
-                <input id="merc-eco" type="number" min="0" step="0.01" value="${p.economico ?? ''}" placeholder="0,00" />
-              </div>
-              <div class="form-grupo">
-                <label for="merc-med">Mercado (R$)</label>
-                <input id="merc-med" type="number" min="0" step="0.01" value="${p.mercado ?? ''}" placeholder="0,00" />
-              </div>
-              <div class="form-grupo">
-                <label for="merc-prem">Premium (R$)</label>
-                <input id="merc-prem" type="number" min="0" step="0.01" value="${p.premium ?? ''}" placeholder="0,00" />
-              </div>
-            </div>
-
-            <div class="form-grupo">
-              <label for="merc-resultados">Número de resultados pesquisados</label>
-              <input id="merc-resultados" type="number" min="0" step="1" value="${p.resultados || 0}" />
-            </div>
-          </div>
-
-          <div class="modal__footer">
-            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalMercado()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.salvarMercado()">Salvar referência</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('modal-mercado')?.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-  }
-
-  function fecharModalMercado() {
-    document.getElementById('modal-mercado')?.remove();
-  }
-
-  function salvarMercado() {
-    pesquisaMercado = {
-      economico: Number(document.getElementById('merc-eco').value) || 0,
-      mercado:   Number(document.getElementById('merc-med').value) || 0,
-      premium:   Number(document.getElementById('merc-prem').value) || 0,
-      resultados: Number(document.getElementById('merc-resultados').value) || 0,
-      data: new Date().toLocaleString('pt-BR')
-    };
-    fecharModalMercado();
-    rerenderForm();
-  }
-
-  /* ==========================================================
-     12. MODAL — SALVAR COMO PRODUTO
-     ========================================================== */
-
-  function salvarComoProduto() {
-    const r = calcular();
-
-    if (!form.nome.trim()) return alert('Informe o nome do produto antes de salvar.');
-    if (form.insumos.length === 0 && form.paginasImpressas === 0) {
-      return alert('Adicione pelo menos um insumo ou páginas de impressão.');
-    }
-
-    if (!window.MODULO_PRODUTOS?._criarDoPrecificador) {
-      return alert('Módulo de Produtos não está disponível.');
-    }
-
-    // Modal pedindo categoria
-    const categorias = window.SKU_PRAFICAR?.listarCategorias() || [];
-    if (categorias.length === 0) {
-      return alert('Nenhuma categoria de produto disponível.');
-    }
-
-    const precoFinal = r.meuPrecoVenda || r.precoSugerido;
-
-    const html = `
-      <div class="modal-overlay ativo" id="modal-salvar-produto">
-        <div class="modal" role="dialog" aria-modal="true">
-          <div class="modal__header">
-            <h2 class="modal__titulo">Salvar como produto</h2>
-            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalSalvar()" aria-label="Fechar">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <div class="modal__body">
-            <div class="resumo-salvar">
-              <div class="resumo-salvar__linha">
-                <span>Nome</span>
-                <strong>${escaparHTML(form.nome)}</strong>
-              </div>
-              <div class="resumo-salvar__linha">
-                <span>Custo real</span>
-                <strong>${formatarMoedaFina(r.custoUnitario)}</strong>
-              </div>
-              <div class="resumo-salvar__linha">
-                <span>Preço sugerido</span>
-                <strong>${formatarMoeda(r.precoSugerido)}</strong>
-              </div>
-              ${r.meuPrecoVenda ? `
-                <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
-                  <span>Meu preço</span>
-                  <strong>${formatarMoeda(r.meuPrecoVenda)}</strong>
-                </div>
-              ` : ''}
-              <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
-                <span>Preço a salvar</span>
-                <strong>${formatarMoeda(precoFinal)}</strong>
-              </div>
-            </div>
-
-            <div class="form-grupo">
-              <label for="salvar-categoria">Categoria <span class="form-obrigatorio">*</span></label>
-              <select id="salvar-categoria" required>
-                <option value="">Selecione uma categoria</option>
-                ${categorias.map(c => `
-                  <option value="${c.codigo}">${c.nome}</option>
-                `).join('')}
-              </select>
-              <span class="form-ajuda">A categoria define o SKU do produto.</span>
-            </div>
-
-            <div class="form-grupo">
-              <label for="salvar-estoque-min">Estoque mínimo</label>
-              <input id="salvar-estoque-min" type="number" min="0" step="1" value="5" />
-              <span class="form-ajuda">Você receberá alerta quando o estoque ficar abaixo deste número.</span>
-            </div>
-          </div>
-
-          <div class="modal__footer">
-            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalSalvar()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.confirmarSalvarProduto()">
-              Criar produto
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('modal-salvar-produto')?.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-    setTimeout(() => document.getElementById('salvar-categoria')?.focus(), 50);
-  }
-
-  function fecharModalSalvar() {
-    document.getElementById('modal-salvar-produto')?.remove();
-  }
-
-  function confirmarSalvarProduto() {
-    const categoria = document.getElementById('salvar-categoria').value;
-    const estoqueMin = Number(document.getElementById('salvar-estoque-min').value) || 0;
-
-    if (!categoria) return alert('Selecione uma categoria.');
-
-    const r = calcular();
-    const precoFinal = r.meuPrecoVenda || r.precoSugerido;
+    pesquisaMercado.carregando = true;
+    pesquisaMercado.erro = null;
+    atualizarCardMercado();
 
     try {
-      const produto = window.MODULO_PRODUTOS._criarDoPrecificador({
-        nome: form.nome.trim(),
-        categoria,
-        descricao: '',
-        custo: r.custoUnitario,
-        precoVarejo: precoFinal,
-        precoAtacado: precoFinal,
-        estoqueMinimo: estoqueMin,
-        insumos: form.insumos.map(i => ({ ...i })),
-        paginasImpressas: form.paginasImpressas,
-        tipoImpressao: form.tipoImpressao
-      });
+      const r = await window.PESQUISA_MERCADO.pesquisar(termo, forcar);
 
-      fecharModalSalvar();
-
-      alert(`Produto criado com sucesso!\n\nSKU: ${produto.sku}\nCusto: ${formatarMoedaFina(produto.custo)}\nPreço: ${formatarMoeda(produto.precoVarejo)}`);
-
-      // Redireciona para Produtos
-      setTimeout(() => {
-        window.ROUTER_PRAFICAR?.irPara('produtos');
-      }, 300);
-
+      if (r.ok) {
+        pesquisaMercado = {
+          carregando: false,
+          ok: true,
+          erro: null,
+          economico: r.resultado.economico,
+          mercado: r.resultado.mercado,
+          premium: r.resultado.premium,
+          total: r.resultado.total,
+          data: r.resultado.data,
+          fonte: r.resultado.fonte,
+          doCache: r.doCache,
+          aviso: r.aviso || null
+        };
+        ultimoTermoPesquisado = termo;
+      } else {
+        pesquisaMercado = {
+          carregando: false,
+          ok: false,
+          erro: r.mensagem || 'Sem resultados.',
+          economico: null, mercado: null, premium: null,
+          total: 0, data: null, fonte: null, doCache: false, aviso: null
+        };
+      }
     } catch (e) {
-      console.error(e);
-      alert('Erro ao criar produto: ' + e.message);
+      console.error('[PraFicar] Erro na pesquisa:', e);
+      pesquisaMercado = {
+        carregando: false,
+        ok: false,
+        erro: 'Erro ao pesquisar.',
+        economico: null, mercado: null, premium: null,
+        total: 0, data: null, fonte: null, doCache: false, aviso: null
+      };
     }
+
+    atualizarCardMercado();
   }
 
-  /* ==========================================================
-     13. LIMPAR / RERENDER
-     ========================================================== */
-
-  function limpar() {
-    if (!confirm('Limpar todo o formulário?')) return;
-    form = novoForm();
-    rerenderForm();
+  function forcarAtualizacaoPesquisa() {
+    const termo = form.nome.trim();
+    if (termo.length < 3) return;
+    executarPesquisa(termo, true);
   }
 
-  function rerenderForm() {
-    const container = document.getElementById('conteudo-tela');
-    if (container && window.ROUTER_PRAFICAR?.obterRotaAtual() === 'precificar') {
-      container.innerHTML = render();
-    }
+  function atualizarCardMercado() {
+    const container = document.querySelector('.card-mercado-wrapper');
+    if (container) container.outerHTML = renderCardMercado();
+  }
+   /* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR (v4)
+   Arquivo: assets/css/modulos/precificar.css
+   ============================================================ */
+
+/* ============================================================
+   1. LAYOUT EM 2 COLUNAS
+   ============================================================ */
+
+.precificar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--esp-5);
+  align-items: start;
+}
+
+.precificar-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  min-width: 0;
+}
+
+.precificar-resultado {
+  position: sticky;
+  top: calc(var(--altura-header) + var(--esp-4));
+}
+
+/* ============================================================
+   2. LINHAS DE FORMULÁRIO
+   ============================================================ */
+
+.form-linha-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-3);
+}
+
+.prec-info-calc {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   3. LISTA DE INSUMOS
+   ============================================================ */
+
+.insumos-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  background-color: var(--cinza-50);
+}
+
+.tabela-insumos {
+  font-size: var(--texto-sm);
+}
+
+.tabela-insumos tfoot td {
+  padding-top: var(--esp-3);
+  padding-bottom: var(--esp-3);
+  border-top: 2px solid var(--cor-borda-suave);
+  border-bottom: none;
+}
+
+/* ============================================================
+   4. BLOCOS DO MODAL DE INSUMO
+   ============================================================ */
+
+.ins-bloco {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.ins-bloco__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ins-bloco__opcional {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-regular);
+  color: var(--cor-texto-secundario);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ins-resultado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+}
+
+.ins-resultado__item {
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.ins-resultado__item--destaque {
+  background-color: var(--azul-suave);
+}
+
+.ins-resultado__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.ins-resultado__item--destaque .ins-resultado__label {
+  color: var(--azul-medio);
+}
+
+.ins-resultado__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+}
+
+.ins-resultado__item--destaque .ins-resultado__valor {
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   5. IMPRESSORA
+   ============================================================ */
+
+.prec-impressora-info {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.imp-linha {
+  margin-bottom: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.imp-linha:last-of-type {
+  border-bottom: none;
+}
+
+.imp-linha__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+}
+
+.imp-cor {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.imp-cor--preto   { background-color: #1F2733; }
+.imp-cor--ciano   { background-color: #00B8D4; }
+.imp-cor--magenta { background-color: #E91E63; }
+.imp-cor--amarelo { background-color: #FFC107; }
+
+.imp-totais {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  margin-top: var(--esp-4);
+}
+
+.imp-totais > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+}
+
+.imp-totais strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   6. SLIDER DE MARGEM
+   ============================================================ */
+
+.margem-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+}
+
+.margem-slider__btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-md);
+  background-color: var(--cinza-100);
+  border: 1px solid var(--cor-borda-suave);
+  color: var(--cor-texto-padrao);
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida), color var(--transicao-rapida);
+}
+
+.margem-slider__btn:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+}
+
+.margem-slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--azul-medio);
+  height: 6px;
+}
+
+.margem-slider__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  min-width: 64px;
+  text-align: right;
+}
+
+/* ============================================================
+   7. CARD DE RESULTADO
+   ============================================================ */
+
+.resultado-card {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-md);
+  overflow: hidden;
+}
+
+.resultado-card__header {
+  padding: var(--esp-5);
+  background-color: var(--cinza-50);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-1);
+}
+
+.resultado-card__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__valor {
+  font-size: var(--texto-2xl);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.resultado-card__sub {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__destaque {
+  padding: var(--esp-6) var(--esp-5);
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  color: var(--branco);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.resultado-card__destaque .resultado-card__label {
+  color: var(--azul-claro);
+  opacity: 0.9;
+}
+
+.resultado-card__preco {
+  font-size: var(--texto-3xl);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.resultado-card__grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item {
+  padding: var(--esp-4) var(--esp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  text-align: center;
+}
+
+.resultado-card__item + .resultado-card__item {
+  border-left: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item-label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__item-valor {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resultado-card__acrescimo {
+  padding: var(--esp-3) var(--esp-5);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-50);
+}
+
+.resultado-card__acrescimo strong {
+  color: var(--cor-texto-principal);
+}
+
+/* ============================================================
+   8. CARD MERCADO
+   ============================================================ */
+
+.card--compacto {
+  box-shadow: var(--sombra-xs);
+}
+
+.mercado-faixas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+}
+
+.mercado-faixa {
+  padding: var(--esp-3);
+  border-radius: var(--raio-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.mercado-faixa--eco     { background-color: var(--verde-suave); color: #1E6B3E; }
+.mercado-faixa--mercado { background-color: var(--azul-suave); color: var(--azul-marinho); }
+.mercado-faixa--premium { background-color: var(--ambar-suave); color: #8A5D0A; }
+
+.mercado-faixa__label {
+  font-size: 10px;
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  opacity: 0.8;
+}
+
+.mercado-faixa__valor {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.mercado-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.mercado-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cor-borda-suave);
+  border-top-color: var(--azul-medio);
+  border-radius: 50%;
+  animation: mercado-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mercado-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   9. DETALHAMENTO
+   ============================================================ */
+
+.resultado-detalhes {
+  margin-top: var(--esp-3);
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+}
+
+.calculo-detalhado__titulo {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.calculo-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.calculo-linha:last-child {
+  border-bottom: none;
+}
+
+.calculo-linha--destaque {
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  border-bottom: 1px solid var(--cor-borda-media);
+  padding-top: var(--esp-3);
+}
+
+.calculo-linha span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   10. MODAL SALVAR COMO PRODUTO
+   ============================================================ */
+
+.resumo-salvar {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-4) var(--esp-5);
+  margin-bottom: var(--esp-5);
+}
+
+.resumo-salvar__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.resumo-salvar__linha:last-child {
+  border-bottom: none;
+}
+
+.resumo-salvar__linha strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resumo-salvar__linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.resumo-salvar__linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   11. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .precificar-layout {
+    grid-template-columns: 1fr;
   }
 
-  /* ==========================================================
-     14. API PÚBLICA
-     ========================================================== */
+  .precificar-resultado {
+    position: static;
+    order: -1;
+  }
+}
 
-  return {
-    render,
-    atualizar,
-    ajustarMargem,
-    abrirModalInsumo,
-    fecharModalInsumo,
-    aoEscolherMaterial,
-    recalcularCustoInsumo,
-    recalcularSubtotalInsumo,
-    adicionarInsumo,
-    removerInsumo,
-    toggleDetalhes,
-    abrirConfigImpressora,
-    fecharModalImpressora,
-    atualizarImpressora,
-    abrirModalMercado,
-    fecharModalMercado,
-    salvarMercado,
-    salvarComoProduto,
-    fecharModalSalvar,
-    confirmarSalvarProduto,
-    limpar,
-    _listar: () => [...precificacoes],
-    _materiais: () => [...materiais]
-  };
+@media (max-width: 640px) {
+  .resultado-card__grid-3 {
+    grid-template-columns: 1fr;
+  }
 
-})();
+  .resultado-card__item + .resultado-card__item {
+    border-left: none;
+    border-top: 1px solid var(--cor-borda-suave);
+  }
 
-window.MODULO_PRECIFICAR = MODULO_PRECIFICAR;
-window.renderPrecificar = MODULO_PRECIFICAR.render;
+  .mercado-faixas {
+    grid-template-columns: 1fr;
+  }
+
+  .ins-resultado {
+    grid-template-columns: 1fr;
+  }
+}
