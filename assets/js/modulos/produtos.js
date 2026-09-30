@@ -1,9 +1,10 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v2 com canais)
+   PRAFICAR ERP — MÓDULO PRODUTOS & ESTOQUE (v3 com toggle)
    Arquivo: assets/js/modulos/produtos.js
    Descrição: cadastro, listagem, edição e exclusão lógica de
               produtos. Canais de venda por produto. Custo real
               e preço de venda herdados do Precificador.
+              Toggle de ativo/inativo + ação em massa.
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -21,6 +22,7 @@ const MODULO_PRODUTOS = (() => {
   let filtroCanal = '';
 
   let produtoEditandoId = null;
+  let selecionados = new Set();
 
   /* ==========================================================
      2. CATEGORIAS (mesmas do sku.js)
@@ -82,14 +84,43 @@ const MODULO_PRODUTOS = (() => {
       unidade: dados.unidade || 'un',
       canais: Array.isArray(dados.canais) ? dados.canais : [],
       status: dados.status || 'ativo',
-      origemPreco: dados.origemPreco || 'manual', // manual | precificador
+      origemPreco: dados.origemPreco || 'manual',
       precificacaoId: dados.precificacaoId || null,
+      insumos: Array.isArray(dados.insumos) ? dados.insumos : [],
+      paginasImpressas: Number(dados.paginasImpressas) || 0,
+      tipoImpressao: dados.tipoImpressao || '',
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
     produtos.push(p);
     window.SKU_PRAFICAR?.registrarExistente(p.sku);
     return p;
+  }
+
+  function _criarDoPrecificador(dados) {
+    if (!dados.nome) throw new Error('Nome obrigatório.');
+    if (!dados.categoria) throw new Error('Categoria obrigatória.');
+
+    const sku = window.SKU_PRAFICAR.gerarProximo(dados.categoria);
+
+    return criarProduto({
+      sku,
+      nome: dados.nome,
+      categoria: dados.categoria,
+      descricao: dados.descricao || '',
+      custo: dados.custo,
+      precoVarejo: dados.precoVarejo,
+      precoAtacado: dados.precoAtacado || dados.precoVarejo,
+      estoqueMinimo: dados.estoqueMinimo || 5,
+      estoqueAtual: 0,
+      unidade: dados.unidade || 'un',
+      canais: [],
+      status: 'ativo',
+      origemPreco: 'precificador',
+      insumos: dados.insumos || [],
+      paginasImpressas: dados.paginasImpressas || 0,
+      tipoImpressao: dados.tipoImpressao || ''
+    });
   }
 
   function atualizarProduto(id, dados) {
@@ -129,8 +160,91 @@ const MODULO_PRODUTOS = (() => {
     return produtos.find(p => p.id === id) || null;
   }
 
+  function alternarStatus(id) {
+    const p = buscarProduto(id);
+    if (!p) return;
+    p.status = p.status === 'ativo' ? 'inativo' : 'ativo';
+    p.atualizadoEm = new Date().toISOString();
+    rerenderTabela();
+  }
+
   /* ==========================================================
-     5. FILTROS
+     5. SELEÇÃO EM MASSA
+     ========================================================== */
+
+  function alternarSelecao(id) {
+    if (selecionados.has(id)) selecionados.delete(id);
+    else selecionados.add(id);
+    rerenderTabela();
+    renderizarBarraAcoes();
+  }
+
+  function alternarTodos(marcar) {
+    const lista = produtosFiltrados();
+    if (marcar) lista.forEach(p => selecionados.add(p.id));
+    else selecionados.clear();
+    rerenderTabela();
+    renderizarBarraAcoes();
+  }
+
+  function ativarSelecionados() {
+    selecionados.forEach(id => {
+      const p = buscarProduto(id);
+      if (p) p.status = 'ativo';
+    });
+    selecionados.clear();
+    rerender();
+    renderizarBarraAcoes();
+  }
+
+  function desativarSelecionados() {
+    selecionados.forEach(id => {
+      const p = buscarProduto(id);
+      if (p) p.status = 'inativo';
+    });
+    selecionados.clear();
+    rerender();
+    renderizarBarraAcoes();
+  }
+
+  function limparSelecao() {
+    selecionados.clear();
+    rerender();
+    renderizarBarraAcoes();
+  }
+
+  function renderizarBarraAcoes() {
+    let barra = document.getElementById('barra-acoes-massa');
+    if (selecionados.size === 0) {
+      if (barra) barra.remove();
+      return;
+    }
+
+    if (!barra) {
+      barra = document.createElement('div');
+      barra.id = 'barra-acoes-massa';
+      barra.className = 'barra-acoes-massa';
+      document.body.appendChild(barra);
+    }
+
+    barra.innerHTML = `
+      <span class="barra-acoes-massa__contador">
+        ${selecionados.size} selecionado${selecionados.size > 1 ? 's' : ''}
+      </span>
+      <button class="btn btn--sucesso btn--sm" onclick="MODULO_PRODUTOS.ativarSelecionados()">
+        Ativar
+      </button>
+      <button class="btn btn--secundario btn--sm" onclick="MODULO_PRODUTOS.desativarSelecionados()">
+        Desativar
+      </button>
+      <button class="btn btn--ghost btn--sm" onclick="MODULO_PRODUTOS.limparSelecao()">
+        Cancelar
+      </button>
+    `;
+  }
+
+  /* ==========================================================
+     6. FILTROS
      ========================================================== */
 
   function produtosFiltrados() {
@@ -153,7 +267,7 @@ const MODULO_PRODUTOS = (() => {
   function alterarFiltroCanal(v)     { filtroCanal = v; rerender(); }
 
   /* ==========================================================
-     6. RENDER — TELA PRINCIPAL
+     7. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -211,7 +325,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     7. RENDER — TABELA
+     8. RENDER — TABELA
      ========================================================== */
 
   function renderTabela() {
@@ -248,6 +362,12 @@ const MODULO_PRODUTOS = (() => {
           <table class="tabela">
             <thead>
               <tr>
+                <th style="width: 40px;">
+                  <input
+                    type="checkbox"
+                    onchange="MODULO_PRODUTOS.alternarTodos(this.checked)"
+                  />
+                </th>
                 <th>SKU</th>
                 <th>Produto</th>
                 <th>Categoria</th>
@@ -284,6 +404,13 @@ const MODULO_PRODUTOS = (() => {
 
     return `
       <tr>
+        <td>
+          <input
+            type="checkbox"
+            ${selecionados.has(p.id) ? 'checked' : ''}
+            onchange="MODULO_PRODUTOS.alternarSelecao(${p.id})"
+          />
+        </td>
         <td><span class="sku">${escaparHTML(p.sku)}</span></td>
         <td>
           <div class="produto-nome">${escaparHTML(p.nome)}</div>
@@ -303,9 +430,17 @@ const MODULO_PRODUTOS = (() => {
           ${canaisProduto.length > 2 ? `<span class="badge badge--neutro">+${canaisProduto.length - 2}</span>` : ''}
         </td>
         <td>
-          ${p.status === 'ativo'
-            ? '<span class="badge badge--sucesso">Ativo</span>'
-            : '<span class="badge badge--neutro">Inativo</span>'}
+          <label class="toggle-ativo">
+            <input
+              type="checkbox"
+              ${p.status === 'ativo' ? 'checked' : ''}
+              onchange="MODULO_PRODUTOS.alternarStatus(${p.id})"
+            />
+            <span class="toggle-ativo__slider"></span>
+            <span class="toggle-ativo__label">
+              ${p.status === 'ativo' ? 'Ativo' : 'Inativo'}
+            </span>
+          </label>
         </td>
         <td class="tabela__acao">
           <div class="acoes-linha">
@@ -322,7 +457,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     8. MODAL DE PRODUTO
+     9. MODAL DE PRODUTO
      ========================================================== */
 
   function abrirNovo() {
@@ -353,7 +488,6 @@ const MODULO_PRODUTOS = (() => {
           <div class="modal__body">
             <form id="form-produto" onsubmit="MODULO_PRODUTOS.salvar(event)">
 
-              <!-- Categoria e SKU -->
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="prod-categoria">Categoria <span class="form-obrigatorio">*</span></label>
@@ -375,10 +509,9 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
-              <!-- Nome e descrição -->
               <div class="form-grupo">
                 <label for="prod-nome">Nome <span class="form-obrigatorio">*</span></label>
-                <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Marca-páginas Coração" />
+                <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Chaveiro Coração" />
               </div>
 
               <div class="form-grupo">
@@ -386,7 +519,6 @@ const MODULO_PRODUTOS = (() => {
                 <textarea id="prod-descricao" placeholder="Detalhes do produto (opcional)">${escaparHTML(p?.descricao || '')}</textarea>
               </div>
 
-              <!-- Custo e preços -->
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="prod-custo">Custo real (R$)</label>
@@ -403,7 +535,6 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
-              <!-- Estoque -->
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="prod-estoque">Estoque atual</label>
@@ -412,6 +543,7 @@ const MODULO_PRODUTOS = (() => {
                 <div class="form-grupo">
                   <label for="prod-estoque-min">Estoque mínimo</label>
                   <input id="prod-estoque-min" type="number" step="1" min="0" value="${p?.estoqueMinimo ?? 0}" />
+                  <span class="form-ajuda">Alerta quando ficar abaixo.</span>
                 </div>
                 <div class="form-grupo">
                   <label for="prod-unidade">Unidade</label>
@@ -423,7 +555,6 @@ const MODULO_PRODUTOS = (() => {
                 </div>
               </div>
 
-              <!-- Canais de venda -->
               <div class="form-grupo">
                 <label>Canais de venda</label>
                 ${canaisDisponiveis().length === 0 ? `
@@ -453,7 +584,6 @@ const MODULO_PRODUTOS = (() => {
                 `}
               </div>
 
-              <!-- Status -->
               <div class="form-grupo">
                 <label for="prod-status">Status</label>
                 <select id="prod-status">
@@ -491,7 +621,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     9. SKU
+     10. SKU
      ========================================================== */
 
   function gerarSkuAutomatico(codigoCategoria) {
@@ -530,7 +660,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     10. SALVAR
+     11. SALVAR
      ========================================================== */
 
   function salvar(event) {
@@ -549,7 +679,7 @@ const MODULO_PRODUTOS = (() => {
       precoVarejo:  document.getElementById('prod-preco-varejo').value,
       precoAtacado: document.getElementById('prod-preco-atacado').value,
       estoqueAtual: document.getElementById('prod-estoque').value,
-      estoqueMinimo: document.getElementById('prod-estoque-min').value,
+      estoqueMinimo:document.getElementById('prod-estoque-min').value,
       unidade:      document.getElementById('prod-unidade').value,
       canais:       canaisSelecionados,
       status:       document.getElementById('prod-status').value
@@ -578,7 +708,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     11. EXCLUSÃO
+     12. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
@@ -594,7 +724,7 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
-     12. RERENDER
+     13. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -608,29 +738,342 @@ const MODULO_PRODUTOS = (() => {
     const wrapper = document.getElementById('tabela-produtos-wrapper');
     if (wrapper) wrapper.innerHTML = renderTabela();
   }
+   /* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v3)
+   Arquivo: assets/css/modulos/produtos.css
+   ============================================================ */
 
-  /* ==========================================================
-     13. API PÚBLICA
-     ========================================================== */
+/* ============================================================
+   1. FILTROS
+   ============================================================ */
 
-  return {
-    render,
-    abrirNovo,
-    abrirEdicao,
-    fecharModal,
-    salvar,
-    confirmarExclusao,
-    gerarSkuAutomatico,
-    regenerarSku,
-    alterarFiltroCategoria,
-    alterarFiltroBusca,
-    alterarFiltroStatus,
-    alterarFiltroCanal,
-    _listar: () => [...produtos],
-    _buscar: buscarProduto
-  };
+.filtros-produtos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
 
-})();
+.filtros-produtos__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
 
-window.MODULO_PRODUTOS = MODULO_PRODUTOS;
-window.renderProdutos = MODULO_PRODUTOS.render;
+.filtros-produtos__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-produtos__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-produtos__select {
+  width: auto;
+  min-width: 160px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. COLUNAS
+   ============================================================ */
+
+.produto-nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.produto-desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+/* ============================================================
+   3. AÇÕES DA LINHA
+   ============================================================ */
+
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+}
+
+.btn-icone {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  cursor: pointer;
+}
+
+.btn-icone:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+  border-color: rgba(46, 111, 168, 0.15);
+}
+
+.btn-icone--perigo:hover {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border-color: rgba(217, 58, 58, 0.2);
+}
+
+.btn-icone svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   4. MODAL DE PRODUTO
+   ============================================================ */
+
+#modal-produto .modal {
+  max-width: 720px;
+}
+
+#modal-produto .form-grupo:last-child {
+  margin-bottom: 0;
+}
+
+#modal-produto input[readonly] {
+  background-color: var(--azul-suave);
+  color: var(--azul-marinho);
+  cursor: default;
+}
+
+#modal-produto input[readonly]:focus {
+  border-color: var(--cor-primaria);
+  box-shadow: var(--sombra-foco);
+}
+
+/* ============================================================
+   5. CANAIS DE VENDA NO PRODUTO
+   ============================================================ */
+
+.prod-canais-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+
+.cfg-check {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-sm);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  user-select: none;
+}
+
+.cfg-check:hover {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.cfg-check input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.cfg-check input[type="checkbox"]:checked + span {
+  color: var(--azul-marinho);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   6. TOGGLE DE ATIVO/INATIVO
+   ============================================================ */
+
+.toggle-ativo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-ativo input {
+  display: none;
+}
+
+.toggle-ativo__slider {
+  width: 36px;
+  height: 20px;
+  background-color: var(--cinza-300);
+  border-radius: var(--raio-pill);
+  position: relative;
+  transition: background-color var(--transicao-rapida);
+  flex-shrink: 0;
+}
+
+.toggle-ativo__slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--branco);
+  border-radius: 50%;
+  transition: transform var(--transicao-rapida);
+  box-shadow: var(--sombra-xs);
+}
+
+.toggle-ativo input:checked + .toggle-ativo__slider {
+  background-color: var(--verde);
+}
+
+.toggle-ativo input:checked + .toggle-ativo__slider::after {
+  transform: translateX(16px);
+}
+
+.toggle-ativo__label {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-padrao);
+}
+
+/* ============================================================
+   7. BARRA DE AÇÕES EM MASSA
+   ============================================================ */
+
+.barra-acoes-massa {
+  position: fixed;
+  bottom: var(--esp-6);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-5);
+  background-color: var(--azul-marinho);
+  border-radius: var(--raio-pill);
+  box-shadow: 0 12px 32px rgba(27, 58, 92, 0.3);
+  z-index: 700;
+  animation: barra-slide-up 0.25s ease;
+}
+
+@keyframes barra-slide-up {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.barra-acoes-massa__contador {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--branco);
+  padding-right: var(--esp-3);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.barra-acoes-massa .btn {
+  height: 32px;
+  padding: 0 var(--esp-4);
+  font-size: var(--texto-sm);
+}
+
+.barra-acoes-massa .btn--sucesso {
+  background-color: var(--verde);
+  border-color: var(--verde);
+  color: var(--branco);
+}
+
+.barra-acoes-massa .btn--secundario {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--branco);
+}
+
+.barra-acoes-massa .btn--secundario:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.barra-acoes-massa .btn--ghost {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.barra-acoes-massa .btn--ghost:hover {
+  color: var(--branco);
+}
+
+/* ============================================================
+   8. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-produtos {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-produtos__select {
+    width: 100%;
+  }
+
+  .produto-desc {
+    max-width: 160px;
+  }
+
+  .prod-canais-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-acoes-massa {
+    bottom: var(--esp-4);
+    padding: var(--esp-2) var(--esp-4);
+    gap: var(--esp-2);
+  }
+
+  .barra-acoes-massa__contador {
+    font-size: var(--texto-xs);
+  }
+
+  .barra-acoes-massa .btn {
+    padding: 0 var(--esp-3);
+  }
+}
