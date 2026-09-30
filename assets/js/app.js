@@ -1,14 +1,16 @@
 /* ============================================================
    PRAFICAR ERP — APP PRINCIPAL
    Arquivo: assets/js/app.js
-   Descrição: inicialização, menu lateral, header, ícones,
-              telas (render) dos módulos.
+   Descrição: inicialização, menu lateral, header, ícones e
+              telas (render) dos módulos ainda não migrados.
+              Módulos migrados registram seu próprio
+              window.renderXxx.
    ============================================================ */
 
 const APP_PRAFICAR = (() => {
 
   /* ==========================================================
-     1. ÍCONES SVG (inline, sem dependências externas)
+     1. ÍCONES SVG
      ========================================================== */
 
   const ICONES = {
@@ -91,7 +93,8 @@ const APP_PRAFICAR = (() => {
   }
 
   /* ==========================================================
-     3. TELAS (RENDER DE CADA MÓDULO)
+     3. TELAS AINDA NÃO MIGRADAS
+     (as que já têm módulo próprio não ficam aqui)
      ========================================================== */
 
   /* ---------- INÍCIO (DASHBOARD) ---------- */
@@ -193,56 +196,6 @@ const APP_PRAFICAR = (() => {
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /* ---------- PRODUTOS & ESTOQUE ---------- */
-
-  function renderProdutos() {
-    return `
-      <div class="pagina-header">
-        <div class="pagina-header__info">
-          <h1 class="pagina-header__titulo">Produtos & Estoque</h1>
-          <p class="pagina-header__subtitulo">Cadastro, saldo e movimentações.</p>
-        </div>
-        <div class="pagina-header__acoes">
-          <button class="btn btn--secundario">${ICONES.busca} Buscar</button>
-          <button class="btn btn--primario">+ Novo produto</button>
-        </div>
-      </div>
-
-      <div class="tabela-wrapper">
-        <div class="tabela-scroll">
-          <table class="tabela">
-            <thead>
-              <tr>
-                <th>SKU</th>
-                <th>Produto</th>
-                <th>Categoria</th>
-                <th class="tabela__numero">Estoque</th>
-                <th class="tabela__numero">Custo</th>
-                <th class="tabela__numero">Preço</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="7">
-                  <div class="vazio">
-                    <div class="vazio__icone">${ICONES.produtos}</div>
-                    <h3 class="vazio__titulo">Nenhum produto cadastrado</h3>
-                    <p class="vazio__descricao">
-                      Cadastre seu primeiro produto e o SKU será gerado automaticamente
-                      no padrão PraFicar (ex.: <strong>MP-PF-001</strong>).
-                    </p>
-                    <button class="btn btn--primario">+ Novo produto</button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
     `;
@@ -538,11 +491,11 @@ const APP_PRAFICAR = (() => {
   }
 
   /* ==========================================================
-     4. EXPORTA AS TELAS PARA O ROUTER
+     4. EXPOSTAS AO ROUTER
+     (não inclui produtos — ele tem módulo próprio)
      ========================================================== */
 
   window.renderInicio      = renderInicio;
-  window.renderProdutos    = renderProdutos;
   window.renderPrecificar  = renderPrecificar;
   window.renderCanais      = renderCanais;
   window.renderEncomendas  = renderEncomendas;
@@ -562,7 +515,7 @@ const APP_PRAFICAR = (() => {
     const navMenu = document.getElementById('sidebar-menu');
     if (navMenu) navMenu.innerHTML = renderMenu();
 
-    // Botão de recolher sidebar (desktop)
+    // Botão de recolher sidebar (desktop) / abrir (mobile)
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) {
       btnToggle.addEventListener('click', () => {
@@ -584,9 +537,6 @@ const APP_PRAFICAR = (() => {
       });
     }
 
-    // Inicia o router
-    if (window.ROUTER_PRAFICAR) window.ROUTER_PRAFICAR.iniciar();
-
     // Ícones do header
     const h = document.getElementById('header-acoes');
     if (h) {
@@ -599,6 +549,7 @@ const APP_PRAFICAR = (() => {
       `;
     }
 
+    // Campo de busca global
     const b = document.querySelector('.header__busca');
     if (b) {
       b.innerHTML = `
@@ -606,6 +557,9 @@ const APP_PRAFICAR = (() => {
         <input type="search" placeholder="Buscar produtos, clientes, encomendas..." />
       `;
     }
+
+    // Inicia o router por último
+    if (window.ROUTER_PRAFICAR) window.ROUTER_PRAFICAR.iniciar();
   }
 
   return { iniciar, ICONES };
