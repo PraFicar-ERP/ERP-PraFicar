@@ -1,0 +1,319 @@
+/* ============================================================
+   PRAFICAR ERP — CALCULADORA FLUTUANTE
+   Arquivo: assets/css/calculadora.css
+   ============================================================ */
+
+.calc {
+  position: fixed;
+  width: 320px;
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  box-shadow: 0 12px 32px rgba(27, 58, 92, 0.18),
+              0 4px 8px rgba(27, 58, 92, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 9000;
+  overflow: hidden;
+  user-select: none;
+  transition: box-shadow var(--transicao-rapida);
+}
+
+.calc:hover {
+  box-shadow: 0 16px 40px rgba(27, 58, 92, 0.22),
+              0 6px 12px rgba(27, 58, 92, 0.10);
+}
+
+/* ============================================================
+   1. HEADER (área de arrastar)
+   ============================================================ */
+
+.calc__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--esp-3) var(--esp-4);
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  color: var(--branco);
+  cursor: grab;
+}
+
+.calc__header:active {
+  cursor: grabbing;
+}
+
+.calc__titulo {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--azul-claro);
+}
+
+.calc__acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+}
+
+.calc__btn-acao {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--azul-claro);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida);
+}
+
+.calc__btn-acao:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--branco);
+}
+
+.calc__btn-acao svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   2. BODY
+   ============================================================ */
+
+.calc__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.calc--minimizada .calc__body {
+  display: none;
+}
+
+/* ============================================================
+   3. DISPLAY
+   ============================================================ */
+
+.calc__display {
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--azul-marinho);
+  text-align: right;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.calc__preview {
+  font-size: var(--texto-sm);
+  color: var(--azul-claro);
+  min-height: 18px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.calc__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: 28px;
+  font-weight: var(--peso-bold);
+  color: var(--branco);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letra-apertada);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+/* ============================================================
+   4. TECLADO
+   ============================================================ */
+
+.calc__teclado {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background-color: var(--cor-borda-suave);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.calc__tecla {
+  height: 56px;
+  font-family: var(--fonte-base);
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  background-color: var(--branco);
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida);
+}
+
+.calc__tecla:hover {
+  background-color: var(--cinza-100);
+}
+
+.calc__tecla:active {
+  background-color: var(--cinza-200);
+}
+
+.calc__tecla--operador {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+}
+
+.calc__tecla--operador:hover {
+  background-color: #D9E8F7;
+}
+
+.calc__tecla--acao {
+  background-color: var(--cinza-50);
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-md);
+}
+
+.calc__tecla--acao:hover {
+  background-color: var(--cinza-100);
+  color: var(--cor-texto-principal);
+}
+
+.calc__tecla--igual {
+  background-color: var(--azul-medio);
+  color: var(--branco);
+}
+
+.calc__tecla--igual:hover {
+  background-color: var(--azul-marinho);
+}
+
+/* ============================================================
+   5. HISTÓRICO
+   ============================================================ */
+
+.calc__historico-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--cinza-50);
+  border-top: 1px solid var(--cor-borda-suave);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.calc__limpar-hist {
+  font-size: var(--texto-xs);
+  color: var(--azul-medio);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: var(--peso-semibold);
+  padding: 2px 6px;
+  border-radius: var(--raio-sm);
+  transition: background-color var(--transicao-rapida);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.calc__limpar-hist:hover {
+  background-color: var(--azul-suave);
+}
+
+.calc__historico {
+  max-height: 140px;
+  overflow-y: auto;
+  background-color: var(--branco);
+}
+
+.calc-hist-vazio {
+  padding: var(--esp-4);
+  text-align: center;
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+.calc-hist-item {
+  padding: var(--esp-2) var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida);
+}
+
+.calc-hist-item:last-child {
+  border-bottom: none;
+}
+
+.calc-hist-item:hover {
+  background-color: var(--azul-suave);
+}
+
+.calc-hist-item__expr {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calc-hist-item__res {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   6. TOAST (feedback ao copiar)
+   ============================================================ */
+
+.calc-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background-color: var(--azul-marinho);
+  color: var(--branco);
+  padding: var(--esp-3) var(--esp-5);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  box-shadow: var(--sombra-lg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transicao-padrao),
+              transform var(--transicao-padrao);
+  z-index: 9500;
+}
+
+.calc-toast--visivel {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   7. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 480px) {
+  .calc {
+    width: calc(100vw - 32px);
+    max-width: 320px;
+  }
+}
