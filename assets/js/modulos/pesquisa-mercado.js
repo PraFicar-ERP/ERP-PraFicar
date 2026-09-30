@@ -79,7 +79,6 @@ const PESQUISA_MERCADO = (() => {
      ========================================================== */
 
   function calcularFaixas(resultados) {
-    // Filtra apenas com preço válido
     const precos = resultados
       .map(r => Number(r.price))
       .filter(p => p > 0)
@@ -91,14 +90,12 @@ const PESQUISA_MERCADO = (() => {
 
     const total = precos.length;
 
-    // Faixa econômica: média dos 25% mais baratos
     const corteEco = Math.max(1, Math.floor(total * 0.25));
     const cortePremium = Math.max(1, Math.floor(total * 0.25));
 
     const economicos = precos.slice(0, corteEco);
     const premium = precos.slice(-cortePremium);
 
-    // Faixa mercado: pega os 50% centrais
     const inicioMercado = corteEco;
     const fimMercado = total - cortePremium;
     const mercado = precos.slice(inicioMercado, fimMercado);
@@ -135,7 +132,6 @@ const PESQUISA_MERCADO = (() => {
       };
     }
 
-    // Cache
     if (!forcarAtualizacao) {
       const cached = lerCache(termoLimpo);
       if (cached) {
@@ -169,7 +165,6 @@ const PESQUISA_MERCADO = (() => {
     } catch (e) {
       console.error('[PraFicar] Erro na pesquisa de mercado:', e);
 
-      // Tenta usar cache antigo mesmo expirado
       try {
         const raw = localStorage.getItem(chaveCache(termoLimpo));
         if (raw) {
