@@ -1,10 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO FINANCEIRO
+   PRAFICAR ERP — MÓDULO FINANCEIRO (v2 com Sangria)
    Arquivo: assets/js/modulos/financeiro.js
-   Descrição: contas a receber, contas a pagar e fluxo de caixa.
-              Integra com Vendas (gera recebíveis automaticamente
-              a partir das vendas por marketplace, respeitando o
-              prazo de repasse do canal).
+   Descrição: contas a receber, contas a pagar, fluxo de caixa
+              e aba SANGRIA calculada sobre a Margem de
+              Contribuição (Faturamento − CMV − Taxas − Frete).
    ============================================================ */
 
 const MODULO_FINANCEIRO = (() => {
@@ -14,16 +13,21 @@ const MODULO_FINANCEIRO = (() => {
      ========================================================== */
 
   let lancamentos = [];
+  let sangrias = [];              // histórico de sangrias
   let proximoId = 1;
+  let proximoIdSangria = 1;
 
   let filtroStatus = '';
   let filtroBusca = '';
-  let abaAtiva = 'receber';
+  let abaAtiva = 'receber';       // receber | pagar | fluxo | sangria
 
   let lancamentoEditandoId = null;
 
+  // Período selecionado na Sangria
+  let periodoSangria = { inicio: '', fim: '' };
+
   /* ==========================================================
-     2. TIPOS E STATUS
+     2. CONSTANTES
      ========================================================== */
 
   const TIPOS = [
@@ -36,6 +40,13 @@ const MODULO_FINANCEIRO = (() => {
     { codigo: 'pago',      nome: 'Pago',      cor: 'sucesso' },
     { codigo: 'vencido',   nome: 'Vencido',   cor: 'critico' },
     { codigo: 'cancelado', nome: 'Cancelado', cor: 'neutro' }
+  ];
+
+  const CATEGORIAS_SANGRIA = [
+    { chave: 'lucro_retido',   nome: 'Lucro Retido',   percentual: 10 },
+    { chave: 'pro_labore',     nome: 'Pró-labore',     percentual: 50 },
+    { chave: 'impostos',       nome: 'Impostos',       percentual: 18 },
+    { chave: 'reinvestimento', nome: 'Reinvestimento', percentual: 22 }
   ];
 
   function statusInfo(codigo) {
@@ -78,12 +89,18 @@ const MODULO_FINANCEIRO = (() => {
     return d.toISOString().split('T')[0];
   }
 
+  function inicioDoMes() {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  }
+
   /* ==========================================================
-     4. CRUD
+     4. CRUD DE LANÇAMENTOS
      ========================================================== */
 
   function criarLancamento(dados) {
-    const lanc = {
+    const l = {
       id: proximoId++,
       tipo: dados.tipo,
       descricao: dados.descricao || '',
@@ -97,8 +114,8 @@ const MODULO_FINANCEIRO = (() => {
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
-    lancamentos.push(lanc);
-    return lanc;
+    lancamentos.push(l);
+    return l;
   }
 
   function atualizarLancamento(id, dados) {
@@ -169,7 +186,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     6. ATUALIZA STATUS "VENCIDO"
+     6. ATUALIZA VENCIDOS
      ========================================================== */
 
   function atualizarVencidos() {
@@ -182,39 +199,99 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     7. KPIs
+     7. KPIs DO TOPO
      ========================================================== */
 
   function calcularKPIs() {
     const ativos = lancamentos.filter(l => l.status !== 'cancelado');
 
-    const aReceber = ativos
-      .filter(l => l.tipo === 'receber' && l.status !== 'pago')
-      .reduce((acc, l) => acc + l.valor, 0);
+    const aReceber = ativos.filter(l => l.tipo === 'receber' && l.status !== 'pago')
+      .reduce((a, l) => a + l.valor, 0);
+    const aPagar = ativos.filter(l => l.tipo === 'pagar' && l.status !== 'pago')
+      .reduce((a, l) => a + l.valor, 0);
+    const recebido = ativos.filter(l => l.tipo === 'receber' && l.status === 'pago')
+      .reduce((a, l) => a + l.valor, 0);
+    const pago = ativos.filter(l => l.tipo === 'pagar' && l.status === 'pago')
+      .reduce((a, l) => a + l.valor, 0);
+    const vencidos = ativos.filter(l => l.status === 'vencido')
+      .reduce((a, l) => a + l.valor, 0);
 
-    const aPagar = ativos
-      .filter(l => l.tipo === 'pagar' && l.status !== 'pago')
-      .reduce((acc, l) => acc + l.valor, 0);
-
-    const recebido = ativos
-      .filter(l => l.tipo === 'receber' && l.status === 'pago')
-      .reduce((acc, l) => acc + l.valor, 0);
-
-    const pago = ativos
-      .filter(l => l.tipo === 'pagar' && l.status === 'pago')
-      .reduce((acc, l) => acc + l.valor, 0);
-
-    const vencidos = ativos
-      .filter(l => l.status === 'vencido')
-      .reduce((acc, l) => acc + l.valor, 0);
-
-    const saldo = recebido - pago;
-
-    return { aReceber, aPagar, recebido, pago, vencidos, saldo };
+    return { aReceber, aPagar, recebido, pago, vencidos, saldo: recebido - pago };
   }
 
   /* ==========================================================
-     8. FILTROS
+     8. MOTOR DA SANGRIA — BASE: MARGEM DE CONTRIBUIÇÃO
+     ========================================================== */
+
+  function baseSangria() {
+    const inicio = periodoSangria.inicio || inicioDoMes();
+    const fim = periodoSangria.fim || hojeISO();
+
+    const vendas = (window.MODULO_VENDAS?._listar() || []).filter(v => {
+      const data = v.criadoEm?.split('T')[0];
+      return data >= inicio && data <= fim && v.status !== 'cancelada';
+    });
+
+    const faturamentoBruto = vendas.reduce((a, v) => a + (Number(v.totais?.subtotal) || 0), 0);
+    const cmv = vendas.reduce((a, v) => a + (Number(v.totais?.custoTotal) || 0), 0);
+    const taxasCanal = vendas.reduce((a, v) => a + (Number(v.totais?.taxaCanalValor) || 0) + (Number(v.totais?.taxaFixa) || 0), 0);
+    const freteVendedor = vendas.reduce((a, v) => a + (Number(v.freteVendedor) || 0), 0);
+
+    const margemContribuicao = faturamentoBruto - cmv - taxasCanal - freteVendedor;
+
+    // Distribuição
+    const distribuicao = CATEGORIAS_SANGRIA.map(cat => ({
+      ...cat,
+      valor: margemContribuicao * (cat.percentual / 100)
+    }));
+
+    return {
+      inicio, fim,
+      vendas: vendas.length,
+      faturamentoBruto,
+      cmv,
+      taxasCanal,
+      freteVendedor,
+      margemContribuicao,
+      distribuicao
+    };
+  }
+
+  /* ==========================================================
+     9. SANGRIA — CRUD
+     ========================================================== */
+
+  function registrarSangria(categoria, dados) {
+    const s = {
+      id: proximoIdSangria++,
+      categoria,                    // chave da categoria
+      categoriaNome: dados.categoriaNome,
+      percentual: Number(dados.percentual) || 0,
+      planejado: Number(dados.planejado) || 0,
+      realizado: Number(dados.realizado) || 0,
+      diferenca: (Number(dados.realizado) || 0) - (Number(dados.planejado) || 0),
+      status: dados.status,         // pendente | realizada | divergente
+      data: dados.data || hojeISO(),
+      responsavel: dados.responsavel || 'Administrador',
+      observacao: dados.observacao || '',
+      periodoInicio: dados.periodoInicio,
+      periodoFim: dados.periodoFim,
+      criadoEm: new Date().toISOString()
+    };
+    sangrias.push(s);
+    return s;
+  }
+
+  function buscarSangria(categoria, periodoInicio, periodoFim) {
+    return sangrias.find(s =>
+      s.categoria === categoria &&
+      s.periodoInicio === periodoInicio &&
+      s.periodoFim === periodoFim
+    ) || null;
+  }
+
+  /* ==========================================================
+     10. FILTROS DE LANÇAMENTOS
      ========================================================== */
 
   function lancamentosFiltrados() {
@@ -240,8 +317,13 @@ const MODULO_FINANCEIRO = (() => {
   function alterarFiltroBusca(v) { filtroBusca = v; rerenderTabela(); }
   function alterarFiltroStatus(v) { filtroStatus = v; rerender(); }
 
+  function alterarPeriodoSangria(campo, valor) {
+    periodoSangria[campo] = valor;
+    rerender();
+  }
+
   /* ==========================================================
-     9. RENDER — TELA PRINCIPAL
+     11. RENDER — PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -255,7 +337,7 @@ const MODULO_FINANCEIRO = (() => {
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Financeiro</h1>
           <p class="pagina-header__subtitulo">
-            Contas a receber, contas a pagar e fluxo de caixa.
+            Contas a receber, contas a pagar, fluxo de caixa e sangria.
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -315,20 +397,21 @@ const MODULO_FINANCEIRO = (() => {
       </div>
 
       <div class="fin-abas">
-        <button class="fin-aba ${abaAtiva === 'receber' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('receber')">
-          A receber
-        </button>
-        <button class="fin-aba ${abaAtiva === 'pagar' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('pagar')">
-          A pagar
-        </button>
-        <button class="fin-aba ${abaAtiva === 'fluxo' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('fluxo')">
-          Fluxo de caixa
-        </button>
+        <button class="fin-aba ${abaAtiva === 'receber' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('receber')">A receber</button>
+        <button class="fin-aba ${abaAtiva === 'pagar' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('pagar')">A pagar</button>
+        <button class="fin-aba ${abaAtiva === 'fluxo' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('fluxo')">Fluxo de caixa</button>
+        <button class="fin-aba ${abaAtiva === 'sangria' ? 'fin-aba--ativa' : ''}" onclick="MODULO_FINANCEIRO.alterarAba('sangria')">Sangria</button>
       </div>
 
-      ${abaAtiva === 'fluxo' ? renderFluxoCaixa() : renderAbaLancamentos()}
+      ${abaAtiva === 'fluxo' ? renderFluxoCaixa() : ''}
+      ${abaAtiva === 'sangria' ? renderSangria() : ''}
+      ${abaAtiva !== 'fluxo' && abaAtiva !== 'sangria' ? renderAbaLancamentos() : ''}
     `;
   }
+
+  /* ==========================================================
+     12. ABA LANÇAMENTOS
+     ========================================================== */
 
   function renderAbaLancamentos() {
     return `
@@ -361,9 +444,7 @@ const MODULO_FINANCEIRO = (() => {
     const lista = lancamentosFiltrados();
 
     if (lista.length === 0) {
-      const titulo = abaAtiva === 'receber'
-        ? 'Nenhuma conta a receber'
-        : 'Nenhuma conta a pagar';
+      const titulo = abaAtiva === 'receber' ? 'Nenhuma conta a receber' : 'Nenhuma conta a pagar';
 
       return `
         <div class="card">
@@ -452,69 +533,47 @@ const MODULO_FINANCEIRO = (() => {
     `;
   }
 
+  /* ==========================================================
+     13. ABA FLUXO DE CAIXA
+     ========================================================== */
+
   function renderFluxoCaixa() {
     const hoje = hojeISO();
     const em30 = adicionarDias(hoje, 30);
 
     const ativos = lancamentos.filter(l => l.status !== 'cancelado');
 
-    const entradas30 = ativos
-      .filter(l => l.tipo === 'receber' && l.status !== 'pago' && l.vencimento >= hoje && l.vencimento <= em30)
-      .reduce((acc, l) => acc + l.valor, 0);
-
-    const saidas30 = ativos
-      .filter(l => l.tipo === 'pagar' && l.status !== 'pago' && l.vencimento >= hoje && l.vencimento <= em30)
-      .reduce((acc, l) => acc + l.valor, 0);
-
+    const entradas30 = ativos.filter(l => l.tipo === 'receber' && l.status !== 'pago' && l.vencimento >= hoje && l.vencimento <= em30)
+      .reduce((a, l) => a + l.valor, 0);
+    const saidas30 = ativos.filter(l => l.tipo === 'pagar' && l.status !== 'pago' && l.vencimento >= hoje && l.vencimento <= em30)
+      .reduce((a, l) => a + l.valor, 0);
     const saldo30 = entradas30 - saidas30;
 
     const semanas = [];
     for (let i = 0; i < 4; i++) {
       const inicio = adicionarDias(hoje, i * 7);
       const fim = adicionarDias(hoje, i * 7 + 6);
-
-      const entradas = ativos
-        .filter(l => l.tipo === 'receber' && l.status !== 'pago' && l.vencimento >= inicio && l.vencimento <= fim)
-        .reduce((acc, l) => acc + l.valor, 0);
-
-      const saidas = ativos
-        .filter(l => l.tipo === 'pagar' && l.status !== 'pago' && l.vencimento >= inicio && l.vencimento <= fim)
-        .reduce((acc, l) => acc + l.valor, 0);
-
+      const entradas = ativos.filter(l => l.tipo === 'receber' && l.status !== 'pago' && l.vencimento >= inicio && l.vencimento <= fim)
+        .reduce((a, l) => a + l.valor, 0);
+      const saidas = ativos.filter(l => l.tipo === 'pagar' && l.status !== 'pago' && l.vencimento >= inicio && l.vencimento <= fim)
+        .reduce((a, l) => a + l.valor, 0);
       semanas.push({ inicio, fim, entradas, saidas, saldo: entradas - saidas });
     }
 
     return `
       <div class="grid grid--3 mb-6">
         <div class="kpi">
-          <div class="kpi__topo">
-            <span class="kpi__label">Entradas 30 dias</span>
-            <span class="kpi__icone">
-              <svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
-            </span>
-          </div>
+          <div class="kpi__topo"><span class="kpi__label">Entradas 30 dias</span></div>
           <div class="kpi__valor text-sucesso">${formatarMoeda(entradas30)}</div>
           <div class="kpi__variacao kpi__variacao--neutra">Previsto</div>
         </div>
-
         <div class="kpi">
-          <div class="kpi__topo">
-            <span class="kpi__label">Saídas 30 dias</span>
-            <span class="kpi__icone">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-            </span>
-          </div>
+          <div class="kpi__topo"><span class="kpi__label">Saídas 30 dias</span></div>
           <div class="kpi__valor text-critico">${formatarMoeda(saidas30)}</div>
           <div class="kpi__variacao kpi__variacao--neutra">Previsto</div>
         </div>
-
         <div class="kpi">
-          <div class="kpi__topo">
-            <span class="kpi__label">Saldo 30 dias</span>
-            <span class="kpi__icone">
-              <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-            </span>
-          </div>
+          <div class="kpi__topo"><span class="kpi__label">Saldo 30 dias</span></div>
           <div class="kpi__valor ${saldo30 >= 0 ? 'text-sucesso' : 'text-critico'}">${formatarMoeda(saldo30)}</div>
           <div class="kpi__variacao kpi__variacao--neutra">Previsto</div>
         </div>
@@ -556,7 +615,373 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     10. MODAL
+     14. ABA SANGRIA
+     ========================================================== */
+
+  function renderSangria() {
+    const b = baseSangria();
+
+    return `
+      <div class="sangria">
+
+        <div class="sangria__filtros">
+          <div class="sangria__filtros-titulo">Período da sangria</div>
+          <div class="sangria__filtros-campos">
+            <input
+              type="date"
+              value="${b.inicio}"
+              onchange="MODULO_FINANCEIRO.alterarPeriodoSangria('inicio', this.value)"
+            />
+            <span class="rel-custom__sep">até</span>
+            <input
+              type="date"
+              value="${b.fim}"
+              onchange="MODULO_FINANCEIRO.alterarPeriodoSangria('fim', this.value)"
+            />
+          </div>
+        </div>
+
+        <div class="sangria__composicao">
+          <div class="sangria__composicao-titulo">Composição da base</div>
+          <div class="sangria__composicao-linhas">
+            <div class="sangria__linha">
+              <span>Faturamento bruto (${b.vendas} ${b.vendas === 1 ? 'venda' : 'vendas'})</span>
+              <strong>${formatarMoeda(b.faturamentoBruto)}</strong>
+            </div>
+            <div class="sangria__linha">
+              <span>− CMV (custo dos produtos)</span>
+              <strong class="text-critico">− ${formatarMoeda(b.cmv)}</strong>
+            </div>
+            <div class="sangria__linha">
+              <span>− Taxas de marketplace</span>
+              <strong class="text-critico">− ${formatarMoeda(b.taxasCanal)}</strong>
+            </div>
+            <div class="sangria__linha">
+              <span>− Frete pago por você</span>
+              <strong class="text-critico">− ${formatarMoeda(b.freteVendedor)}</strong>
+            </div>
+            <div class="sangria__linha sangria__linha--destaque">
+              <span>Margem de contribuição</span>
+              <strong>${formatarMoeda(b.margemContribuicao)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="sangria__cards">
+          ${b.distribuicao.map(d => renderCardCategoriaSangria(d, b)).join('')}
+        </div>
+
+        <div class="sangria__historico">
+          <div class="sangria__historico-header">
+            <h3 class="card__titulo">Histórico de sangrias</h3>
+          </div>
+          ${renderHistoricoSangria()}
+        </div>
+
+      </div>
+    `;
+  }
+
+  function renderCardCategoriaSangria(d, b) {
+    const registro = buscarSangria(d.chave, b.inicio, b.fim);
+
+    const realizado = registro ? registro.realizado : 0;
+    const diferenca = registro ? registro.diferenca : 0;
+    const status = registro ? registro.status : 'pendente';
+
+    const statusLabel = {
+      pendente: 'Pendente',
+      realizada: 'Realizada',
+      divergente: 'Divergente'
+    }[status];
+
+    const statusCor = {
+      pendente: 'atencao',
+      realizada: 'sucesso',
+      divergente: 'critico'
+    }[status];
+
+    return `
+      <div class="sangria-card">
+        <div class="sangria-card__header">
+          <div class="sangria-card__nome">${escaparHTML(d.nome)}</div>
+          <div class="sangria-card__pct">${d.percentual}%</div>
+        </div>
+
+        <div class="sangria-card__valor-principal">
+          ${formatarMoeda(d.valor)}
+        </div>
+        <div class="sangria-card__valor-label">planejado</div>
+
+        <div class="sangria-card__detalhes">
+          <div class="sangria-card__linha">
+            <span>Realizado</span>
+            <strong>${formatarMoeda(realizado)}</strong>
+          </div>
+          <div class="sangria-card__linha">
+            <span>Diferença</span>
+            <strong class="${diferenca === 0 ? '' : diferenca > 0 ? 'text-sucesso' : 'text-critico'}">
+              ${diferenca >= 0 ? '+' : ''}${formatarMoeda(diferenca)}
+            </strong>
+          </div>
+        </div>
+
+        <div class="sangria-card__footer">
+          <span class="badge badge--${statusCor}">${statusLabel}</span>
+          <button class="btn btn--secundario btn--sm" onclick="MODULO_FINANCEIRO.abrirModalSangria('${d.chave}')">
+            ${registro ? 'Editar' : 'Registrar'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHistoricoSangria() {
+    if (sangrias.length === 0) {
+      return `
+        <div class="vazio">
+          <div class="vazio__icone">
+            <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          </div>
+          <h3 class="vazio__titulo">Nenhuma sangria registrada</h3>
+          <p class="vazio__descricao">
+            Registre uma sangria para acompanhar o que foi efetivamente distribuído.
+          </p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="tabela-wrapper">
+        <div class="tabela-scroll">
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Período</th>
+                <th>Categoria</th>
+                <th class="tabela__numero">%</th>
+                <th class="tabela__numero">Planejado</th>
+                <th class="tabela__numero">Realizado</th>
+                <th class="tabela__numero">Diferença</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th>Responsável</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sangrias.slice().reverse().map(s => {
+                const statusCor = {
+                  pendente: 'atencao',
+                  realizada: 'sucesso',
+                  divergente: 'critico'
+                }[s.status];
+                const statusLabel = {
+                  pendente: 'Pendente',
+                  realizada: 'Realizada',
+                  divergente: 'Divergente'
+                }[s.status];
+                return `
+                  <tr>
+                    <td>${formatarData(s.periodoInicio)} → ${formatarData(s.periodoFim)}</td>
+                    <td>${escaparHTML(s.categoriaNome)}</td>
+                    <td class="tabela__numero">${s.percentual}%</td>
+                    <td class="tabela__numero">${formatarMoeda(s.planejado)}</td>
+                    <td class="tabela__numero">${formatarMoeda(s.realizado)}</td>
+                    <td class="tabela__numero ${s.diferenca === 0 ? '' : s.diferenca > 0 ? 'text-sucesso' : 'text-critico'}">
+                      ${s.diferenca >= 0 ? '+' : ''}${formatarMoeda(s.diferenca)}
+                    </td>
+                    <td><span class="badge badge--${statusCor}">${statusLabel}</span></td>
+                    <td>${formatarData(s.data)}</td>
+                    <td>${escaparHTML(s.responsavel)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ==========================================================
+     15. MODAL DE SANGRIA
+     ========================================================== */
+
+  function abrirModalSangria(chaveCategoria) {
+    const cat = CATEGORIAS_SANGRIA.find(c => c.chave === chaveCategoria);
+    if (!cat) return;
+
+    const b = baseSangria();
+    const planejado = b.margemContribuicao * (cat.percentual / 100);
+    const registro = buscarSangria(chaveCategoria, b.inicio, b.fim);
+
+    const html = `
+      <div class="modal-overlay ativo" id="modal-sangria">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">Registrar ${escaparHTML(cat.nome)}</h2>
+            <button class="modal__fechar" onclick="MODULO_FINANCEIRO.fecharModalSangria()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="modal__body">
+            <div class="sangria-resumo">
+              <div class="sangria-resumo__linha">
+                <span>Margem de contribuição do período</span>
+                <strong>${formatarMoeda(b.margemContribuicao)}</strong>
+              </div>
+              <div class="sangria-resumo__linha">
+                <span>Percentual</span>
+                <strong>${cat.percentual}%</strong>
+              </div>
+              <div class="sangria-resumo__linha sangria-resumo__linha--destaque">
+                <span>Valor planejado</span>
+                <strong>${formatarMoeda(planejado)}</strong>
+              </div>
+            </div>
+
+            <div class="form-linha">
+              <div class="form-grupo">
+                <label for="sang-valor">Valor realizado (R$)</label>
+                <input
+                  id="sang-valor"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value="${registro?.realizado ?? ''}"
+                  placeholder="0,00"
+                  oninput="MODULO_FINANCEIRO.atualizarDiferencaSangria(${planejado})"
+                />
+              </div>
+              <div class="form-grupo">
+                <label>Diferença</label>
+                <div class="prec-info-calc" id="sang-diferenca">R$ 0,00</div>
+              </div>
+            </div>
+
+            <div class="form-linha">
+              <div class="form-grupo">
+                <label for="sang-data">Data</label>
+                <input id="sang-data" type="date" value="${registro?.data || hojeISO()}" />
+              </div>
+              <div class="form-grupo">
+                <label for="sang-responsavel">Responsável</label>
+                <input id="sang-responsavel" type="text" value="${escaparHTML(registro?.responsavel || 'Administrador')}" />
+              </div>
+            </div>
+
+            <div class="form-grupo">
+              <label for="sang-obs">Observação</label>
+              <textarea id="sang-obs" placeholder="Observações sobre esta sangria...">${escaparHTML(registro?.observacao || '')}</textarea>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_FINANCEIRO.fecharModalSangria()">Cancelar</button>
+            <button class="btn btn--primario" onclick="MODULO_FINANCEIRO.salvarSangria('${chaveCategoria}', ${planejado})">
+              Confirmar sangria
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-sangria')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    setTimeout(() => {
+      document.getElementById('sang-valor')?.focus();
+      if (registro) {
+        document.getElementById('sang-diferenca').textContent =
+          formatarMoeda(registro.realizado - planejado);
+      }
+    }, 50);
+  }
+
+  function fecharModalSangria() {
+    document.getElementById('modal-sangria')?.remove();
+  }
+
+  function atualizarDiferencaSangria(planejado) {
+    const v = Number(document.getElementById('sang-valor')?.value) || 0;
+    const el = document.getElementById('sang-diferenca');
+    if (!el) return;
+    const dif = v - planejado;
+    el.textContent = formatarMoeda(dif);
+    el.style.color = dif === 0 ? '' : dif > 0 ? 'var(--cor-sucesso)' : 'var(--cor-critico)';
+  }
+
+  function salvarSangria(chaveCategoria, planejado) {
+    const cat = CATEGORIAS_SANGRIA.find(c => c.chave === chaveCategoria);
+    if (!cat) return;
+
+    const valorRealizado = Number(document.getElementById('sang-valor').value) || 0;
+    const data = document.getElementById('sang-data').value || hojeISO();
+    const responsavel = document.getElementById('sang-responsavel').value.trim() || 'Administrador';
+    const observacao = document.getElementById('sang-obs').value.trim();
+
+    if (valorRealizado < 0) return alert('Valor inválido.');
+
+    const b = baseSangria();
+    const diferenca = valorRealizado - planejado;
+
+    let status = 'pendente';
+    if (valorRealizado > 0) {
+      status = Math.abs(diferenca) < 0.01 ? 'realizada' : 'divergente';
+    }
+
+    // Remove registro anterior para o mesmo período/categoria
+    sangrias = sangrias.filter(s =>
+      !(s.categoria === chaveCategoria && s.periodoInicio === b.inicio && s.periodoFim === b.fim)
+    );
+
+    registrarSangria(chaveCategoria, {
+      categoriaNome: cat.nome,
+      percentual: cat.percentual,
+      planejado,
+      realizado: valorRealizado,
+      status,
+      data,
+      responsavel,
+      observacao,
+      periodoInicio: b.inicio,
+      periodoFim: b.fim
+    });
+
+    // Se realizada, lança movimentações financeiras reais
+    if (status !== 'pendente') {
+      registrarMovimentacoesDaSangria(cat, valorRealizado, data, b);
+    }
+
+    fecharModalSangria();
+    rerender();
+  }
+
+  function registrarMovimentacoesDaSangria(cat, valor, data, b) {
+    // Remove lançamentos anteriores desta sangria
+    lancamentos = lancamentos.filter(l =>
+      !(l.origem === 'sangria' && l.categoria === cat.nome &&
+        l.descricao.includes(b.inicio) && l.descricao.includes(b.fim))
+    );
+
+    if (valor <= 0) return;
+
+    // Sangria = saída de caixa (dinheiro que sai do "caixa" para as destinações)
+    criarLancamento({
+      tipo: 'pagar',
+      descricao: `Sangria ${cat.nome} · ${b.inicio} a ${b.fim}`,
+      valor,
+      vencimento: data,
+      status: 'pago',
+      categoria: 'Sangria',
+      origem: 'sangria',
+      observacoes: `Destinação: ${cat.nome} (${cat.percentual}%)`
+    });
+  }
+
+  /* ==========================================================
+     16. MODAL DE LANÇAMENTO
      ========================================================== */
 
   function abrirNovo(tipo) {
@@ -579,11 +1004,7 @@ const MODULO_FINANCEIRO = (() => {
         <div class="modal" role="dialog" aria-modal="true">
           <div class="modal__header">
             <h2 class="modal__titulo">
-              ${editando
-                ? 'Editar lançamento'
-                : tipo === 'receber'
-                  ? 'Nova conta a receber'
-                  : 'Nova conta a pagar'}
+              ${editando ? 'Editar lançamento' : tipo === 'receber' ? 'Nova conta a receber' : 'Nova conta a pagar'}
             </h2>
             <button class="modal__fechar" onclick="MODULO_FINANCEIRO.fecharModal()" aria-label="Fechar">
               <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -596,67 +1017,37 @@ const MODULO_FINANCEIRO = (() => {
                 <label for="fin-tipo">Tipo <span class="form-obrigatorio">*</span></label>
                 <select id="fin-tipo" required>
                   ${TIPOS.map(t => `
-                    <option value="${t.codigo}" ${(l?.tipo || tipo) === t.codigo ? 'selected' : ''}>
-                      ${t.nome}
-                    </option>
+                    <option value="${t.codigo}" ${(l?.tipo || tipo) === t.codigo ? 'selected' : ''}>${t.nome}</option>
                   `).join('')}
                 </select>
               </div>
 
               <div class="form-grupo">
                 <label for="fin-descricao">Descrição <span class="form-obrigatorio">*</span></label>
-                <input
-                  id="fin-descricao"
-                  type="text"
-                  required
-                  value="${escaparHTML(l?.descricao || '')}"
-                  placeholder="Ex: Compra de papel fotográfico"
-                />
+                <input id="fin-descricao" type="text" required value="${escaparHTML(l?.descricao || '')}" placeholder="Ex: Compra de papel fotográfico" />
               </div>
 
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="fin-valor">Valor (R$) <span class="form-obrigatorio">*</span></label>
-                  <input
-                    id="fin-valor"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    value="${l?.valor ?? ''}"
-                    placeholder="0,00"
-                  />
+                  <input id="fin-valor" type="number" min="0.01" step="0.01" required value="${l?.valor ?? ''}" placeholder="0,00" />
                 </div>
-
                 <div class="form-grupo">
                   <label for="fin-vencimento">Vencimento <span class="form-obrigatorio">*</span></label>
-                  <input
-                    id="fin-vencimento"
-                    type="date"
-                    required
-                    value="${l?.vencimento || hojeISO()}"
-                  />
+                  <input id="fin-vencimento" type="date" required value="${l?.vencimento || hojeISO()}" />
                 </div>
               </div>
 
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="fin-categoria">Categoria</label>
-                  <input
-                    id="fin-categoria"
-                    type="text"
-                    value="${escaparHTML(l?.categoria || '')}"
-                    placeholder="Ex: Insumos, Frete, Marketing..."
-                  />
+                  <input id="fin-categoria" type="text" value="${escaparHTML(l?.categoria || '')}" placeholder="Ex: Insumos, Frete, Marketing..." />
                 </div>
-
                 <div class="form-grupo">
                   <label for="fin-status">Status</label>
                   <select id="fin-status">
                     ${STATUS.filter(s => s.codigo !== 'vencido').map(s => `
-                      <option value="${s.codigo}" ${(l?.status || 'pendente') === s.codigo ? 'selected' : ''}>
-                        ${s.nome}
-                      </option>
+                      <option value="${s.codigo}" ${(l?.status || 'pendente') === s.codigo ? 'selected' : ''}>${s.nome}</option>
                     `).join('')}
                   </select>
                 </div>
@@ -689,10 +1080,6 @@ const MODULO_FINANCEIRO = (() => {
     lancamentoEditandoId = null;
   }
 
-  /* ==========================================================
-     11. SALVAR
-     ========================================================== */
-
   function salvar(event) {
     event.preventDefault();
 
@@ -720,7 +1107,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     12. AÇÕES
+     17. AÇÕES
      ========================================================== */
 
   function marcarPago(id) {
@@ -731,17 +1118,14 @@ const MODULO_FINANCEIRO = (() => {
   function confirmarExclusao(id) {
     const l = buscarLancamento(id);
     if (!l) return;
-    const ok = confirm(
-      `Cancelar o lançamento "${l.descricao}"?\n\n` +
-      `Ele continuará no histórico como cancelado.`
-    );
+    const ok = confirm(`Cancelar o lançamento "${l.descricao}"?\n\nEle continuará no histórico como cancelado.`);
     if (!ok) return;
     excluirLancamento(id);
     rerender();
   }
 
   /* ==========================================================
-     13. RERENDER
+     18. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -757,7 +1141,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     14. API PÚBLICA
+     19. API PÚBLICA
      ========================================================== */
 
   return {
@@ -771,11 +1155,19 @@ const MODULO_FINANCEIRO = (() => {
     alterarAba,
     alterarFiltroBusca,
     alterarFiltroStatus,
+    alterarPeriodoSangria,
+    abrirModalSangria,
+    fecharModalSangria,
+    atualizarDiferencaSangria,
+    salvarSangria,
     _listar: () => [...lancamentos],
+    _listarSangrias: () => [...sangrias],
     _buscar: buscarLancamento,
     _calcularKPIs: calcularKPIs,
+    _baseSangria: baseSangria,
     TIPOS,
-    STATUS
+    STATUS,
+    CATEGORIAS_SANGRIA
   };
 
 })();
