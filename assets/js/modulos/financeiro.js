@@ -13,13 +13,12 @@ const MODULO_FINANCEIRO = (() => {
      1. ESTADO
      ========================================================== */
 
-  let lancamentos = [];       // contas a receber e a pagar
+  let lancamentos = [];
   let proximoId = 1;
 
-  let filtroTipo = '';        // receber | pagar
-  let filtroStatus = '';      // pendente | pago | vencido
+  let filtroStatus = '';
   let filtroBusca = '';
-  let abaAtiva = 'receber';   // receber | pagar | fluxo
+  let abaAtiva = 'receber';
 
   let lancamentoEditandoId = null;
 
@@ -33,10 +32,10 @@ const MODULO_FINANCEIRO = (() => {
   ];
 
   const STATUS = [
-    { codigo: 'pendente', nome: 'Pendente', cor: 'atencao' },
-    { codigo: 'pago',     nome: 'Pago',     cor: 'sucesso' },
-    { codigo: 'vencido',  nome: 'Vencido',  cor: 'critico' },
-    { codigo: 'cancelado',nome: 'Cancelado',cor: 'neutro' }
+    { codigo: 'pendente',  nome: 'Pendente',  cor: 'atencao' },
+    { codigo: 'pago',      nome: 'Pago',      cor: 'sucesso' },
+    { codigo: 'vencido',   nome: 'Vencido',   cor: 'critico' },
+    { codigo: 'cancelado', nome: 'Cancelado', cor: 'neutro' }
   ];
 
   function statusInfo(codigo) {
@@ -86,13 +85,13 @@ const MODULO_FINANCEIRO = (() => {
   function criarLancamento(dados) {
     const lanc = {
       id: proximoId++,
-      tipo: dados.tipo,                    // receber | pagar
+      tipo: dados.tipo,
       descricao: dados.descricao || '',
       valor: Number(dados.valor) || 0,
       vencimento: dados.vencimento || hojeISO(),
       status: dados.status || 'pendente',
       categoria: dados.categoria || '',
-      origem: dados.origem || 'manual',    // manual | venda
+      origem: dados.origem || 'manual',
       vendaId: dados.vendaId || null,
       observacoes: dados.observacoes || '',
       criadoEm: new Date().toISOString(),
@@ -136,9 +135,6 @@ const MODULO_FINANCEIRO = (() => {
 
   /* ==========================================================
      5. SINCRONIZAÇÃO COM VENDAS
-     Gera lançamento "a receber" para cada venda com canal que
-     tenha prazo de repasse > 0. Para venda direta (sem canal),
-     gera lançamento com vencimento = hoje (à vista).
      ========================================================== */
 
   function sincronizarComVendas() {
@@ -149,7 +145,6 @@ const MODULO_FINANCEIRO = (() => {
     vendas.forEach(v => {
       if (v.status === 'cancelada') return;
 
-      // Já existe lançamento para essa venda?
       const existente = lancamentos.find(l => l.origem === 'venda' && l.vendaId === v.id);
       if (existente) return;
 
@@ -335,10 +330,6 @@ const MODULO_FINANCEIRO = (() => {
     `;
   }
 
-  /* ==========================================================
-     10. ABA DE LANÇAMENTOS
-     ========================================================== */
-
   function renderAbaLancamentos() {
     return `
       <div class="filtros-financeiro">
@@ -461,10 +452,6 @@ const MODULO_FINANCEIRO = (() => {
     `;
   }
 
-  /* ==========================================================
-     11. ABA DE FLUXO DE CAIXA
-     ========================================================== */
-
   function renderFluxoCaixa() {
     const hoje = hojeISO();
     const em30 = adicionarDias(hoje, 30);
@@ -481,7 +468,6 @@ const MODULO_FINANCEIRO = (() => {
 
     const saldo30 = entradas30 - saidas30;
 
-    // Próximos 30 dias, agrupados por semana
     const semanas = [];
     for (let i = 0; i < 4; i++) {
       const inicio = adicionarDias(hoje, i * 7);
@@ -570,7 +556,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     12. MODAL DE LANÇAMENTO
+     10. MODAL
      ========================================================== */
 
   function abrirNovo(tipo) {
@@ -704,7 +690,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     13. SALVAR
+     11. SALVAR
      ========================================================== */
 
   function salvar(event) {
@@ -734,7 +720,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     14. AÇÕES
+     12. AÇÕES
      ========================================================== */
 
   function marcarPago(id) {
@@ -755,7 +741,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     15. RERENDER
+     13. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -771,7 +757,7 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   /* ==========================================================
-     16. API PÚBLICA
+     14. API PÚBLICA
      ========================================================== */
 
   return {
@@ -785,7 +771,6 @@ const MODULO_FINANCEIRO = (() => {
     alterarAba,
     alterarFiltroBusca,
     alterarFiltroStatus,
-    // Uso futuro
     _listar: () => [...lancamentos],
     _buscar: buscarLancamento,
     _calcularKPIs: calcularKPIs,
