@@ -1,0 +1,105 @@
+/* ============================================================
+   PRAFICAR ERP — COMPONENTE SKU
+   Arquivo: assets/css/sku.css
+   Descrição: estilos para exibição de SKU em chips,
+              badges e campos de formulário.
+   ============================================================ */
+
+/* --- Chip de SKU (tabelas, cards) --- */
+.sku {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  letter-spacing: 0.02em;
+  color: var(--azul-marinho);
+  background-color: var(--azul-suave);
+  border: 1px solid rgba(46, 111, 168, 0.15);
+  border-radius: var(--raio-sm);
+  white-space: nowrap;
+  user-select: all;
+}
+
+.sku:hover {
+  background-color: #D9E8F7;
+}
+
+/* --- Campo de SKU no formulário --- */
+.sku-campo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.sku-campo input {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-weight: var(--peso-semibold);
+  letter-spacing: 0.02em;
+  color: var(--azul-marinho);
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.sku-campo input:focus {
+  background-color: var(--branco);
+  border-color: var(--cor-primaria);
+}
+
+.sku-campo__bloqueado {
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+/* --- Botão "regenerar" ao lado do SKU --- */
+.sku-campo__regenerar {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-md);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-100);
+  border: 1px solid var(--cor-borda-suave);
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida);
+  flex-shrink: 0;
+}
+
+.sku-campo__regenerar:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+}
+
+.sku-campo__regenerar svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- Preview do SKU gerado --- */
+.sku-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--cinza-50);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.sku-preview strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  color: var(--azul-marinho);
+  letter-spacing: 0.02em;
+}
