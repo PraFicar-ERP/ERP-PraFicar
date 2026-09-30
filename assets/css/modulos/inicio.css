@@ -1,0 +1,442 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO INÍCIO / DASHBOARD (v2)
+   Arquivo: assets/css/modulos/inicio.css
+   ============================================================ */
+
+/* ============================================================
+   1. ALERTAS NO TOPO
+   ============================================================ */
+
+.alertas-topo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-5);
+}
+
+.alerta-topo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  cursor: pointer;
+  transition: transform var(--transicao-rapida),
+              box-shadow var(--transicao-rapida);
+}
+
+.alerta-topo:hover {
+  transform: translateX(4px);
+  box-shadow: var(--sombra-sm);
+}
+
+.alerta-topo svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.alerta-topo--critico {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border: 1px solid rgba(217, 58, 58, 0.2);
+}
+
+.alerta-topo--atencao {
+  background-color: var(--cor-atencao-fundo);
+  color: #8A5D0A;
+  border: 1px solid rgba(232, 167, 43, 0.25);
+}
+
+.alerta-topo--info {
+  background-color: var(--azul-suave);
+  color: var(--azul-marinho);
+  border: 1px solid rgba(46, 111, 168, 0.2);
+}
+
+/* ============================================================
+   2. PONTO DE EQUILÍBRIO
+   ============================================================ */
+
+.pe-card {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F7F9FC 100%);
+}
+
+.pe-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: var(--esp-6);
+  align-items: start;
+}
+
+.pe-coluna--esquerda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.pe-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-3) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.pe-linha:last-child {
+  border-bottom: none;
+}
+
+.pe-linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.pe-linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-4);
+  margin-top: var(--esp-2);
+  font-size: var(--texto-base);
+}
+
+.pe-linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* Coluna direita */
+.pe-coluna--direita {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.pe-progresso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+.pe-progresso__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.pe-progresso__pct {
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letra-apertada);
+}
+
+.pe-progresso__pct--sucesso { color: var(--cor-sucesso); }
+.pe-progresso__pct--atencao { color: #8A5D0A; }
+.pe-progresso__pct--critico { color: var(--cor-critico); }
+
+.pe-progresso__barra {
+  width: 100%;
+  height: 12px;
+  background-color: var(--cinza-200);
+  border-radius: var(--raio-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.pe-progresso__preenchimento {
+  height: 100%;
+  border-radius: var(--raio-pill);
+  transition: width var(--transicao-suave);
+}
+
+.pe-progresso__preenchimento--sucesso {
+  background: linear-gradient(90deg, #2E9E5B 0%, #4BC474 100%);
+}
+
+.pe-progresso__preenchimento--atencao {
+  background: linear-gradient(90deg, #E8A72B 0%, #F2BE55 100%);
+}
+
+.pe-progresso__preenchimento--critico {
+  background: linear-gradient(90deg, #D93A3A 0%, #E85A5A 100%);
+}
+
+/* Restante */
+.pe-restante {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+}
+
+.pe-restante__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+}
+
+.pe-restante__linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.pe-restante__linha--destaque {
+  border-top: 1px solid var(--cor-borda-suave);
+  padding-top: var(--esp-3);
+  margin-top: var(--esp-1);
+  font-size: var(--texto-base);
+}
+
+.pe-restante__linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+.pe-conquista {
+  padding: var(--esp-4);
+  background-color: var(--verde-suave);
+  color: #1E6B3E;
+  border-radius: var(--raio-md);
+  font-size: var(--texto-base);
+  font-weight: var(--peso-medio);
+  text-align: center;
+  line-height: var(--linha-normal);
+}
+
+.pe-conquista strong {
+  color: #15562F;
+}
+
+/* ============================================================
+   3. RANKING DE PRODUTOS
+   ============================================================ */
+
+.rank-periodo {
+  display: inline-flex;
+  gap: var(--esp-1);
+  background-color: var(--cinza-100);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: 3px;
+}
+
+.rank-periodo__btn {
+  padding: var(--esp-2) var(--esp-3);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: none;
+  border-radius: var(--raio-sm);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida);
+  white-space: nowrap;
+}
+
+.rank-periodo__btn:hover {
+  color: var(--cor-texto-principal);
+}
+
+.rank-periodo__btn--ativo {
+  background-color: var(--branco);
+  color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+  box-shadow: var(--sombra-xs);
+}
+
+.rank-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-5);
+}
+
+.rank-coluna__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+  padding-bottom: var(--esp-2);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.rank-coluna__titulo svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-3);
+  border-radius: var(--raio-md);
+  transition: background-color var(--transicao-rapida);
+}
+
+.rank-item:hover {
+  background-color: var(--cinza-50);
+}
+
+.rank-item + .rank-item {
+  border-top: 1px solid var(--cor-borda-suave);
+  border-radius: 0;
+}
+
+.rank-item__pos {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-pill);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-bold);
+  flex-shrink: 0;
+  background-color: var(--cinza-100);
+  color: var(--cor-texto-secundario);
+}
+
+.rank-item--topo .rank-item__pos {
+  background-color: var(--verde-suave);
+  color: var(--verde);
+}
+
+.rank-item__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rank-item__nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+  font-size: var(--texto-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-item__num {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rank-item__qtd {
+  font-size: var(--texto-base);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.rank-item__fat {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.rank-vazio {
+  padding: var(--esp-5);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+/* ============================================================
+   4. TABELAS (REPOSIÇÃO, MARGEM)
+   ============================================================ */
+
+.tabela-reposicao,
+.tabela-margem {
+  font-size: var(--texto-sm);
+}
+
+.tabela-reposicao .sku,
+.tabela-margem .sku {
+  margin-top: 4px;
+}
+
+.tabela-reposicao .produto-nome,
+.tabela-margem .produto-nome {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+}
+
+/* ============================================================
+   5. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .rank-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pe-grid {
+    grid-template-columns: 1fr;
+    gap: var(--esp-5);
+  }
+}
+
+@media (max-width: 768px) {
+  .rank-periodo {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rank-periodo__btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .pe-progresso__pct {
+    font-size: var(--texto-lg);
+  }
+
+  .pe-restante {
+    padding: var(--esp-3);
+  }
+
+  .alerta-topo {
+    font-size: var(--texto-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .pe-linha--destaque strong,
+  .pe-restante__linha--destaque strong {
+    font-size: var(--texto-base);
+  }
+}
