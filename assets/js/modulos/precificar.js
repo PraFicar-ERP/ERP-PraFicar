@@ -1,11 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v2 ENTERPRISE)
+   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v3 com rendimento)
    Arquivo: assets/js/modulos/precificar.js
-   Descrição: cálculo de custo real e formação de preço.
-              Margem de Lucro, Markup e Acréscimo calculados
-              SEPARADAMENTE. Sem mão de obra, sem energia, sem
-              canal de venda. Insumos com embalagem/rendimento.
-              Impressora tank com 4 tintas configurável.
+   Descrição: calcula custo real e formação de preço.
+              - Margem de Lucro, Markup e Acréscimo separados
+              - Sem mão de obra, sem energia, sem canal, sem perdas
+              - Insumos com rendimento (compra → uso)
+              - Impressora tank com 4 tintas
+              - Botão "Salvar como produto"
    ============================================================ */
 
 const MODULO_PRECIFICAR = (() => {
@@ -17,10 +18,10 @@ const MODULO_PRECIFICAR = (() => {
   let precificacoes = [];
   let proximoId = 1;
 
-  // Base de insumos reutilizáveis (em memória)
+  // Base de insumos reutilizáveis
   let materiais = [];
 
-  // Impressora (singleton — você tem uma)
+  // Impressora
   let impressora = carregarImpressoraPadrao();
 
   let form = novoForm();
@@ -35,11 +36,11 @@ const MODULO_PRECIFICAR = (() => {
   function novoForm() {
     return {
       nome: '',
+      categoria: '',
       quantidadeProduzida: 1,
-      quantidadePerdas: 0,
-      insumos: [],              // [{materialId, nome, custoUnitario, quantidade}]
+      insumos: [],
       paginasImpressas: 0,
-      tipoImpressao: 'colorida',// colorida | preta
+      tipoImpressao: 'colorida',
       margemDesejada: 40,
       meuPrecoVenda: null
     };
@@ -63,6 +64,13 @@ const MODULO_PRECIFICAR = (() => {
 
   function formatarMoeda(v) {
     const n = Number(v) || 0;
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function formatarMoedaFina(v) {
+    const n = Number(v) || 0;
+    if (n === 0) return 'R$ 0,00';
+    if (n < 0.01) return `R$ ${n.toFixed(4).replace('.', ',')}`;
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
@@ -119,65 +127,71 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     4. MOTOR DE CÁLCULO
+     4. CÁLCULO DO INSUMO (COM RENDIMENTO)
+     ========================================================== */
+
+  /**
+   * Calcula o custo por unidade de uso de um insumo.
+   *
+   * @param {number} precoPago       - preço total pago na compra
+   * @param {number} quantidadeCompra - quantas unidades de compra
+   * @param {number} rendimento      - quantas unidades de uso cada
+   *                                    unidade de compra rende (opcional, default 1)
+   * @returns {object} { custoPorUnidadeCompra, custoPorUnidadeUso }
+   */
+  function calcularCustoInsumo(precoPago, quantidadeCompra, rendimento) {
+    const preco = Number(precoPago) || 0;
+    const qtd = Number(quantidadeCompra) || 0;
+    const rend = Number(rendimento) > 0 ? Number(rendimento) : 1;
+
+    if (qtd <= 0) return { custoPorUnidadeCompra: 0, custoPorUnidadeUso: 0 };
+
+    const custoPorUnidadeCompra = preco / qtd;
+    const custoPorUnidadeUso = custoPorUnidadeCompra / rend;
+
+    return { custoPorUnidadeCompra, custoPorUnidadeUso };
+  }
+
+  /* ==========================================================
+     5. MOTOR DE CÁLCULO
      ========================================================== */
 
   function calcular() {
     const qtdProduzida = Math.max(1, Number(form.quantidadeProduzida) || 1);
-    const qtdPerdas    = Math.min(qtdProduzida - 1, Math.max(0, Number(form.quantidadePerdas) || 0));
-    const aproveitaveis = qtdProduzida - qtdPerdas;
 
+    // Custo dos insumos (cada um já tem seu custoPorUnidadeUso calculado)
     const custoInsumos = form.insumos.reduce((acc, i) => {
-      return acc + (Number(i.custoUnitario) || 0) * (Number(i.quantidade) || 0);
+      return acc + (Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0);
     }, 0);
 
     const custoImpressaoTotal = custoImpressao();
     const custoTotal = custoInsumos + custoImpressaoTotal;
-
-    const custoUnitarioSemPerdas = custoTotal / qtdProduzida;
-    const custoUnitarioReal = aproveitaveis > 0 ? custoTotal / aproveitaveis : 0;
-    const custoAdicionalPorPerda = custoUnitarioReal - custoUnitarioSemPerdas;
-
-    const perdaSobreProducao = qtdProduzida > 0 ? (qtdPerdas / qtdProduzida) * 100 : 0;
-    const aumentoCustoUnitario = custoUnitarioSemPerdas > 0
-      ? ((custoUnitarioReal - custoUnitarioSemPerdas) / custoUnitarioSemPerdas) * 100
-      : 0;
+    const custoUnitario = custoTotal / qtdProduzida;
 
     const margemPct = Math.min(95, Math.max(0, Number(form.margemDesejada) || 0));
     const margemDec = margemPct / 100;
     const divisor = 1 - margemDec;
     const precoSugerido = divisor > 0.01
-      ? arredondar2(custoUnitarioReal / divisor)
+      ? arredondar2(custoUnitario / divisor)
       : 0;
 
-    const indicadoresSugerido = calcularIndicadores(custoUnitarioReal, precoSugerido);
+    const indicadoresSugerido = calcularIndicadores(custoUnitario, precoSugerido);
 
     let indicadoresMeuPreco = null;
     const meuPreco = Number(form.meuPrecoVenda);
     if (meuPreco > 0) {
-      indicadoresMeuPreco = calcularIndicadores(custoUnitarioReal, meuPreco);
+      indicadoresMeuPreco = calcularIndicadores(custoUnitario, meuPreco);
     }
 
     return {
       qtdProduzida,
-      qtdPerdas,
-      aproveitaveis,
-
       custoInsumos,
       custoImpressao: custoImpressaoTotal,
       custoTotal,
-
-      custoUnitarioSemPerdas,
-      custoUnitarioReal,
-      custoAdicionalPorPerda,
-
-      perdaSobreProducao,
-      aumentoCustoUnitario,
-
+      custoUnitario,
       margemDesejada: margemPct,
       precoSugerido,
       indicadoresSugerido,
-
       meuPrecoVenda: meuPreco > 0 ? meuPreco : null,
       indicadoresMeuPreco
     };
@@ -195,7 +209,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     5. RENDER — TELA PRINCIPAL
+     6. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -206,7 +220,7 @@ const MODULO_PRECIFICAR = (() => {
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Precificar</h1>
           <p class="pagina-header__subtitulo">
-            Custo real → margem → preço. Tudo calculado automaticamente.
+            Custo real → margem → preço sugerido.
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -216,8 +230,8 @@ const MODULO_PRECIFICAR = (() => {
           <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.limpar()">
             Limpar
           </button>
-          <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.salvar()">
-            Salvar precificação
+          <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.salvarComoProduto()">
+            Salvar como produto
           </button>
         </div>
       </div>
@@ -226,6 +240,7 @@ const MODULO_PRECIFICAR = (() => {
 
         <div class="precificar-form">
 
+          <!-- 1. PRODUTO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">1. Produto</h3>
@@ -237,45 +252,27 @@ const MODULO_PRECIFICAR = (() => {
                   id="prec-nome"
                   type="text"
                   value="${escaparHTML(form.nome)}"
-                  placeholder="Ex: Marca-páginas Coração"
+                  placeholder="Ex: Chaveiro Coração"
                   oninput="MODULO_PRECIFICAR.atualizar('nome', this.value)"
                 />
               </div>
 
-              <div class="form-linha-3">
-                <div class="form-grupo">
-                  <label for="prec-qtd">Quantidade produzida</label>
-                  <input
-                    id="prec-qtd"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value="${form.quantidadeProduzida}"
-                    oninput="MODULO_PRECIFICAR.atualizar('quantidadeProduzida', this.value)"
-                  />
-                </div>
-
-                <div class="form-grupo">
-                  <label for="prec-perdas">Quantidade de perdas</label>
-                  <input
-                    id="prec-perdas"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value="${form.quantidadePerdas}"
-                    oninput="MODULO_PRECIFICAR.atualizar('quantidadePerdas', this.value)"
-                  />
-                  <span class="form-ajuda">Unidades perdidas na produção.</span>
-                </div>
-
-                <div class="form-grupo">
-                  <label>Quantidade aproveitável</label>
-                  <div class="prec-info-calc">${r.aproveitaveis} un</div>
-                </div>
+              <div class="form-grupo">
+                <label for="prec-qtd">Quantidade produzida (para rateio do custo)</label>
+                <input
+                  id="prec-qtd"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value="${form.quantidadeProduzida}"
+                  oninput="MODULO_PRECIFICAR.atualizar('quantidadeProduzida', this.value)"
+                />
+                <span class="form-ajuda">Use este número apenas para dividir o custo total. A produção real é registrada no módulo Produção.</span>
               </div>
             </div>
           </div>
 
+          <!-- 2. INSUMOS -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">2. Insumos</h3>
@@ -288,6 +285,7 @@ const MODULO_PRECIFICAR = (() => {
             </div>
           </div>
 
+          <!-- 3. IMPRESSÃO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">3. Impressão</h3>
@@ -313,22 +311,20 @@ const MODULO_PRECIFICAR = (() => {
                     onchange="MODULO_PRECIFICAR.atualizar('tipoImpressao', this.value)"
                   >
                     <option value="colorida" ${form.tipoImpressao === 'colorida' ? 'selected' : ''}>Colorida</option>
-                    <option value="preta"    ${form.tipoImpressao === 'preta' ? 'selected' : ''}>Preta (só preto)</option>
+                    <option value="preta"    ${form.tipoImpressao === 'preta' ? 'selected' : ''}>Preta</option>
                   </select>
                 </div>
                 <div class="form-grupo">
                   <label>Custo por página</label>
                   <div class="prec-info-calc">
-                    ${formatarMoeda(form.tipoImpressao === 'preta' ? custoPorPaginaPreta() : custoPorPaginaColorida())}
+                    ${formatarMoedaFina(form.tipoImpressao === 'preta' ? custoPorPaginaPreta() : custoPorPaginaColorida())}
                   </div>
                 </div>
               </div>
-              <p class="form-ajuda">
-                Configure preço e rendimento das tintas em <strong>Impressora</strong>. O papel deve ser adicionado como insumo separadamente.
-              </p>
             </div>
           </div>
 
+          <!-- 4. MARGEM -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">4. Margem desejada</h3>
@@ -348,10 +344,11 @@ const MODULO_PRECIFICAR = (() => {
                 <button class="margem-slider__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(5)">+</button>
                 <span class="margem-slider__valor">${form.margemDesejada}%</span>
               </div>
-              <p class="form-ajuda">Margem de Lucro = Lucro ÷ Preço de Venda × 100. Máximo 95%.</p>
+              <p class="form-ajuda">Margem = Lucro ÷ Preço de Venda × 100. Máximo 95%.</p>
             </div>
           </div>
 
+          <!-- 5. MEU PREÇO -->
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">5. Meu preço de venda</h3>
@@ -368,7 +365,6 @@ const MODULO_PRECIFICAR = (() => {
                   placeholder="Deixe em branco para usar o sugerido"
                   oninput="MODULO_PRECIFICAR.atualizar('meuPrecoVenda', this.value)"
                 />
-                <span class="form-ajuda">Se informado, o sistema recalcula os indicadores com o seu preço.</span>
               </div>
             </div>
           </div>
@@ -396,7 +392,7 @@ const MODULO_PRECIFICAR = (() => {
     }
 
     const total = form.insumos.reduce((acc, i) =>
-      acc + (Number(i.custoUnitario) || 0) * (Number(i.quantidade) || 0), 0
+      acc + (Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0), 0
     );
 
     return `
@@ -413,10 +409,15 @@ const MODULO_PRECIFICAR = (() => {
         <tbody>
           ${form.insumos.map((i, idx) => `
             <tr>
-              <td>${escaparHTML(i.nome)}</td>
-              <td class="tabela__numero">${formatarMoeda(i.custoUnitario)}</td>
-              <td class="tabela__numero">${i.quantidade}</td>
-              <td class="tabela__numero peso-semibold">${formatarMoeda((Number(i.custoUnitario) || 0) * (Number(i.quantidade) || 0))}</td>
+              <td>
+                <div class="produto-nome">${escaparHTML(i.nome)}</div>
+                ${i.rendimento > 1
+                  ? `<div class="produto-desc">${i.quantidadeCompra} ${i.unidadeCompra} × ${i.rendimento} = ${(i.quantidadeCompra * i.rendimento).toLocaleString('pt-BR')} ${i.unidadeUso}</div>`
+                  : ''}
+              </td>
+              <td class="tabela__numero">${formatarMoedaFina(i.custoPorUnidadeUso)}</td>
+              <td class="tabela__numero">${i.quantidadeUsada} ${i.unidadeUso || ''}</td>
+              <td class="tabela__numero peso-semibold">${formatarMoedaFina((Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0))}</td>
               <td class="tabela__acao">
                 <button class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_PRECIFICAR.removerInsumo(${idx})">
                   <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -428,7 +429,7 @@ const MODULO_PRECIFICAR = (() => {
         <tfoot>
           <tr>
             <td colspan="3" class="text-right peso-semibold">Total de insumos</td>
-            <td class="tabela__numero peso-bold text-principal">${formatarMoeda(total)}</td>
+            <td class="tabela__numero peso-bold text-principal">${formatarMoedaFina(total)}</td>
             <td></td>
           </tr>
         </tfoot>
@@ -437,7 +438,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     6. RENDER — COLUNA DIREITA
+     7. RENDER — COLUNA DIREITA
      ========================================================== */
 
   function renderResultado(r) {
@@ -449,8 +450,8 @@ const MODULO_PRECIFICAR = (() => {
       <div class="resultado-card">
         <div class="resultado-card__header">
           <span class="resultado-card__label">Custo real por unidade</span>
-          <span class="resultado-card__valor">${formatarMoeda(r.custoUnitarioReal)}</span>
-          <span class="resultado-card__sub">${r.aproveitaveis} un aproveitáveis</span>
+          <span class="resultado-card__valor">${formatarMoedaFina(r.custoUnitario)}</span>
+          <span class="resultado-card__sub">${r.qtdProduzida} un no rateio</span>
         </div>
 
         <div class="resultado-card__destaque">
@@ -480,8 +481,6 @@ const MODULO_PRECIFICAR = (() => {
         </div>
       </div>
 
-      ${renderCardPerdas(r)}
-
       ${renderCardMercado()}
 
       <button
@@ -494,63 +493,6 @@ const MODULO_PRECIFICAR = (() => {
 
       <div class="resultado-detalhes hidden" id="resultado-detalhes">
         ${renderDetalhesCalculo(r)}
-      </div>
-    `;
-  }
-
-  function renderCardPerdas(r) {
-    if (r.qtdPerdas === 0) {
-      return `
-        <div class="card card--compacto mt-4">
-          <div class="card__header">
-            <h3 class="card__titulo">Impacto das perdas</h3>
-          </div>
-          <div class="card__body">
-            <p class="text-secundario">Nenhuma perda informada. Custo unitário já é o real.</p>
-          </div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="card card--compacto mt-4">
-        <div class="card__header">
-          <h3 class="card__titulo">Impacto das perdas</h3>
-        </div>
-        <div class="card__body">
-          <div class="impacto-linha">
-            <span>Produção total</span>
-            <strong>${r.qtdProduzida} un</strong>
-          </div>
-          <div class="impacto-linha">
-            <span>Unidades perdidas</span>
-            <strong class="text-critico">${r.qtdPerdas} un</strong>
-          </div>
-          <div class="impacto-linha">
-            <span>Aproveitáveis</span>
-            <strong>${r.aproveitaveis} un</strong>
-          </div>
-          <div class="impacto-linha impacto-linha--destaque">
-            <span>Custo sem perdas</span>
-            <strong>${formatarMoeda(r.custoUnitarioSemPerdas)}</strong>
-          </div>
-          <div class="impacto-linha impacto-linha--destaque">
-            <span>Custo real</span>
-            <strong>${formatarMoeda(r.custoUnitarioReal)}</strong>
-          </div>
-          <div class="impacto-linha">
-            <span>Custo adicional por unidade</span>
-            <strong class="text-atencao">+ ${formatarMoeda(r.custoAdicionalPorPerda)}</strong>
-          </div>
-          <div class="impacto-linha">
-            <span>Perda sobre produção</span>
-            <strong>${formatarPercentual(r.perdaSobreProducao)}</strong>
-          </div>
-          <div class="impacto-linha">
-            <span>Aumento no custo unitário</span>
-            <strong class="text-atencao">+ ${formatarPercentual(r.aumentoCustoUnitario)}</strong>
-          </div>
-        </div>
       </div>
     `;
   }
@@ -583,8 +525,7 @@ const MODULO_PRECIFICAR = (() => {
               </div>
             </div>
             <p class="form-ajuda mt-2">
-              ${p.resultados} ${p.resultados === 1 ? 'resultado' : 'resultados'} ·
-              Atualizado em ${p.data}
+              ${p.resultados} ${p.resultados === 1 ? 'resultado' : 'resultados'} · Atualizado em ${p.data}
             </p>
           ` : `
             <p class="text-secundario">
@@ -603,28 +544,24 @@ const MODULO_PRECIFICAR = (() => {
 
         <div class="calculo-linha">
           <span>Insumos</span>
-          <span>${formatarMoeda(r.custoInsumos)}</span>
+          <span>${formatarMoedaFina(r.custoInsumos)}</span>
         </div>
         <div class="calculo-linha">
           <span>Impressão (${form.paginasImpressas} páginas)</span>
-          <span>${formatarMoeda(r.custoImpressao)}</span>
+          <span>${formatarMoedaFina(r.custoImpressao)}</span>
         </div>
         <div class="calculo-linha calculo-linha--destaque">
-          <span>Custo total de produção</span>
-          <span>${formatarMoeda(r.custoTotal)}</span>
+          <span>Custo total</span>
+          <span>${formatarMoedaFina(r.custoTotal)}</span>
         </div>
 
         <div class="calculo-linha">
-          <span>Produção total</span>
+          <span>Quantidade no rateio</span>
           <span>${r.qtdProduzida} un</span>
         </div>
-        <div class="calculo-linha">
-          <span>Perdas</span>
-          <span>${r.qtdPerdas} un</span>
-        </div>
         <div class="calculo-linha calculo-linha--destaque">
-          <span>Custo real por unidade aproveitável</span>
-          <span>${formatarMoeda(r.custoUnitarioReal)}</span>
+          <span>Custo real por unidade</span>
+          <span>${formatarMoedaFina(r.custoUnitario)}</span>
         </div>
 
         <div class="calculo-linha">
@@ -655,7 +592,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     7. AÇÕES
+     8. AÇÕES
      ========================================================== */
 
   function atualizar(campo, valor) {
@@ -683,7 +620,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     8. INSUMOS — MODAL
+     9. INSUMOS — MODAL (COM RENDIMENTO)
      ========================================================== */
 
   function abrirModalInsumo() {
@@ -699,77 +636,124 @@ const MODULO_PRECIFICAR = (() => {
 
           <div class="modal__body">
             <div class="form-grupo">
-              <label>Insumo cadastrado</label>
+              <label>Insumo já cadastrado</label>
               <select id="ins-material" onchange="MODULO_PRECIFICAR.aoEscolherMaterial()">
                 <option value="">+ Cadastrar novo insumo</option>
                 ${materiais.map((m, idx) => `
-                  <option value="${idx}" data-nome="${escaparHTML(m.nome)}" data-custo="${m.custoUnitario}">
-                    ${escaparHTML(m.nome)} — ${formatarMoeda(m.custoUnitario)}/${m.unidadeConsumo}
+                  <option
+                    value="${idx}"
+                    data-nome="${escaparHTML(m.nome)}"
+                    data-custo="${m.custoPorUnidadeUso}"
+                    data-unidade="${m.unidadeUso}"
+                  >
+                    ${escaparHTML(m.nome)} — ${formatarMoedaFina(m.custoPorUnidadeUso)}/${m.unidadeUso}
                   </option>
                 `).join('')}
               </select>
             </div>
 
-            <div class="form-linha">
-              <div class="form-grupo">
-                <label for="ins-nome">Nome <span class="form-obrigatorio">*</span></label>
-                <input id="ins-nome" type="text" placeholder="Ex: Papel A4" />
-              </div>
-              <div class="form-grupo">
-                <label for="ins-unidade-compra">Unidade de compra</label>
-                <select id="ins-unidade-compra">
-                  <option value="unidade">Unidade</option>
-                  <option value="pacote">Pacote</option>
-                  <option value="caixa">Caixa</option>
-                  <option value="rolo">Rolo</option>
-                  <option value="resma">Resma</option>
-                  <option value="litro">Litro</option>
-                  <option value="kg">Kg</option>
-                </select>
+            <div class="form-grupo">
+              <label for="ins-nome">Nome do insumo <span class="form-obrigatorio">*</span></label>
+              <input id="ins-nome" type="text" placeholder="Ex: Adesivo Personalizado" />
+            </div>
+
+            <!-- COMPRA -->
+            <div class="ins-bloco">
+              <div class="ins-bloco__titulo">Compra</div>
+              <div class="form-linha-3">
+                <div class="form-grupo">
+                  <label for="ins-preco-pago">Preço pago (R$)</label>
+                  <input id="ins-preco-pago" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                </div>
+                <div class="form-grupo">
+                  <label for="ins-qtd-comprada">Quantidade comprada</label>
+                  <input id="ins-qtd-comprada" type="number" min="0.01" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                </div>
+                <div class="form-grupo">
+                  <label for="ins-unidade-compra">Unidade de compra</label>
+                  <select id="ins-unidade-compra" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
+                    <option value="unidade">Unidade</option>
+                    <option value="pacote">Pacote</option>
+                    <option value="caixa">Caixa</option>
+                    <option value="rolo">Rolo</option>
+                    <option value="resma">Resma</option>
+                    <option value="folha">Folha</option>
+                    <option value="litro">Litro</option>
+                    <option value="kg">Kg</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div class="form-linha-3">
-              <div class="form-grupo">
-                <label for="ins-qtd-comprada">Quantidade comprada</label>
-                <input id="ins-qtd-comprada" type="number" min="0.01" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+            <!-- RENDIMENTO -->
+            <div class="ins-bloco">
+              <div class="ins-bloco__titulo">
+                Rendimento
+                <span class="ins-bloco__opcional">(opcional)</span>
               </div>
-              <div class="form-grupo">
-                <label for="ins-preco-pago">Preço pago (R$)</label>
-                <input id="ins-preco-pago" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
-              </div>
-              <div class="form-grupo">
-                <label>Custo unitário</label>
-                <div class="prec-info-calc" id="ins-custo-unitario">R$ 0,00</div>
+              <p class="form-ajuda">
+                Use quando 1 unidade de compra rende várias unidades de uso.
+                Ex: 1 folha rende 100 adesivos.
+              </p>
+              <div class="form-linha-3">
+                <div class="form-grupo">
+                  <label for="ins-rendimento">Cada unidade de compra rende</label>
+                  <input id="ins-rendimento" type="number" min="1" step="1" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                </div>
+                <div class="form-grupo">
+                  <label for="ins-unidade-uso">Unidade de uso</label>
+                  <select id="ins-unidade-uso" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
+                    <option value="unidade">Unidade</option>
+                    <option value="adesivo">Adesivo</option>
+                    <option value="folha">Folha</option>
+                    <option value="foto">Foto</option>
+                    <option value="metro">Metro</option>
+                    <option value="cm">Centímetro</option>
+                    <option value="ml">ml</option>
+                    <option value="g">g</option>
+                  </select>
+                </div>
+                <div class="form-grupo">
+                  <label>Total de unidades de uso</label>
+                  <div class="prec-info-calc" id="ins-total-uso">1 unidade</div>
+                </div>
               </div>
             </div>
 
-            <div class="form-linha-3">
-              <div class="form-grupo">
-                <label for="ins-unidade-consumo">Unidade de consumo</label>
-                <select id="ins-unidade-consumo">
-                  <option value="unidade">Unidade</option>
-                  <option value="folha">Folha</option>
-                  <option value="metro">Metro</option>
-                  <option value="cm">Centímetro</option>
-                  <option value="ml">ml</option>
-                  <option value="g">g</option>
-                </select>
+            <!-- RESULTADO -->
+            <div class="ins-bloco">
+              <div class="ins-bloco__titulo">Custo calculado</div>
+              <div class="ins-resultado">
+                <div class="ins-resultado__item">
+                  <span class="ins-resultado__label">Custo por unidade de compra</span>
+                  <span class="ins-resultado__valor" id="ins-custo-compra">R$ 0,00</span>
+                </div>
+                <div class="ins-resultado__item ins-resultado__item--destaque">
+                  <span class="ins-resultado__label">Custo por unidade de uso</span>
+                  <span class="ins-resultado__valor" id="ins-custo-uso">R$ 0,00</span>
+                </div>
               </div>
-              <div class="form-grupo">
-                <label for="ins-qtd-utilizada">Quantidade utilizada</label>
-                <input id="ins-qtd-utilizada" type="number" min="0" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularSubtotalInsumo()" />
-              </div>
-              <div class="form-grupo">
-                <label>Subtotal</label>
-                <div class="prec-info-calc" id="ins-subtotal">R$ 0,00</div>
+            </div>
+
+            <!-- QUANTIDADE USADA -->
+            <div class="ins-bloco">
+              <div class="ins-bloco__titulo">Uso nesta produção</div>
+              <div class="form-linha">
+                <div class="form-grupo">
+                  <label for="ins-qtd-usada">Quantidade usada</label>
+                  <input id="ins-qtd-usada" type="number" min="0" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularSubtotalInsumo()" />
+                </div>
+                <div class="form-grupo">
+                  <label>Subtotal neste produto</label>
+                  <div class="prec-info-calc" id="ins-subtotal">R$ 0,00</div>
+                </div>
               </div>
             </div>
           </div>
 
           <div class="modal__footer">
             <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalInsumo()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.adicionarInsumo()">Adicionar</button>
+            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.adicionarInsumo()">Adicionar insumo</button>
           </div>
         </div>
       </div>
@@ -788,71 +772,99 @@ const MODULO_PRECIFICAR = (() => {
     const sel = document.getElementById('ins-material');
     if (!sel || !sel.value) return;
     const opt = sel.options[sel.selectedIndex];
-    document.getElementById('ins-nome').value = opt.dataset.nome || '';
+    const material = materiais[Number(sel.value)];
+    if (!material) return;
+
+    document.getElementById('ins-nome').value = material.nome;
+    document.getElementById('ins-preco-pago').value = material.precoPago;
+    document.getElementById('ins-qtd-comprada').value = material.quantidadeCompra;
+    document.getElementById('ins-unidade-compra').value = material.unidadeCompra || 'unidade';
+    document.getElementById('ins-rendimento').value = material.rendimento || 1;
+    document.getElementById('ins-unidade-uso').value = material.unidadeUso || 'unidade';
+    recalcularCustoInsumo();
   }
 
   function recalcularCustoInsumo() {
-    const qtd = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
     const preco = Number(document.getElementById('ins-preco-pago')?.value) || 0;
-    const custo = qtd > 0 ? preco / qtd : 0;
-    const el = document.getElementById('ins-custo-unitario');
-    if (el) el.textContent = formatarMoeda(custo);
+    const qtdCompra = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
+    const rendimento = Number(document.getElementById('ins-rendimento')?.value) || 1;
+
+    const { custoPorUnidadeCompra, custoPorUnidadeUso } =
+      calcularCustoInsumo(preco, qtdCompra, rendimento);
+
+    const elCompra = document.getElementById('ins-custo-compra');
+    const elUso = document.getElementById('ins-custo-uso');
+    const elTotalUso = document.getElementById('ins-total-uso');
+
+    if (elCompra) elCompra.textContent = formatarMoedaFina(custoPorUnidadeCompra);
+    if (elUso) elUso.textContent = formatarMoedaFina(custoPorUnidadeUso);
+    if (elTotalUso) elTotalUso.textContent = `${(qtdCompra * rendimento).toLocaleString('pt-BR')} unidades`;
+
     recalcularSubtotalInsumo();
   }
 
   function recalcularSubtotalInsumo() {
-    const qtdComprada = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
     const preco = Number(document.getElementById('ins-preco-pago')?.value) || 0;
-    const qtdUtilizada = Number(document.getElementById('ins-qtd-utilizada')?.value) || 0;
-    const custo = qtdComprada > 0 ? preco / qtdComprada : 0;
-    const sub = custo * qtdUtilizada;
+    const qtdCompra = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
+    const rendimento = Number(document.getElementById('ins-rendimento')?.value) || 1;
+    const qtdUsada = Number(document.getElementById('ins-qtd-usada')?.value) || 0;
+
+    const { custoPorUnidadeUso } = calcularCustoInsumo(preco, qtdCompra, rendimento);
+    const subtotal = custoPorUnidadeUso * qtdUsada;
+
     const el = document.getElementById('ins-subtotal');
-    if (el) el.textContent = formatarMoeda(sub);
+    if (el) el.textContent = formatarMoedaFina(subtotal);
   }
 
   function adicionarInsumo() {
     const nome = document.getElementById('ins-nome').value.trim();
-    const qtdComprada = Number(document.getElementById('ins-qtd-comprada').value) || 0;
     const preco = Number(document.getElementById('ins-preco-pago').value) || 0;
-    const qtdUtilizada = Number(document.getElementById('ins-qtd-utilizada').value) || 0;
-    const unidadeConsumo = document.getElementById('ins-unidade-consumo').value;
+    const qtdCompra = Number(document.getElementById('ins-qtd-comprada').value) || 0;
     const unidadeCompra = document.getElementById('ins-unidade-compra').value;
+    const rendimento = Number(document.getElementById('ins-rendimento').value) || 1;
+    const unidadeUso = document.getElementById('ins-unidade-uso').value;
+    const qtdUsada = Number(document.getElementById('ins-qtd-usada').value) || 0;
 
     if (!nome) return alert('Informe o nome do insumo.');
     if (preco <= 0) return alert('Informe o preço pago.');
-    if (qtdComprada <= 0) return alert('Informe a quantidade comprada.');
-    if (qtdUtilizada < 0) return alert('Quantidade utilizada inválida.');
+    if (qtdCompra <= 0) return alert('Informe a quantidade comprada.');
+    if (rendimento < 1) return alert('O rendimento deve ser pelo menos 1.');
+    if (qtdUsada <= 0) return alert('Informe a quantidade usada.');
 
-    const custoUnitario = preco / qtdComprada;
+    const { custoPorUnidadeCompra, custoPorUnidadeUso } =
+      calcularCustoInsumo(preco, qtdCompra, rendimento);
 
+    // Salva na base de materiais
     const idxExistente = materiais.findIndex(m => m.nome === nome);
+    const material = {
+      nome,
+      precoPago: preco,
+      quantidadeCompra: qtdCompra,
+      unidadeCompra,
+      rendimento,
+      unidadeUso,
+      custoPorUnidadeCompra,
+      custoPorUnidadeUso,
+      atualizadoEm: new Date().toISOString()
+    };
+
     if (idxExistente === -1) {
-      materiais.push({
-        nome,
-        unidadeCompra,
-        quantidadeComprada: qtdComprada,
-        precoPago: preco,
-        unidadeConsumo,
-        custoUnitario,
-        atualizadoEm: new Date().toISOString()
-      });
+      materiais.push(material);
     } else {
-      materiais[idxExistente] = {
-        ...materiais[idxExistente],
-        unidadeCompra,
-        quantidadeComprada: qtdComprada,
-        precoPago: preco,
-        unidadeConsumo,
-        custoUnitario,
-        atualizadoEm: new Date().toISOString()
-      };
+      materiais[idxExistente] = material;
     }
 
+    // Adiciona na precificação com snapshot
     form.insumos.push({
       nome,
-      custoUnitario,
-      quantidade: qtdUtilizada,
-      unidadeConsumo
+      precoPago: preco,
+      quantidadeCompra: qtdCompra,
+      unidadeCompra,
+      rendimento,
+      unidadeUso,
+      custoPorUnidadeCompra,
+      custoPorUnidadeUso,
+      quantidadeUsada: qtdUsada
     });
 
     fecharModalInsumo();
@@ -865,7 +877,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     9. IMPRESSORA — MODAL
+     10. IMPRESSORA — MODAL
      ========================================================== */
 
   function abrirConfigImpressora() {
@@ -887,8 +899,7 @@ const MODULO_PRECIFICAR = (() => {
             </div>
 
             <p class="form-ajuda">
-              Configure preço do frasco e rendimento (em páginas) de cada tinta.
-              O custo por página será calculado automaticamente.
+              Configure preço e rendimento de cada tinta. O custo por página é calculado automaticamente.
             </p>
 
             ${['preto', 'ciano', 'magenta', 'amarelo'].map(cor => `
@@ -917,7 +928,7 @@ const MODULO_PRECIFICAR = (() => {
                   <div class="form-grupo">
                     <label>Custo por página</label>
                     <div class="prec-info-calc" id="imp-custo-${cor}">
-                      ${formatarMoeda(t[cor].preco / t[cor].rendimento)}
+                      ${formatarMoedaFina(t[cor].preco / t[cor].rendimento)}
                     </div>
                   </div>
                 </div>
@@ -927,11 +938,11 @@ const MODULO_PRECIFICAR = (() => {
             <div class="imp-totais">
               <div>
                 <span>Custo por página preta:</span>
-                <strong id="imp-total-preta">${formatarMoeda(custoPorPaginaPreta())}</strong>
+                <strong id="imp-total-preta">${formatarMoedaFina(custoPorPaginaPreta())}</strong>
               </div>
               <div>
                 <span>Custo por página colorida:</span>
-                <strong id="imp-total-colorida">${formatarMoeda(custoPorPaginaColorida())}</strong>
+                <strong id="imp-total-colorida">${formatarMoedaFina(custoPorPaginaColorida())}</strong>
               </div>
             </div>
           </div>
@@ -957,16 +968,16 @@ const MODULO_PRECIFICAR = (() => {
 
     const t = impressora.tintas[cor];
     const el = document.getElementById(`imp-custo-${cor}`);
-    if (el) el.textContent = formatarMoeda(t.rendimento > 0 ? t.preco / t.rendimento : 0);
+    if (el) el.textContent = formatarMoedaFina(t.rendimento > 0 ? t.preco / t.rendimento : 0);
 
     const elPreta = document.getElementById('imp-total-preta');
     const elColor = document.getElementById('imp-total-colorida');
-    if (elPreta) elPreta.textContent = formatarMoeda(custoPorPaginaPreta());
-    if (elColor) elColor.textContent = formatarMoeda(custoPorPaginaColorida());
+    if (elPreta) elPreta.textContent = formatarMoedaFina(custoPorPaginaPreta());
+    if (elColor) elColor.textContent = formatarMoedaFina(custoPorPaginaColorida());
   }
 
   /* ==========================================================
-     10. PESQUISA DE MERCADO — MODAL
+     11. PESQUISA DE MERCADO — MODAL
      ========================================================== */
 
   function abrirModalMercado() {
@@ -983,8 +994,7 @@ const MODULO_PRECIFICAR = (() => {
 
           <div class="modal__body">
             <p class="form-ajuda">
-              Informe faixas de preço do mercado para comparar com seu preço.
-              Estas são apenas referências — não alteram o preço automaticamente.
+              Informe faixas de preço do mercado para comparar com seu preço. Apenas referência — não altera automaticamente.
             </p>
 
             <div class="form-linha-3">
@@ -1037,7 +1047,142 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     11. LIMPAR / SALVAR
+     12. MODAL — SALVAR COMO PRODUTO
+     ========================================================== */
+
+  function salvarComoProduto() {
+    const r = calcular();
+
+    if (!form.nome.trim()) return alert('Informe o nome do produto antes de salvar.');
+    if (form.insumos.length === 0 && form.paginasImpressas === 0) {
+      return alert('Adicione pelo menos um insumo ou páginas de impressão.');
+    }
+
+    if (!window.MODULO_PRODUTOS?._criarDoPrecificador) {
+      return alert('Módulo de Produtos não está disponível.');
+    }
+
+    // Modal pedindo categoria
+    const categorias = window.SKU_PRAFICAR?.listarCategorias() || [];
+    if (categorias.length === 0) {
+      return alert('Nenhuma categoria de produto disponível.');
+    }
+
+    const precoFinal = r.meuPrecoVenda || r.precoSugerido;
+
+    const html = `
+      <div class="modal-overlay ativo" id="modal-salvar-produto">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">Salvar como produto</h2>
+            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalSalvar()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="modal__body">
+            <div class="resumo-salvar">
+              <div class="resumo-salvar__linha">
+                <span>Nome</span>
+                <strong>${escaparHTML(form.nome)}</strong>
+              </div>
+              <div class="resumo-salvar__linha">
+                <span>Custo real</span>
+                <strong>${formatarMoedaFina(r.custoUnitario)}</strong>
+              </div>
+              <div class="resumo-salvar__linha">
+                <span>Preço sugerido</span>
+                <strong>${formatarMoeda(r.precoSugerido)}</strong>
+              </div>
+              ${r.meuPrecoVenda ? `
+                <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
+                  <span>Meu preço</span>
+                  <strong>${formatarMoeda(r.meuPrecoVenda)}</strong>
+                </div>
+              ` : ''}
+              <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
+                <span>Preço a salvar</span>
+                <strong>${formatarMoeda(precoFinal)}</strong>
+              </div>
+            </div>
+
+            <div class="form-grupo">
+              <label for="salvar-categoria">Categoria <span class="form-obrigatorio">*</span></label>
+              <select id="salvar-categoria" required>
+                <option value="">Selecione uma categoria</option>
+                ${categorias.map(c => `
+                  <option value="${c.codigo}">${c.nome}</option>
+                `).join('')}
+              </select>
+              <span class="form-ajuda">A categoria define o SKU do produto.</span>
+            </div>
+
+            <div class="form-grupo">
+              <label for="salvar-estoque-min">Estoque mínimo</label>
+              <input id="salvar-estoque-min" type="number" min="0" step="1" value="5" />
+              <span class="form-ajuda">Você receberá alerta quando o estoque ficar abaixo deste número.</span>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalSalvar()">Cancelar</button>
+            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.confirmarSalvarProduto()">
+              Criar produto
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-salvar-produto')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('salvar-categoria')?.focus(), 50);
+  }
+
+  function fecharModalSalvar() {
+    document.getElementById('modal-salvar-produto')?.remove();
+  }
+
+  function confirmarSalvarProduto() {
+    const categoria = document.getElementById('salvar-categoria').value;
+    const estoqueMin = Number(document.getElementById('salvar-estoque-min').value) || 0;
+
+    if (!categoria) return alert('Selecione uma categoria.');
+
+    const r = calcular();
+    const precoFinal = r.meuPrecoVenda || r.precoSugerido;
+
+    try {
+      const produto = window.MODULO_PRODUTOS._criarDoPrecificador({
+        nome: form.nome.trim(),
+        categoria,
+        descricao: '',
+        custo: r.custoUnitario,
+        precoVarejo: precoFinal,
+        precoAtacado: precoFinal,
+        estoqueMinimo: estoqueMin,
+        insumos: form.insumos.map(i => ({ ...i })),
+        paginasImpressas: form.paginasImpressas,
+        tipoImpressao: form.tipoImpressao
+      });
+
+      fecharModalSalvar();
+
+      alert(`Produto criado com sucesso!\n\nSKU: ${produto.sku}\nCusto: ${formatarMoedaFina(produto.custo)}\nPreço: ${formatarMoeda(produto.precoVarejo)}`);
+
+      // Redireciona para Produtos
+      setTimeout(() => {
+        window.ROUTER_PRAFICAR?.irPara('produtos');
+      }, 300);
+
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao criar produto: ' + e.message);
+    }
+  }
+
+  /* ==========================================================
+     13. LIMPAR / RERENDER
      ========================================================== */
 
   function limpar() {
@@ -1045,45 +1190,6 @@ const MODULO_PRECIFICAR = (() => {
     form = novoForm();
     rerenderForm();
   }
-
-  function salvar() {
-    const r = calcular();
-
-    if (!form.nome.trim()) return alert('Dê um nome ao produto antes de salvar.');
-    if (form.insumos.length === 0 && form.paginasImpressas === 0) {
-      return alert('Adicione pelo menos um insumo ou páginas de impressão.');
-    }
-
-    const registro = {
-      id: proximoId++,
-      nome: form.nome.trim(),
-      quantidadeProduzida: r.qtdProduzida,
-      quantidadePerdas: r.qtdPerdas,
-      aproveitaveis: r.aproveitaveis,
-      custoTotal: r.custoTotal,
-      custoUnitarioReal: r.custoUnitarioReal,
-      margemDesejada: r.margemDesejada,
-      precoSugerido: r.precoSugerido,
-      meuPrecoVenda: r.meuPrecoVenda,
-      insumos: form.insumos.map(i => ({ ...i })),
-      paginasImpressas: form.paginasImpressas,
-      criadoEm: new Date().toISOString()
-    };
-
-    precificacoes.push(registro);
-
-    alert(
-      `Precificação salva!\n\n` +
-      `Custo real: ${formatarMoeda(r.custoUnitarioReal)}\n` +
-      `Preço sugerido: ${formatarMoeda(r.precoSugerido)}\n` +
-      `Margem: ${formatarPercentual(r.indicadoresSugerido.margem)}\n` +
-      `Markup: ${formatarMarkup(r.indicadoresSugerido.markup)}`
-    );
-  }
-
-  /* ==========================================================
-     12. RERENDER
-     ========================================================== */
 
   function rerenderForm() {
     const container = document.getElementById('conteudo-tela');
@@ -1093,7 +1199,7 @@ const MODULO_PRECIFICAR = (() => {
   }
 
   /* ==========================================================
-     13. API PÚBLICA
+     14. API PÚBLICA
      ========================================================== */
 
   return {
@@ -1114,8 +1220,10 @@ const MODULO_PRECIFICAR = (() => {
     abrirModalMercado,
     fecharModalMercado,
     salvarMercado,
+    salvarComoProduto,
+    fecharModalSalvar,
+    confirmarSalvarProduto,
     limpar,
-    salvar,
     _listar: () => [...precificacoes],
     _materiais: () => [...materiais]
   };
