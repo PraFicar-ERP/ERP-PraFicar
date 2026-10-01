@@ -1,8 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v4)
+   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v5)
    Arquivo: assets/js/modulos/custos.js
-   Descrição: calcula o custo de 1 unidade, permite enviar o
-              item para Produtos e registra a fabricação.
+   Descrição: calcula custo de 1 unidade e registra fabricação.
+              Ao fabricar, se o produto não existir em Produtos,
+              pergunta se quer criar.
    ============================================================ */
 
 const MODULO_CUSTOS = (() => {
@@ -18,7 +19,9 @@ const MODULO_CUSTOS = (() => {
   let abaAtiva = 'calculos';
   let form = novoForm();
   let insumoEditandoIdx = null;
-  let calculoEditandoId = null;
+
+  // Estado temporário da fabricação aguardando criar produto
+  let fabricacaoPendente = null;
 
   function novoForm() {
     return {
@@ -229,14 +232,9 @@ const MODULO_CUSTOS = (() => {
 
           <div class="card">
             <div class="card__body">
-              <div class="custos-acoes">
-                <button class="btn btn--secundario btn--bloco" onclick="MODULO_CUSTOS.salvarCalculo()">
-                  Salvar cálculo
-                </button>
-                <button class="btn btn--primario btn--bloco" onclick="MODULO_CUSTOS.abrirEnviarParaProdutos()">
-                  Enviar para Produtos
-                </button>
-              </div>
+              <button class="btn btn--primario btn--bloco" onclick="MODULO_CUSTOS.salvarCalculo()">
+                Salvar cálculo
+              </button>
             </div>
           </div>
 
@@ -358,7 +356,7 @@ const MODULO_CUSTOS = (() => {
             </div>
             <div class="card__body">
               <p class="form-ajuda" style="margin-bottom: var(--esp-4);">
-                Escolha um cálculo salvo. O custo unitário será aplicado ao estoque.
+                Escolha um cálculo salvo. O sistema dará entrada no estoque e, se o produto ainda não existir, perguntará se quer criar.
               </p>
 
               ${calculos.length === 0 ? `
@@ -540,135 +538,6 @@ const MODULO_CUSTOS = (() => {
   }
 
   /* ==========================================================
-     ENVIAR PARA PRODUTOS
-     ========================================================== */
-
-  function abrirEnviarParaProdutos() {
-    const r = calcular();
-
-    if (!form.nome.trim()) return alert('Informe o nome do item antes de enviar.');
-    if (form.insumos.length === 0 && form.paginasImpressas === 0) {
-      return alert('Adicione pelo menos um insumo ou páginas de impressão.');
-    }
-    if (!window.MODULO_PRODUTOS?._criarDoCustos) {
-      return alert('Módulo de Produtos não está disponível.');
-    }
-
-    const categorias = window.SKU_PRAFICAR?.listarCategorias() || [];
-    if (categorias.length === 0) {
-      return alert('Nenhuma categoria disponível.');
-    }
-
-    const html = `
-      <div class="modal-overlay ativo" id="modal-enviar-produtos">
-        <div class="modal" role="dialog" aria-modal="true">
-          <div class="modal__header">
-            <h2 class="modal__titulo">Enviar para Produtos</h2>
-            <button class="modal__fechar" onclick="MODULO_CUSTOS.fecharModalEnviar()" aria-label="Fechar">
-              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-
-          <div class="modal__body">
-            <div class="resumo-salvar">
-              <div class="resumo-salvar__linha">
-                <span>Nome do produto</span>
-                <strong>${escaparHTML(form.nome)}</strong>
-              </div>
-              ${form.especificacao ? `
-                <div class="resumo-salvar__linha">
-                  <span>Especificação</span>
-                  <strong>${escaparHTML(form.especificacao)}</strong>
-                </div>
-              ` : ''}
-              <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
-                <span>Custo de 1 unidade</span>
-                <strong>${formatarMoedaFina(r.custoUnitario)}</strong>
-              </div>
-            </div>
-
-            <div class="form-grupo">
-              <label for="env-categoria">Categoria <span class="form-obrigatorio">*</span></label>
-              <select id="env-categoria" required>
-                <option value="">Selecione uma categoria</option>
-                ${categorias.map(c => '<option value="' + c.codigo + '">' + c.nome + '</option>').join('')}
-              </select>
-              <span class="form-ajuda">A categoria define o SKU do produto.</span>
-            </div>
-
-            <div class="form-grupo">
-              <label for="env-preco">Preço de venda (R$)</label>
-              <input id="env-preco" type="number" min="0" step="0.01" placeholder="0,00" />
-              <span class="form-ajuda">Você pode ajustar o preço depois em Produtos.</span>
-            </div>
-
-            <div class="form-grupo">
-              <label for="env-estoque-min">Estoque mínimo</label>
-              <input id="env-estoque-min" type="number" min="0" step="1" value="5" />
-              <span class="form-ajuda">Alerta quando o estoque ficar abaixo.</span>
-            </div>
-          </div>
-
-          <div class="modal__footer">
-            <button class="btn btn--secundario" onclick="MODULO_CUSTOS.fecharModalEnviar()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_CUSTOS.confirmarEnviarParaProdutos()">
-              Criar produto
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('modal-enviar-produtos')?.remove();
-    document.body.insertAdjacentHTML('beforeend', html);
-    setTimeout(() => document.getElementById('env-categoria')?.focus(), 50);
-  }
-
-  function fecharModalEnviar() {
-    document.getElementById('modal-enviar-produtos')?.remove();
-  }
-
-  function confirmarEnviarParaProdutos() {
-    const categoria = document.getElementById('env-categoria').value;
-    const preco = Number(document.getElementById('env-preco').value) || 0;
-    const estoqueMin = Number(document.getElementById('env-estoque-min').value) || 0;
-
-    if (!categoria) return alert('Selecione uma categoria.');
-
-    const r = calcular();
-
-    try {
-      const produto = window.MODULO_PRODUTOS._criarDoCustos({
-        nome: form.nome.trim(),
-        especificacao: form.especificacao.trim(),
-        categoria: categoria,
-        custo: r.custoUnitario,
-        precoVarejo: preco,
-        precoAtacado: preco,
-        estoqueMinimo: estoqueMin,
-        insumos: form.insumos.map(i => ({ ...i })),
-        paginasImpressas: form.paginasImpressas,
-        tipoImpressao: form.tipoImpressao
-      });
-
-      fecharModalEnviar();
-
-      alert(
-        'Produto criado com sucesso!\n\n' +
-        'SKU: ' + produto.sku + '\n' +
-        'Nome: ' + produto.nome + (produto.especificacao ? ' (' + produto.especificacao + ')' : '') + '\n' +
-        'Custo: ' + formatarMoedaFina(produto.custo)
-      );
-
-      setTimeout(() => window.ROUTER_PRAFICAR?.irPara('produtos'), 300);
-
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao criar produto: ' + e.message);
-    }
-  }
-
-  /* ==========================================================
      REGISTRAR FABRICAÇÃO
      ========================================================== */
 
@@ -686,6 +555,53 @@ const MODULO_CUSTOS = (() => {
     if (!calculo) return alert('Cálculo não encontrado.');
 
     const aproveitaveis = quantidade - perdas;
+
+    // Verifica se o produto existe
+    const produto = buscarProdutoPorNomeEEspec(calculo.nome, calculo.especificacao);
+
+    if (!produto) {
+      // Produto não existe — guarda a fabricação pendente e abre modal
+      fabricacaoPendente = {
+        calculo,
+        quantidade,
+        perdas,
+        aproveitaveis,
+        obs
+      };
+      abrirModalCriarProduto(calculo);
+      return;
+    }
+
+    // Produto existe — dá entrada direto
+    registrarFabricacaoFinal(calculo, quantidade, perdas, aproveitaveis, obs, produto);
+  }
+
+  function buscarProdutoPorNomeEEspec(nome, especificacao) {
+    if (!window.MODULO_PRODUTOS) return null;
+    const produtos = window.MODULO_PRODUTOS._listar() || [];
+
+    // Tenta match exato (nome + especificação)
+    if (especificacao) {
+      const exato = produtos.find(p =>
+        p.nome.toLowerCase() === nome.toLowerCase() &&
+        (p.especificacao || '').toLowerCase() === especificacao.toLowerCase()
+      );
+      if (exato) return exato;
+    }
+
+    // Tenta match só por nome (sem especificação)
+    if (!especificacao) {
+      const porNome = produtos.find(p =>
+        p.nome.toLowerCase() === nome.toLowerCase() &&
+        !(p.especificacao || '')
+      );
+      if (porNome) return porNome;
+    }
+
+    return null;
+  }
+
+  function registrarFabricacaoFinal(calculo, quantidade, perdas, aproveitaveis, obs, produto) {
     const custoTotalLote = calculo.custoUnitario * aproveitaveis;
 
     const fabricacao = {
@@ -704,12 +620,17 @@ const MODULO_CUSTOS = (() => {
 
     fabricacoes.push(fabricacao);
 
-    const entrada = darEntradaNoEstoque(
-      calculo.nome,
-      calculo.especificacao,
-      aproveitaveis,
-      calculo.custoUnitario
-    );
+    // Entrada no estoque
+    if (produto && window.MODULO_PRODUTOS) {
+      const produtoAtual = window.MODULO_PRODUTOS._buscar(produto.id);
+      if (produtoAtual) {
+        produtoAtual.estoqueAtual = Number(produtoAtual.estoqueAtual || 0) + aproveitaveis;
+        if (calculo.custoUnitario > 0) {
+          produtoAtual.custo = calculo.custoUnitario;
+        }
+        produtoAtual.atualizadoEm = new Date().toISOString();
+      }
+    }
 
     alert(
       'Fabricação registrada!\n\n' +
@@ -719,55 +640,155 @@ const MODULO_CUSTOS = (() => {
       'Aproveitáveis: ' + aproveitaveis + ' un\n' +
       'Custo unitário: ' + formatarMoedaFina(calculo.custoUnitario) + '\n' +
       'Custo do lote: ' + formatarMoedaFina(custoTotalLote) + '\n\n' +
-      (entrada.ok
-        ? 'Entrada no estoque: +' + aproveitaveis + ' un'
-        : '⚠️ ' + entrada.mensagem)
+      'Entrada no estoque: +' + aproveitaveis + ' un'
     );
 
+    fabricacaoPendente = null;
     rerenderForm();
   }
 
-  function darEntradaNoEstoque(nomeItem, especificacao, quantidade, custoUnitario) {
-    if (!window.MODULO_PRODUTOS) {
-      return { ok: false, mensagem: 'Módulo de Produtos não está disponível.' };
+  /* ==========================================================
+     MODAL — CRIAR PRODUTO (pergunta)
+     ========================================================== */
+
+  function abrirModalCriarProduto(calculo) {
+    const categorias = window.SKU_PRAFICAR?.listarCategorias() || [];
+    if (categorias.length === 0) {
+      alert('Nenhuma categoria de produto disponível.');
+      fabricacaoPendente = null;
+      return;
     }
 
-    const produtos = window.MODULO_PRODUTOS._listar() || [];
+    const html = `
+      <div class="modal-overlay ativo" id="modal-criar-produto">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">Criar produto</h2>
+            <button class="modal__fechar" onclick="MODULO_CUSTOS.cancelarCriacao()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
 
-    let produto = null;
-    if (especificacao) {
-      produto = produtos.find(p =>
-        p.nome.toLowerCase() === nomeItem.toLowerCase() &&
-        (p.especificacao || '').toLowerCase() === especificacao.toLowerCase()
+          <div class="modal__body">
+            <div class="alerta alerta--atencao" style="margin-bottom: var(--esp-5);">
+              <span class="alerta__icone">
+                <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              </span>
+              <div class="alerta__conteudo">
+                <div class="alerta__titulo">Produto ainda não existe</div>
+                O item <strong>${escaparHTML(nomeCompleto(calculo))}</strong> ainda não está cadastrado em Produtos.
+                Deseja criar agora?
+              </div>
+            </div>
+
+            <div class="resumo-salvar">
+              <div class="resumo-salvar__linha">
+                <span>Nome do produto</span>
+                <strong>${escaparHTML(calculo.nome)}</strong>
+              </div>
+              ${calculo.especificacao ? `
+                <div class="resumo-salvar__linha">
+                  <span>Especificação</span>
+                  <strong>${escaparHTML(calculo.especificacao)}</strong>
+                </div>
+              ` : ''}
+              <div class="resumo-salvar__linha resumo-salvar__linha--destaque">
+                <span>Custo de 1 unidade</span>
+                <strong>${formatarMoedaFina(calculo.custoUnitario)}</strong>
+              </div>
+            </div>
+
+            <div class="form-grupo">
+              <label for="criar-categoria">Categoria <span class="form-obrigatorio">*</span></label>
+              <select id="criar-categoria" required>
+                <option value="">Selecione uma categoria</option>
+                ${categorias.map(c => '<option value="' + c.codigo + '">' + c.nome + '</option>').join('')}
+              </select>
+            </div>
+
+            <div class="form-linha-2">
+              <div class="form-grupo">
+                <label for="criar-preco">Preço de venda (R$)</label>
+                <input id="criar-preco" type="number" min="0" step="0.01" placeholder="0,00" />
+                <span class="form-ajuda">Pode ajustar depois.</span>
+              </div>
+              <div class="form-grupo">
+                <label for="criar-estoque-min">Estoque mínimo</label>
+                <input id="criar-estoque-min" type="number" min="0" step="1" value="5" />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_CUSTOS.cancelarCriacao()">Cancelar</button>
+            <button class="btn btn--primario" onclick="MODULO_CUSTOS.confirmarCriarEProduzir()">
+              Criar e registrar fabricação
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-criar-produto')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('criar-categoria')?.focus(), 50);
+  }
+
+  function cancelarCriacao() {
+    document.getElementById('modal-criar-produto')?.remove();
+    fabricacaoPendente = null;
+  }
+
+  function confirmarCriarEProduzir() {
+    if (!fabricacaoPendente) return;
+
+    const categoria = document.getElementById('criar-categoria').value;
+    const preco = Number(document.getElementById('criar-preco').value) || 0;
+    const estoqueMin = Number(document.getElementById('criar-estoque-min').value) || 0;
+
+    if (!categoria) return alert('Selecione uma categoria.');
+    if (!window.MODULO_PRODUTOS?._criarDoCustos) {
+      return alert('Módulo de Produtos não está disponível.');
+    }
+
+    const { calculo, quantidade, perdas, aproveitaveis, obs } = fabricacaoPendente;
+
+    try {
+      const produto = window.MODULO_PRODUTOS._criarDoCustos({
+        nome: calculo.nome,
+        especificacao: calculo.especificacao,
+        categoria: categoria,
+        custo: calculo.custoUnitario,
+        precoVarejo: preco,
+        precoAtacado: preco,
+        estoqueMinimo: estoqueMin,
+        insumos: calculo.insumos.map(i => ({ ...i })),
+        paginasImpressas: calculo.paginasImpressas,
+        tipoImpressao: calculo.tipoImpressao
+      });
+
+      document.getElementById('modal-criar-produto')?.remove();
+
+      // Agora registra a fabricação
+      registrarFabricacaoFinal(calculo, quantidade, perdas, aproveitaveis, obs, produto);
+
+      // Aviso sobre o produto
+      alert(
+        'Produto criado!\n\n' +
+        'SKU: ' + produto.sku + '\n' +
+        'Nome: ' + produto.nome + (produto.especificacao ? ' (' + produto.especificacao + ')' : '') + '\n' +
+        'Custo: ' + formatarMoedaFina(produto.custo) + '\n' +
+        'Estoque inicial: +' + aproveitaveis + ' un'
       );
-    }
-    if (!produto) {
-      produto = produtos.find(p =>
-        p.nome.toLowerCase() === nomeItem.toLowerCase()
-      );
-    }
 
-    if (!produto) {
-      return {
-        ok: false,
-        mensagem: 'Produto ainda não existe em Produtos. Envie o cálculo para Produtos primeiro.'
-      };
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao criar produto: ' + e.message);
     }
-
-    const produtoAtual = window.MODULO_PRODUTOS._buscar(produto.id);
-    if (produtoAtual) {
-      produtoAtual.estoqueAtual = Number(produtoAtual.estoqueAtual || 0) + quantidade;
-      if (custoUnitario > 0) {
-        produtoAtual.custo = custoUnitario;
-      }
-      produtoAtual.atualizadoEm = new Date().toISOString();
-    }
-
-    return { ok: true };
   }
 
   /* ==========================================================
-     MODAL DE INSUMO
+     MODAL DE INSUMO — NOVO / EDITAR
      ========================================================== */
 
   function abrirModalInsumo() {
@@ -1212,10 +1233,9 @@ const MODULO_CUSTOS = (() => {
     novoCalculo,
     novaFabricacao,
     salvarCalculo,
-    abrirEnviarParaProdutos,
-    fecharModalEnviar,
-    confirmarEnviarParaProdutos,
     confirmarFabricacao,
+    cancelarCriacao,
+    confirmarCriarEProduzir,
     abrirModalInsumo,
     abrirModalEditarInsumo,
     abrirModalVisualizarInsumo,
