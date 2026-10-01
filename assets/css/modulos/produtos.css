@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v6)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v7)
    Arquivo: assets/css/modulos/produtos.css
    ============================================================ */
 
@@ -138,7 +138,7 @@
    ============================================================ */
 
 #modal-produto .modal {
-  max-width: 820px;
+  max-width: 860px;
 }
 
 #modal-produto .form-grupo:last-child {
@@ -280,13 +280,45 @@
 }
 
 /* ============================================================
-   7. PREÇOS POR CANAL
+   7. PREÇOS (seção completa)
+   ============================================================ */
+
+.prod-precos-secao {
+  margin: var(--esp-5) 0;
+  padding: var(--esp-5);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  border: 1px solid var(--cor-borda-suave);
+}
+
+.prod-precos-secao__header {
+  margin-bottom: var(--esp-4);
+}
+
+.prod-precos-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin: 0 0 var(--esp-1);
+}
+
+.prod-precos-secao__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin: 0;
+  line-height: var(--linha-normal);
+}
+
+/* ============================================================
+   8. PREÇOS POR CANAL
    ============================================================ */
 
 .prod-canal-secao {
-  margin: var(--esp-5) 0;
+  margin: var(--esp-5) 0 0;
   padding: var(--esp-4);
-  background-color: var(--cinza-50);
+  background-color: var(--branco);
   border-radius: var(--raio-md);
   border: 1px solid var(--cor-borda-suave);
 }
@@ -323,18 +355,11 @@
   color: var(--cor-texto-secundario);
   border: 1px dashed var(--cor-borda-media);
   border-radius: var(--raio-md);
-  background-color: var(--branco);
+  background-color: var(--cinza-50);
 }
 
 .tabela-canais {
   font-size: var(--texto-sm);
-  background-color: var(--branco);
-  border-radius: var(--raio-sm);
-  overflow: hidden;
-}
-
-.tabela-canais thead {
-  background-color: var(--branco);
 }
 
 .tabela-canais td {
@@ -373,36 +398,25 @@
 }
 
 /* ============================================================
-   8. BLOCO DE MARGEM
+   9. BLOCO DE MARGEM
    ============================================================ */
 
 .prod-margem-bloco {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--esp-4);
-  align-items: start;
-  padding: var(--esp-4);
-  background-color: var(--cinza-50);
-  border-radius: var(--raio-md);
   margin: var(--esp-4) 0;
-}
-
-.prod-margem-bloco .form-grupo {
-  margin-bottom: 0;
 }
 
 .prod-margem-preview {
   background-color: var(--branco);
   border: 1px solid var(--cor-borda-suave);
   border-radius: var(--raio-md);
-  padding: var(--esp-4);
+  padding: var(--esp-4) var(--esp-5);
 }
 
 .prod-margem-preview__vazio {
   font-size: var(--texto-sm);
   color: var(--cor-texto-secundario);
   text-align: center;
-  padding: var(--esp-2) 0;
+  padding: var(--esp-3) 0;
 }
 
 .prod-margem-preview__linha {
@@ -445,7 +459,7 @@
 }
 
 /* ============================================================
-   9. CANAIS DE VENDA (checkbox)
+   10. CANAIS (checkbox)
    ============================================================ */
 
 .prod-canais-grid {
@@ -487,7 +501,7 @@
 }
 
 /* ============================================================
-   10. MODAL DE COMPONENTE
+   11. MODAL DE COMPONENTE
    ============================================================ */
 
 #modal-componente .modal {
@@ -495,7 +509,7 @@
 }
 
 /* ============================================================
-   11. TOGGLE DE ATIVO/INATIVO
+   12. TOGGLE DE ATIVO/INATIVO
    ============================================================ */
 
 .toggle-ativo {
@@ -548,7 +562,7 @@
 }
 
 /* ============================================================
-   12. BARRA DE AÇÕES EM MASSA
+   13. BARRA DE AÇÕES EM MASSA
    ============================================================ */
 
 .barra-acoes-massa {
@@ -617,7 +631,7 @@
 }
 
 /* ============================================================
-   13. RESPONSIVO
+   14. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 900px) {
@@ -648,10 +662,6 @@
     grid-template-columns: 1fr;
   }
 
-  .prod-margem-bloco {
-    grid-template-columns: 1fr;
-  }
-
   .prod-tipo-selector {
     grid-template-columns: 1fr;
   }
@@ -672,5 +682,9 @@
 
   #modal-produto .modal {
     max-width: 100%;
+  }
+
+  .prod-margem-bloco {
+    margin: var(--esp-3) 0;
   }
 }
