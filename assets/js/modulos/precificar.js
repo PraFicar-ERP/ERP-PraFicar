@@ -1,8 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v6)
+   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v7 premium)
    Arquivo: assets/js/modulos/precificar.js
-   Descrição: nomenclatura clara + margem editável + exemplos
-              dinâmicos + editar/visualizar insumos.
+   Descrição: nomenclatura clara + margem editável com presets
+              + exemplos dinâmicos + editar/visualizar insumos.
    ============================================================ */
 
 const MODULO_PRECIFICAR = (() => {
@@ -147,10 +147,6 @@ const MODULO_PRECIFICAR = (() => {
     return { custo, preco, lucro, margem, markup, acrescimo };
   }
 
-  /* ==========================================================
-     RENDER — TELA PRINCIPAL
-     ========================================================== */
-
   function render() {
     const r = calcular();
     return `
@@ -223,21 +219,24 @@ const MODULO_PRECIFICAR = (() => {
             <div class="card__header"><h3 class="card__titulo">4. Margem desejada</h3></div>
             <div class="card__body">
               <div class="margem-controle">
-                <button class="margem-controle__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(-5)" title="Diminuir 5%">−</button>
-                <div class="margem-controle__valor-wrapper">
-                  <input
-                    id="prec-margem"
-                    type="number"
-                    min="0"
-                    max="95"
-                    step="1"
-                    value="${form.margemDesejada}"
-                    class="margem-controle__input"
-                    oninput="MODULO_PRECIFICAR.atualizar('margemDesejada', this.value)"
-                  />
-                  <span class="margem-controle__sufixo">%</span>
+                <div class="margem-controle__linha">
+                  <button class="margem-controle__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(-5)" title="Diminuir 5%">−</button>
+                  <div class="margem-controle__campo">
+                    <input
+                      id="prec-margem"
+                      type="number"
+                      min="0"
+                      max="95"
+                      step="1"
+                      value="${form.margemDesejada}"
+                      class="margem-controle__input"
+                      oninput="MODULO_PRECIFICAR.atualizar('margemDesejada', this.value)"
+                    />
+                    <span class="margem-controle__sufixo">%</span>
+                  </div>
+                  <button class="margem-controle__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(5)" title="Aumentar 5%">+</button>
                 </div>
-                <button class="margem-controle__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(5)" title="Aumentar 5%">+</button>
+
                 <input
                   type="range"
                   min="0"
@@ -247,8 +246,17 @@ const MODULO_PRECIFICAR = (() => {
                   class="margem-controle__slider"
                   oninput="MODULO_PRECIFICAR.atualizar('margemDesejada', this.value)"
                 />
+
+                <div class="margem-presets">
+                  ${[30, 40, 50, 60, 70].map(p => `
+                    <button
+                      class="margem-preset ${Number(form.margemDesejada) === p ? 'margem-preset--ativo' : ''}"
+                      onclick="MODULO_PRECIFICAR.atualizar('margemDesejada', ${p})"
+                    >${p}%</button>
+                  `).join('')}
+                </div>
               </div>
-              <p class="form-ajuda">
+              <p class="form-ajuda" style="margin-top: var(--esp-3);">
                 Margem = Lucro ÷ Preço de Venda × 100. Máximo 95%.
                 ${form.margemDesejada >= 95 ? '<strong class="text-atencao">Limite atingido.</strong>' : ''}
               </p>
@@ -367,7 +375,7 @@ const MODULO_PRECIFICAR = (() => {
         </div>
       </div>
       ${renderCardMercado()}
-      <button class="btn btn--ghost btn--bloco" onclick="MODULO_PRECIFICAR.toggleDetalhes()" style="margin-top: var(--esp-3);">Ver cálculo completo</button>
+      <button class="resultado-ver-calculo" onclick="MODULO_PRECIFICAR.toggleDetalhes()">Ver cálculo completo</button>
       <div class="resultado-detalhes hidden" id="resultado-detalhes">${renderDetalhesCalculo(r)}</div>
     `;
   }
@@ -441,7 +449,7 @@ const MODULO_PRECIFICAR = (() => {
       form[campo] = valor;
     }
     if (campo === 'nome') agendarPesquisa(valor);
-    atualizarResultado();
+    rerenderForm();
   }
 
   function ajustarMargem(delta) {
@@ -456,15 +464,6 @@ const MODULO_PRECIFICAR = (() => {
     if (!coluna) return;
     const r = calcular();
     coluna.innerHTML = renderResultado(r);
-
-    const margemInput = document.getElementById('prec-margem');
-    if (margemInput && document.activeElement !== margemInput) {
-      margemInput.value = form.margemDesejada;
-    }
-    const slider = document.querySelector('.margem-controle__slider');
-    if (slider && document.activeElement !== slider) {
-      slider.value = form.margemDesejada;
-    }
   }
 
   function toggleDetalhes() {
@@ -485,7 +484,6 @@ const MODULO_PRECIFICAR = (() => {
         economico: null, mercado: null, premium: null,
         total: 0, data: null, fonte: null, doCache: false, aviso: null
       };
-      atualizarCardMercado();
       return;
     }
     if (termoLimpo === ultimoTermoPesquisado && pesquisaMercado.ok) return;
@@ -496,7 +494,7 @@ const MODULO_PRECIFICAR = (() => {
     if (!window.PESQUISA_MERCADO) return;
     pesquisaMercado.carregando = true;
     pesquisaMercado.erro = null;
-    atualizarCardMercado();
+    rerenderForm();
     try {
       const r = await window.PESQUISA_MERCADO.pesquisar(termo, forcar);
       if (r.ok) {
@@ -523,18 +521,14 @@ const MODULO_PRECIFICAR = (() => {
         total: 0, data: null, fonte: null, doCache: false, aviso: null
       };
     }
-    atualizarCardMercado();
+    const container = document.querySelector('.card-mercado-wrapper');
+    if (container) container.outerHTML = renderCardMercado();
   }
 
   function forcarAtualizacaoPesquisa() {
     const termo = form.nome.trim();
     if (termo.length < 3) return;
     executarPesquisa(termo, true);
-  }
-
-  function atualizarCardMercado() {
-    const container = document.querySelector('.card-mercado-wrapper');
-    if (container) container.outerHTML = renderCardMercado();
   }
 
   /* ==========================================================
@@ -562,8 +556,8 @@ const MODULO_PRECIFICAR = (() => {
       : 'MODULO_PRECIFICAR.adicionarInsumo()';
 
     const v = insumo || {
-      nome: '', precoPago: '', quantidadeCompra: 1, unidadeCompra: 'unidade',
-      rendimento: 1, unidadeUso: 'unidade', quantidadeUsada: 1
+      nome: '', precoPago: '', quantidadeCompra: 1, unidadeCompra: 'Folha',
+      rendimento: 1, unidadeUso: 'Unidade', quantidadeUsada: 1
     };
 
     const html = `
@@ -711,7 +705,6 @@ const MODULO_PRECIFICAR = (() => {
 
     const r = calcularCustoInsumo(preco, qtdCompra, rendimento);
 
-    // Labels dinâmicos
     const labelRend = document.getElementById('ins-label-rendimento');
     if (labelRend) labelRend.textContent = 'Cada ' + unidadeCompra.toLowerCase() + ' rende quantas?';
 
@@ -958,7 +951,7 @@ const MODULO_PRECIFICAR = (() => {
 
   function fecharModalImpressora() {
     document.getElementById('modal-impressora')?.remove();
-    atualizarResultado();
+    rerenderForm();
   }
 
   function atualizarImpressora(cor, campo, valor) {
