@@ -1,6 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v4)
+   PRAFICAR ERP — MÓDULO PRECIFICAÇÃO (v5)
    Arquivo: assets/js/modulos/precificar.js
+   Descrição: cálculo de custo real com:
+              - Insumos com rendimento
+              - Impressora tank (4 tintas)
+              - Margem, Markup e Acréscimo separados
+              - Pesquisa de mercado automática
+              - Editar e visualizar insumos
    ============================================================ */
 
 const MODULO_PRECIFICAR = (() => {
@@ -17,6 +23,9 @@ const MODULO_PRECIFICAR = (() => {
   };
   let debouncePesquisa = null;
   let ultimoTermoPesquisado = '';
+
+  // Índice do insumo em edição (null = novo)
+  let insumoEditandoIdx = null;
 
   function novoForm() {
     return {
@@ -153,15 +162,9 @@ const MODULO_PRECIFICAR = (() => {
           <p class="pagina-header__subtitulo">Custo real → margem → preço sugerido.</p>
         </div>
         <div class="pagina-header__acoes">
-          <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.abrirConfigImpressora()">
-            ⚙ Impressora
-          </button>
-          <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.limpar()">
-            Limpar
-          </button>
-          <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.salvarComoProduto()">
-            Salvar como produto
-          </button>
+          <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.abrirConfigImpressora()">⚙ Impressora</button>
+          <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.limpar()">Limpar</button>
+          <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.salvarComoProduto()">Salvar como produto</button>
         </div>
       </div>
 
@@ -169,13 +172,11 @@ const MODULO_PRECIFICAR = (() => {
         <div class="precificar-form">
 
           <div class="card">
-            <div class="card__header">
-              <h3 class="card__titulo">1. Produto</h3>
-            </div>
+            <div class="card__header"><h3 class="card__titulo">1. Produto</h3></div>
             <div class="card__body">
               <div class="form-grupo">
                 <label for="prec-nome">Nome do produto</label>
-                <input id="prec-nome" type="text" value="${escaparHTML(form.nome)}" placeholder="Ex: Chaveiro Coração" oninput="MODULO_PRECIFICAR.atualizar('nome', this.value)" />
+                <input id="prec-nome" type="text" value="${escaparHTML(form.nome)}" placeholder="Ex: Marca-página imantado 4x6cm" oninput="MODULO_PRECIFICAR.atualizar('nome', this.value)" />
                 <span class="form-ajuda">A pesquisa de mercado é feita automaticamente.</span>
               </div>
               <div class="form-grupo">
@@ -188,13 +189,9 @@ const MODULO_PRECIFICAR = (() => {
           <div class="card">
             <div class="card__header">
               <h3 class="card__titulo">2. Insumos</h3>
-              <button class="btn btn--secundario btn--sm" onclick="MODULO_PRECIFICAR.abrirModalInsumo()">
-                + Adicionar insumo
-              </button>
+              <button class="btn btn--secundario btn--sm" onclick="MODULO_PRECIFICAR.abrirModalInsumo()">+ Adicionar insumo</button>
             </div>
-            <div class="card__body">
-              ${renderListaInsumos()}
-            </div>
+            <div class="card__body">${renderListaInsumos()}</div>
           </div>
 
           <div class="card">
@@ -224,9 +221,7 @@ const MODULO_PRECIFICAR = (() => {
           </div>
 
           <div class="card">
-            <div class="card__header">
-              <h3 class="card__titulo">4. Margem desejada</h3>
-            </div>
+            <div class="card__header"><h3 class="card__titulo">4. Margem desejada</h3></div>
             <div class="card__body">
               <div class="margem-slider">
                 <button class="margem-slider__btn" onclick="MODULO_PRECIFICAR.ajustarMargem(-5)">−</button>
@@ -239,9 +234,7 @@ const MODULO_PRECIFICAR = (() => {
           </div>
 
           <div class="card">
-            <div class="card__header">
-              <h3 class="card__titulo">5. Meu preço de venda</h3>
-            </div>
+            <div class="card__header"><h3 class="card__titulo">5. Meu preço de venda</h3></div>
             <div class="card__body">
               <div class="form-grupo">
                 <label for="prec-meu-preco">Informe seu preço (opcional)</label>
@@ -252,9 +245,7 @@ const MODULO_PRECIFICAR = (() => {
 
         </div>
 
-        <div class="precificar-resultado">
-          ${renderResultado(r)}
-        </div>
+        <div class="precificar-resultado">${renderResultado(r)}</div>
       </div>
     `;
   }
@@ -264,9 +255,7 @@ const MODULO_PRECIFICAR = (() => {
       return `
         <div class="insumos-vazio">
           <p>Nenhum insumo adicionado ainda.</p>
-          <button class="btn btn--secundario btn--sm" onclick="MODULO_PRECIFICAR.abrirModalInsumo()">
-            + Adicionar o primeiro insumo
-          </button>
+          <button class="btn btn--secundario btn--sm" onclick="MODULO_PRECIFICAR.abrirModalInsumo()">+ Adicionar o primeiro insumo</button>
         </div>
       `;
     }
@@ -295,9 +284,17 @@ const MODULO_PRECIFICAR = (() => {
               <td class="tabela__numero">${i.quantidadeUsada} ${i.unidadeUso || ''}</td>
               <td class="tabela__numero peso-semibold">${formatarMoedaFina((Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0))}</td>
               <td class="tabela__acao">
-                <button class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_PRECIFICAR.removerInsumo(${idx})">
-                  <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
+                <div class="acoes-linha">
+                  <button class="btn-icone" title="Visualizar" onclick="MODULO_PRECIFICAR.abrirModalVisualizarInsumo(${idx})">
+                    <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                  <button class="btn-icone" title="Editar" onclick="MODULO_PRECIFICAR.abrirModalEditarInsumo(${idx})">
+                    <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                  </button>
+                  <button class="btn-icone btn-icone--perigo" title="Remover" onclick="MODULO_PRECIFICAR.removerInsumo(${idx})">
+                    <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
               </td>
             </tr>
           `).join('')}
@@ -346,16 +343,9 @@ const MODULO_PRECIFICAR = (() => {
           Acréscimo sobre custo: <strong>${formatarPercentual(ind.acrescimo)}</strong>
         </div>
       </div>
-
       ${renderCardMercado()}
-
-      <button class="btn btn--ghost btn--bloco" onclick="MODULO_PRECIFICAR.toggleDetalhes()" style="margin-top: var(--esp-3);">
-        Ver cálculo completo
-      </button>
-
-      <div class="resultado-detalhes hidden" id="resultado-detalhes">
-        ${renderDetalhesCalculo(r)}
-      </div>
+      <button class="btn btn--ghost btn--bloco" onclick="MODULO_PRECIFICAR.toggleDetalhes()" style="margin-top: var(--esp-3);">Ver cálculo completo</button>
+      <div class="resultado-detalhes hidden" id="resultado-detalhes">${renderDetalhesCalculo(r)}</div>
     `;
   }
 
@@ -391,9 +381,7 @@ const MODULO_PRECIFICAR = (() => {
       <div class="card card--compacto mt-4 card-mercado-wrapper">
         <div class="card__header">
           <h3 class="card__titulo">Pesquisa de mercado</h3>
-          <button class="btn btn--ghost btn--sm" onclick="MODULO_PRECIFICAR.forcarAtualizacaoPesquisa()" ${!form.nome.trim() || form.nome.trim().length < 3 ? 'disabled' : ''}>
-            Atualizar
-          </button>
+          <button class="btn btn--ghost btn--sm" onclick="MODULO_PRECIFICAR.forcarAtualizacaoPesquisa()" ${!form.nome.trim() || form.nome.trim().length < 3 ? 'disabled' : ''}>Atualizar</button>
         </div>
         <div class="card__body">${conteudo}</div>
       </div>
@@ -443,6 +431,10 @@ const MODULO_PRECIFICAR = (() => {
     const d = document.getElementById('resultado-detalhes');
     if (d) d.classList.toggle('hidden');
   }
+
+  /* ==========================================================
+     PESQUISA DE MERCADO
+     ========================================================== */
 
   function agendarPesquisa(termo) {
     if (debouncePesquisa) clearTimeout(debouncePesquisa);
@@ -505,28 +497,59 @@ const MODULO_PRECIFICAR = (() => {
     if (container) container.outerHTML = renderCardMercado();
   }
 
+  /* ==========================================================
+     MODAL DE INSUMO (NOVO / EDITAR)
+     ========================================================== */
+
   function abrirModalInsumo() {
+    insumoEditandoIdx = null;
+    renderModalInsumo(null);
+  }
+
+  function abrirModalEditarInsumo(idx) {
+    const insumo = form.insumos[idx];
+    if (!insumo) return;
+    insumoEditandoIdx = idx;
+    renderModalInsumo(insumo);
+  }
+
+  function renderModalInsumo(insumo) {
+    const editando = insumo !== null;
+    const titulo = editando ? 'Editar insumo' : 'Adicionar insumo';
+    const labelBotao = editando ? 'Salvar alterações' : 'Adicionar insumo';
+    const acaoConfirmar = editando
+      ? 'MODULO_PRECIFICAR.confirmarEdicaoInsumo()'
+      : 'MODULO_PRECIFICAR.adicionarInsumo()';
+
+    const v = insumo || {
+      nome: '', precoPago: '', quantidadeCompra: 1, unidadeCompra: 'unidade',
+      rendimento: 1, unidadeUso: 'unidade', quantidadeUsada: 1
+    };
+
     const html = `
       <div class="modal-overlay ativo" id="modal-insumo">
         <div class="modal modal--grande" role="dialog" aria-modal="true">
           <div class="modal__header">
-            <h2 class="modal__titulo">Adicionar insumo</h2>
+            <h2 class="modal__titulo">${titulo}</h2>
             <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalInsumo()" aria-label="Fechar">
               <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </div>
+
           <div class="modal__body">
-            <div class="form-grupo">
-              <label>Insumo já cadastrado</label>
-              <select id="ins-material" onchange="MODULO_PRECIFICAR.aoEscolherMaterial()">
-                <option value="">+ Cadastrar novo insumo</option>
-                ${materiais.map((m, idx) => '<option value="' + idx + '" data-nome="' + escaparHTML(m.nome) + '">' + escaparHTML(m.nome) + ' — ' + formatarMoedaFina(m.custoPorUnidadeUso) + '/' + m.unidadeUso + '</option>').join('')}
-              </select>
-            </div>
+            ${!editando ? `
+              <div class="form-grupo">
+                <label>Insumo já cadastrado</label>
+                <select id="ins-material" onchange="MODULO_PRECIFICAR.aoEscolherMaterial()">
+                  <option value="">+ Cadastrar novo insumo</option>
+                  ${materiais.map((m, idx) => '<option value="' + idx + '" data-nome="' + escaparHTML(m.nome) + '">' + escaparHTML(m.nome) + ' — ' + formatarMoedaFina(m.custoPorUnidadeUso) + '/' + m.unidadeUso + '</option>').join('')}
+                </select>
+              </div>
+            ` : ''}
 
             <div class="form-grupo">
               <label for="ins-nome">Nome do insumo <span class="form-obrigatorio">*</span></label>
-              <input id="ins-nome" type="text" placeholder="Ex: Adesivo Personalizado" />
+              <input id="ins-nome" type="text" value="${escaparHTML(v.nome)}" placeholder="Ex: Adesivo Personalizado" />
             </div>
 
             <div class="ins-bloco">
@@ -534,23 +557,16 @@ const MODULO_PRECIFICAR = (() => {
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="ins-preco-pago">Preço pago (R$)</label>
-                  <input id="ins-preco-pago" type="number" min="0" step="0.01" placeholder="0,00" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                  <input id="ins-preco-pago" type="number" min="0" step="0.01" value="${v.precoPago || ''}" placeholder="0,00" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
                 </div>
                 <div class="form-grupo">
                   <label for="ins-qtd-comprada">Quantidade comprada</label>
-                  <input id="ins-qtd-comprada" type="number" min="0.01" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                  <input id="ins-qtd-comprada" type="number" min="0.01" step="0.01" value="${v.quantidadeCompra}" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
                 </div>
                 <div class="form-grupo">
                   <label for="ins-unidade-compra">Unidade de compra</label>
                   <select id="ins-unidade-compra" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
-                    <option value="unidade">Unidade</option>
-                    <option value="pacote">Pacote</option>
-                    <option value="caixa">Caixa</option>
-                    <option value="rolo">Rolo</option>
-                    <option value="resma">Resma</option>
-                    <option value="folha">Folha</option>
-                    <option value="litro">Litro</option>
-                    <option value="kg">Kg</option>
+                    ${['unidade','pacote','caixa','rolo','resma','folha','litro','kg'].map(u => '<option value="' + u + '"' + (v.unidadeCompra === u ? ' selected' : '') + '>' + u.charAt(0).toUpperCase() + u.slice(1) + '</option>').join('')}
                   </select>
                 </div>
               </div>
@@ -562,24 +578,17 @@ const MODULO_PRECIFICAR = (() => {
               <div class="form-linha-3">
                 <div class="form-grupo">
                   <label for="ins-rendimento">Cada unidade rende</label>
-                  <input id="ins-rendimento" type="number" min="1" step="1" value="1" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
+                  <input id="ins-rendimento" type="number" min="1" step="1" value="${v.rendimento}" oninput="MODULO_PRECIFICAR.recalcularCustoInsumo()" />
                 </div>
                 <div class="form-grupo">
                   <label for="ins-unidade-uso">Unidade de uso</label>
                   <select id="ins-unidade-uso" onchange="MODULO_PRECIFICAR.recalcularCustoInsumo()">
-                    <option value="unidade">Unidade</option>
-                    <option value="adesivo">Adesivo</option>
-                    <option value="folha">Folha</option>
-                    <option value="foto">Foto</option>
-                    <option value="metro">Metro</option>
-                    <option value="cm">Centímetro</option>
-                    <option value="ml">ml</option>
-                    <option value="g">g</option>
+                    ${['unidade','adesivo','folha','foto','metro','cm','ml','g'].map(u => '<option value="' + u + '"' + (v.unidadeUso === u ? ' selected' : '') + '>' + u.charAt(0).toUpperCase() + u.slice(1) + '</option>').join('')}
                   </select>
                 </div>
                 <div class="form-grupo">
                   <label>Total de unidades</label>
-                  <div class="prec-info-calc" id="ins-total-uso">1 unidade</div>
+                  <div class="prec-info-calc" id="ins-total-uso">${(v.quantidadeCompra * v.rendimento).toLocaleString('pt-BR')} unidades</div>
                 </div>
               </div>
             </div>
@@ -603,7 +612,7 @@ const MODULO_PRECIFICAR = (() => {
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="ins-qtd-usada">Quantidade usada</label>
-                  <input id="ins-qtd-usada" type="number" min="0" step="0.01" value="1" oninput="MODULO_PRECIFICAR.recalcularSubtotalInsumo()" />
+                  <input id="ins-qtd-usada" type="number" min="0" step="0.01" value="${v.quantidadeUsada}" oninput="MODULO_PRECIFICAR.recalcularSubtotalInsumo()" />
                 </div>
                 <div class="form-grupo">
                   <label>Subtotal</label>
@@ -612,20 +621,27 @@ const MODULO_PRECIFICAR = (() => {
               </div>
             </div>
           </div>
+
           <div class="modal__footer">
             <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalInsumo()">Cancelar</button>
-            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.adicionarInsumo()">Adicionar insumo</button>
+            <button class="btn btn--primario" onclick="${acaoConfirmar}">${labelBotao}</button>
           </div>
         </div>
       </div>
     `;
+
     document.getElementById('modal-insumo')?.remove();
     document.body.insertAdjacentHTML('beforeend', html);
-    setTimeout(() => document.getElementById('ins-nome')?.focus(), 50);
+
+    setTimeout(() => {
+      recalcularCustoInsumo();
+      document.getElementById('ins-nome')?.focus();
+    }, 50);
   }
 
   function fecharModalInsumo() {
     document.getElementById('modal-insumo')?.remove();
+    insumoEditandoIdx = null;
   }
 
   function aoEscolherMaterial() {
@@ -647,12 +663,15 @@ const MODULO_PRECIFICAR = (() => {
     const qtdCompra = Number(document.getElementById('ins-qtd-comprada')?.value) || 0;
     const rendimento = Number(document.getElementById('ins-rendimento')?.value) || 1;
     const r = calcularCustoInsumo(preco, qtdCompra, rendimento);
+
     const elCompra = document.getElementById('ins-custo-compra');
     const elUso = document.getElementById('ins-custo-uso');
     const elTotalUso = document.getElementById('ins-total-uso');
+
     if (elCompra) elCompra.textContent = formatarMoedaFina(r.custoPorUnidadeCompra);
     if (elUso) elUso.textContent = formatarMoedaFina(r.custoPorUnidadeUso);
     if (elTotalUso) elTotalUso.textContent = (qtdCompra * rendimento).toLocaleString('pt-BR') + ' unidades';
+
     recalcularSubtotalInsumo();
   }
 
@@ -667,48 +686,152 @@ const MODULO_PRECIFICAR = (() => {
     if (el) el.textContent = formatarMoedaFina(subtotal);
   }
 
-  function adicionarInsumo() {
-    const nome = document.getElementById('ins-nome').value.trim();
-    const preco = Number(document.getElementById('ins-preco-pago').value) || 0;
-    const qtdCompra = Number(document.getElementById('ins-qtd-comprada').value) || 0;
-    const unidadeCompra = document.getElementById('ins-unidade-compra').value;
-    const rendimento = Number(document.getElementById('ins-rendimento').value) || 1;
-    const unidadeUso = document.getElementById('ins-unidade-uso').value;
-    const qtdUsada = Number(document.getElementById('ins-qtd-usada').value) || 0;
-    if (!nome) return alert('Informe o nome do insumo.');
-    if (preco <= 0) return alert('Informe o preço pago.');
-    if (qtdCompra <= 0) return alert('Informe a quantidade comprada.');
-    if (rendimento < 1) return alert('O rendimento deve ser pelo menos 1.');
-    if (qtdUsada <= 0) return alert('Informe a quantidade usada.');
+  function capturarDadosInsumo() {
+    return {
+      nome: document.getElementById('ins-nome').value.trim(),
+      precoPago: Number(document.getElementById('ins-preco-pago').value) || 0,
+      quantidadeCompra: Number(document.getElementById('ins-qtd-comprada').value) || 0,
+      unidadeCompra: document.getElementById('ins-unidade-compra').value,
+      rendimento: Number(document.getElementById('ins-rendimento').value) || 1,
+      unidadeUso: document.getElementById('ins-unidade-uso').value,
+      quantidadeUsada: Number(document.getElementById('ins-qtd-usada').value) || 0
+    };
+  }
 
-    const calc = calcularCustoInsumo(preco, qtdCompra, rendimento);
-    const idxExistente = materiais.findIndex(m => m.nome === nome);
+  function validarInsumo(dados) {
+    if (!dados.nome) return 'Informe o nome do insumo.';
+    if (dados.precoPago <= 0) return 'Informe o preço pago.';
+    if (dados.quantidadeCompra <= 0) return 'Informe a quantidade comprada.';
+    if (dados.rendimento < 1) return 'O rendimento deve ser pelo menos 1.';
+    if (dados.quantidadeUsada <= 0) return 'Informe a quantidade usada.';
+    return null;
+  }
+
+  function salvarMaterial(dados, calc) {
+    const idxExistente = materiais.findIndex(m => m.nome === dados.nome);
     const material = {
-      nome, precoPago: preco, quantidadeCompra: qtdCompra, unidadeCompra,
-      rendimento, unidadeUso,
+      nome: dados.nome,
+      precoPago: dados.precoPago,
+      quantidadeCompra: dados.quantidadeCompra,
+      unidadeCompra: dados.unidadeCompra,
+      rendimento: dados.rendimento,
+      unidadeUso: dados.unidadeUso,
       custoPorUnidadeCompra: calc.custoPorUnidadeCompra,
       custoPorUnidadeUso: calc.custoPorUnidadeUso,
       atualizadoEm: new Date().toISOString()
     };
     if (idxExistente === -1) materiais.push(material);
     else materiais[idxExistente] = material;
+  }
+
+  function adicionarInsumo() {
+    const dados = capturarDadosInsumo();
+    const erro = validarInsumo(dados);
+    if (erro) return alert(erro);
+
+    const calc = calcularCustoInsumo(dados.precoPago, dados.quantidadeCompra, dados.rendimento);
+    salvarMaterial(dados, calc);
 
     form.insumos.push({
-      nome, precoPago: preco, quantidadeCompra: qtdCompra, unidadeCompra,
-      rendimento, unidadeUso,
+      ...dados,
       custoPorUnidadeCompra: calc.custoPorUnidadeCompra,
-      custoPorUnidadeUso: calc.custoPorUnidadeUso,
-      quantidadeUsada: qtdUsada
+      custoPorUnidadeUso: calc.custoPorUnidadeUso
     });
 
     fecharModalInsumo();
     rerenderForm();
   }
 
+  function confirmarEdicaoInsumo() {
+    if (insumoEditandoIdx === null) return;
+    const dados = capturarDadosInsumo();
+    const erro = validarInsumo(dados);
+    if (erro) return alert(erro);
+
+    const calc = calcularCustoInsumo(dados.precoPago, dados.quantidadeCompra, dados.rendimento);
+    salvarMaterial(dados, calc);
+
+    form.insumos[insumoEditandoIdx] = {
+      ...dados,
+      custoPorUnidadeCompra: calc.custoPorUnidadeCompra,
+      custoPorUnidadeUso: calc.custoPorUnidadeUso
+    };
+
+    fecharModalInsumo();
+    rerenderForm();
+  }
+
   function removerInsumo(idx) {
+    if (!confirm('Remover este insumo da precificação?')) return;
     form.insumos.splice(idx, 1);
     rerenderForm();
   }
+
+  /* ==========================================================
+     MODAL VISUALIZAR INSUMO (só leitura)
+     ========================================================== */
+
+  function abrirModalVisualizarInsumo(idx) {
+    const i = form.insumos[idx];
+    if (!i) return;
+
+    const subtotal = (Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0);
+
+    const html = `
+      <div class="modal-overlay ativo" id="modal-insumo-visualizar">
+        <div class="modal" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">${escaparHTML(i.nome)}</h2>
+            <button class="modal__fechar" onclick="MODULO_PRECIFICAR.fecharModalVisualizar()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="modal__body">
+            <div class="vis-secao">
+              <div class="vis-secao__titulo">Compra</div>
+              <div class="vis-linha"><span>Preço pago</span><strong>${formatarMoeda(i.precoPago)}</strong></div>
+              <div class="vis-linha"><span>Quantidade comprada</span><strong>${i.quantidadeCompra} ${escaparHTML(i.unidadeCompra || '')}</strong></div>
+            </div>
+
+            <div class="vis-secao">
+              <div class="vis-secao__titulo">Rendimento</div>
+              <div class="vis-linha"><span>Cada unidade rende</span><strong>${i.rendimento} ${escaparHTML(i.unidadeUso || '')}</strong></div>
+              ${i.rendimento > 1 ? '<div class="vis-linha"><span>Total de unidades de uso</span><strong>' + (i.quantidadeCompra * i.rendimento).toLocaleString('pt-BR') + ' ' + escaparHTML(i.unidadeUso || '') + '</strong></div>' : ''}
+            </div>
+
+            <div class="vis-secao">
+              <div class="vis-secao__titulo">Custo calculado</div>
+              <div class="vis-linha"><span>Custo por unidade de compra</span><strong>${formatarMoedaFina(i.custoPorUnidadeCompra)}</strong></div>
+              <div class="vis-linha vis-linha--destaque"><span>Custo por unidade de uso</span><strong>${formatarMoedaFina(i.custoPorUnidadeUso)}</strong></div>
+            </div>
+
+            <div class="vis-secao">
+              <div class="vis-secao__titulo">Uso nesta produção</div>
+              <div class="vis-linha"><span>Quantidade usada</span><strong>${i.quantidadeUsada} ${escaparHTML(i.unidadeUso || '')}</strong></div>
+              <div class="vis-linha vis-linha--destaque"><span>Subtotal</span><strong>${formatarMoedaFina(subtotal)}</strong></div>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_PRECIFICAR.fecharModalVisualizar()">Fechar</button>
+            <button class="btn btn--primario" onclick="MODULO_PRECIFICAR.fecharModalVisualizar(); MODULO_PRECIFICAR.abrirModalEditarInsumo(${idx});">Editar</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-insumo-visualizar')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function fecharModalVisualizar() {
+    document.getElementById('modal-insumo-visualizar')?.remove();
+  }
+
+  /* ==========================================================
+     IMPRESSORA
+     ========================================================== */
 
   function abrirConfigImpressora() {
     const t = impressora.tintas;
@@ -780,6 +903,10 @@ const MODULO_PRECIFICAR = (() => {
     if (elColor) elColor.textContent = formatarMoedaFina(custoPorPaginaColorida());
   }
 
+  /* ==========================================================
+     SALVAR COMO PRODUTO
+     ========================================================== */
+
   function salvarComoProduto() {
     const r = calcular();
     if (!form.nome.trim()) return alert('Informe o nome do produto antes de salvar.');
@@ -791,7 +918,9 @@ const MODULO_PRECIFICAR = (() => {
     }
     const categorias = window.SKU_PRAFICAR?.listarCategorias() || [];
     if (categorias.length === 0) return alert('Nenhuma categoria disponível.');
+
     const precoFinal = r.meuPrecoVenda || r.precoSugerido;
+
     const html = `
       <div class="modal-overlay ativo" id="modal-salvar-produto">
         <div class="modal" role="dialog" aria-modal="true">
@@ -857,6 +986,10 @@ const MODULO_PRECIFICAR = (() => {
     }
   }
 
+  /* ==========================================================
+     LIMPAR / RERENDER / API
+     ========================================================== */
+
   function limpar() {
     if (!confirm('Limpar todo o formulário?')) return;
     form = novoForm();
@@ -879,6 +1012,8 @@ const MODULO_PRECIFICAR = (() => {
   return {
     render, atualizar, ajustarMargem,
     abrirModalInsumo, fecharModalInsumo, aoEscolherMaterial,
+    abrirModalEditarInsumo, confirmarEdicaoInsumo,
+    abrirModalVisualizarInsumo, fecharModalVisualizar,
     recalcularCustoInsumo, recalcularSubtotalInsumo,
     adicionarInsumo, removerInsumo, toggleDetalhes,
     abrirConfigImpressora, fecharModalImpressora, atualizarImpressora,
