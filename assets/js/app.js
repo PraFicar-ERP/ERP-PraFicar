@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — APP PRINCIPAL (v5)
+   PRAFICAR ERP — APP PRINCIPAL (v7)
    Arquivo: assets/js/app.js
    Descrição: inicialização, menu lateral, header, ícones e
               botão da calculadora flutuante.
@@ -14,7 +14,7 @@ const APP_PRAFICAR = (() => {
   const ICONES = {
     inicio:       '<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>',
     produtos:     '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
-    precificar:   '<svg viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>',
+    custos:       '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><path d="M3 3v18h18" opacity="0.4"/></svg>',
     canais:       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg>',
     encomendas:   '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     vendas:       '<svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
@@ -47,7 +47,7 @@ const APP_PRAFICAR = (() => {
       grupo: 'Catálogo',
       itens: [
         { rota: 'produtos',   texto: 'Produtos & Estoque' },
-        { rota: 'precificar', texto: 'Precificar' },
+        { rota: 'custos',     texto: 'Custos e Fabricação' },
         { rota: 'canais',     texto: 'Canais de Venda' }
       ]
     },
