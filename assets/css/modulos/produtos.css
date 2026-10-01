@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v7)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRODUTOS (v9)
    Arquivo: assets/css/modulos/produtos.css
    ============================================================ */
 
@@ -67,6 +67,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 260px;
+}
+
+.produto-espec {
+  font-size: var(--texto-xs);
+  color: var(--azul-medio);
+  font-weight: var(--peso-medio);
+  margin-top: 2px;
 }
 
 .produto-margem-min {
@@ -138,7 +145,7 @@
    ============================================================ */
 
 #modal-produto .modal {
-  max-width: 860px;
+  max-width: 900px;
 }
 
 #modal-produto .form-grupo:last-child {
@@ -162,89 +169,47 @@
   gap: var(--esp-3);
 }
 
-/* ============================================================
-   5. SELETOR DE TIPO
-   ============================================================ */
-
-.prod-tipo-selector {
+.form-linha-3 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--esp-3);
-  margin-bottom: var(--esp-5);
-}
-
-.prod-tipo-opcao {
-  cursor: pointer;
-  user-select: none;
-}
-
-.prod-tipo-opcao input {
-  display: none;
-}
-
-.prod-tipo-opcao__box {
-  padding: var(--esp-4);
-  background-color: var(--cinza-50);
-  border: 2px solid var(--cor-borda-suave);
-  border-radius: var(--raio-md);
-  transition: border-color var(--transicao-rapida),
-              background-color var(--transicao-rapida);
-}
-
-.prod-tipo-opcao:hover .prod-tipo-opcao__box {
-  background-color: var(--azul-suave);
-}
-
-.prod-tipo-opcao input:checked + .prod-tipo-opcao__box {
-  background-color: var(--azul-suave);
-  border-color: var(--azul-medio);
-}
-
-.prod-tipo-opcao__titulo {
-  font-size: var(--texto-base);
-  font-weight: var(--peso-semibold);
-  color: var(--cor-texto-principal);
-  margin-bottom: var(--esp-1);
-}
-
-.prod-tipo-opcao input:checked + .prod-tipo-opcao__box .prod-tipo-opcao__titulo {
-  color: var(--azul-marinho);
-}
-
-.prod-tipo-opcao__desc {
-  font-size: var(--texto-xs);
-  color: var(--cor-texto-secundario);
-  line-height: var(--linha-normal);
 }
 
 /* ============================================================
-   6. COMPONENTES DO KIT
+   5. SEÇÃO DE CUSTOS DO PRODUTO
    ============================================================ */
 
-.prod-kit-secao {
+.prod-custos-secao {
   margin: var(--esp-5) 0;
-  padding: var(--esp-4);
+  padding: var(--esp-5);
   background-color: var(--cinza-50);
   border-radius: var(--raio-md);
   border: 1px solid var(--cor-borda-suave);
 }
 
-.prod-kit-secao__header {
+.prod-custos-secao__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--esp-3);
   margin-bottom: var(--esp-4);
   flex-wrap: wrap;
 }
 
-.prod-kit-secao__titulo {
+.prod-custos-secao__titulo {
   font-size: var(--texto-sm);
   font-weight: var(--peso-semibold);
   text-transform: uppercase;
   letter-spacing: var(--letra-caps);
   color: var(--cor-texto-principal);
+  margin: 0 0 var(--esp-1);
+}
+
+.prod-custos-secao__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
   margin: 0;
+  line-height: var(--linha-normal);
 }
 
 .prod-kit-vazio {
@@ -261,18 +226,18 @@
   background-color: var(--branco);
 }
 
-.tabela-componentes {
+.tabela-itens-produto {
   font-size: var(--texto-sm);
   background-color: var(--branco);
   border-radius: var(--raio-sm);
   overflow: hidden;
 }
 
-.tabela-componentes thead {
+.tabela-itens-produto thead {
   background-color: var(--branco);
 }
 
-.tabela-componentes tfoot td {
+.tabela-itens-produto tfoot td {
   padding-top: var(--esp-3);
   padding-bottom: var(--esp-3);
   border-top: 2px solid var(--cor-borda-suave);
@@ -280,7 +245,7 @@
 }
 
 /* ============================================================
-   7. PREÇOS (seção completa)
+   6. PREÇOS (seção)
    ============================================================ */
 
 .prod-precos-secao {
@@ -312,7 +277,7 @@
 }
 
 /* ============================================================
-   8. PREÇOS POR CANAL
+   7. PREÇOS POR CANAL
    ============================================================ */
 
 .prod-canal-secao {
@@ -398,7 +363,7 @@
 }
 
 /* ============================================================
-   9. BLOCO DE MARGEM
+   8. BLOCO DE MARGEM
    ============================================================ */
 
 .prod-margem-bloco {
@@ -409,21 +374,21 @@
   background-color: var(--branco);
   border: 1px solid var(--cor-borda-suave);
   border-radius: var(--raio-md);
-  padding: var(--esp-4) var(--esp-5);
+  padding: var(--esp-3) var(--esp-4);
 }
 
 .prod-margem-preview__vazio {
   font-size: var(--texto-sm);
   color: var(--cor-texto-secundario);
   text-align: center;
-  padding: var(--esp-3) 0;
+  padding: var(--esp-2) 0;
 }
 
 .prod-margem-preview__linha {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--esp-2) 0;
+  padding: var(--esp-1) 0;
   font-size: var(--texto-sm);
   color: var(--cor-texto-padrao);
   border-bottom: 1px dashed var(--cor-borda-suave);
@@ -441,7 +406,7 @@
 .prod-margem-preview__linha--destaque {
   border-top: 1px solid var(--cor-borda-media);
   border-bottom: none;
-  padding-top: var(--esp-3);
+  padding-top: var(--esp-2);
   font-size: var(--texto-base);
   font-weight: var(--peso-semibold);
   color: var(--cor-texto-principal);
@@ -459,7 +424,7 @@
 }
 
 /* ============================================================
-   10. CANAIS (checkbox)
+   9. CANAIS (checkbox)
    ============================================================ */
 
 .prod-canais-grid {
@@ -501,15 +466,67 @@
 }
 
 /* ============================================================
-   11. MODAL DE COMPONENTE
+   10. MODAL ADICIONAR ITEM (seletor de tipo)
    ============================================================ */
 
-#modal-componente .modal {
-  max-width: 520px;
+#modal-adicionar-item .modal {
+  max-width: 620px;
+}
+
+.item-tipo-seletor {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-3);
+  margin-top: var(--esp-2);
+}
+
+.item-tipo-opcao {
+  cursor: pointer;
+  user-select: none;
+}
+
+.item-tipo-opcao input {
+  display: none;
+}
+
+.item-tipo-box {
+  padding: var(--esp-4) var(--esp-3);
+  background-color: var(--cinza-50);
+  border: 2px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  text-align: center;
+  transition: border-color var(--transicao-rapida),
+              background-color var(--transicao-rapida);
+}
+
+.item-tipo-opcao:hover .item-tipo-box {
+  background-color: var(--azul-suave);
+}
+
+.item-tipo-opcao input:checked + .item-tipo-box {
+  background-color: var(--azul-suave);
+  border-color: var(--azul-medio);
+}
+
+.item-tipo-box__titulo {
+  font-size: var(--texto-base);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-1);
+}
+
+.item-tipo-opcao input:checked + .item-tipo-box .item-tipo-box__titulo {
+  color: var(--azul-marinho);
+}
+
+.item-tipo-box__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  line-height: var(--linha-normal);
 }
 
 /* ============================================================
-   12. TOGGLE DE ATIVO/INATIVO
+   11. TOGGLE DE ATIVO/INATIVO
    ============================================================ */
 
 .toggle-ativo {
@@ -562,7 +579,7 @@
 }
 
 /* ============================================================
-   13. BARRA DE AÇÕES EM MASSA
+   12. BARRA DE AÇÕES EM MASSA
    ============================================================ */
 
 .barra-acoes-massa {
@@ -631,7 +648,7 @@
 }
 
 /* ============================================================
-   14. RESPONSIVO
+   13. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 900px) {
@@ -662,7 +679,7 @@
     grid-template-columns: 1fr;
   }
 
-  .prod-tipo-selector {
+  .item-tipo-seletor {
     grid-template-columns: 1fr;
   }
 
@@ -684,7 +701,7 @@
     max-width: 100%;
   }
 
-  .prod-margem-bloco {
-    margin: var(--esp-3) 0;
+  #modal-adicionar-item .modal {
+    max-width: 100%;
   }
 }
