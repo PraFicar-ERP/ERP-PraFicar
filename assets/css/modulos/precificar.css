@@ -1,6 +1,10 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR (v3)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR (v5)
    Arquivo: assets/css/modulos/precificar.css
+   ============================================================ */
+
+/* ============================================================
+   1. LAYOUT EM 2 COLUNAS
    ============================================================ */
 
 .precificar-layout {
@@ -21,6 +25,10 @@
   position: sticky;
   top: calc(var(--altura-header) + var(--esp-4));
 }
+
+/* ============================================================
+   2. LINHAS DE FORMULÁRIO
+   ============================================================ */
 
 .form-linha-3 {
   display: grid;
@@ -44,7 +52,7 @@
 }
 
 /* ============================================================
-   1. LISTA DE INSUMOS
+   3. LISTA DE INSUMOS
    ============================================================ */
 
 .insumos-vazio {
@@ -73,7 +81,7 @@
 }
 
 /* ============================================================
-   2. BLOCOS DO MODAL DE INSUMO
+   4. BLOCOS DO MODAL DE INSUMO
    ============================================================ */
 
 .ins-bloco {
@@ -146,7 +154,7 @@
 }
 
 /* ============================================================
-   3. IMPRESSORA
+   5. IMPRESSORA
    ============================================================ */
 
 .prec-impressora-info {
@@ -210,7 +218,7 @@
 }
 
 /* ============================================================
-   4. SLIDER DE MARGEM
+   6. SLIDER DE MARGEM
    ============================================================ */
 
 .margem-slider {
@@ -256,7 +264,7 @@
 }
 
 /* ============================================================
-   5. CARD DE RESULTADO
+   7. CARD DE RESULTADO
    ============================================================ */
 
 .resultado-card {
@@ -366,7 +374,7 @@
 }
 
 /* ============================================================
-   6. CARD MERCADO
+   8. CARD MERCADO
    ============================================================ */
 
 .card--compacto {
@@ -406,8 +414,33 @@
   font-variant-numeric: tabular-nums;
 }
 
+.mercado-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.mercado-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cor-borda-suave);
+  border-top-color: var(--azul-medio);
+  border-radius: 50%;
+  animation: mercado-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mercado-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ============================================================
-   7. DETALHAMENTO
+   9. DETALHAMENTO
    ============================================================ */
 
 .resultado-detalhes {
@@ -453,7 +486,7 @@
 }
 
 /* ============================================================
-   8. MODAL SALVAR COMO PRODUTO
+   10. MODAL SALVAR COMO PRODUTO
    ============================================================ */
 
 .resumo-salvar {
@@ -496,7 +529,113 @@
 }
 
 /* ============================================================
-   9. RESPONSIVO
+   11. MODAL VISUALIZAR INSUMO
+   ============================================================ */
+
+.vis-secao {
+  margin-bottom: var(--esp-5);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.vis-secao:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.vis-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.vis-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.vis-linha:last-child {
+  border-bottom: none;
+}
+
+.vis-linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.vis-linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.vis-linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   12. AÇÕES DA LINHA
+   ============================================================ */
+
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+}
+
+.btn-icone {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  cursor: pointer;
+}
+
+.btn-icone:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+  border-color: rgba(46, 111, 168, 0.15);
+}
+
+.btn-icone--perigo:hover {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border-color: rgba(217, 58, 58, 0.2);
+}
+
+.btn-icone svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   13. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 1024px) {
@@ -526,5 +665,15 @@
 
   .ins-resultado {
     grid-template-columns: 1fr;
+  }
+
+  .margem-slider {
+    flex-wrap: wrap;
+  }
+
+  .margem-slider__valor {
+    width: 100%;
+    text-align: left;
+    margin-top: var(--esp-2);
   }
 }
