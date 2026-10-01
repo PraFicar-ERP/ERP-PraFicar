@@ -1,13 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS (v7)
+   PRAFICAR ERP — MÓDULO PRODUTOS (v8)
    Arquivo: assets/js/modulos/produtos.js
    Descrição: cadastro de produtos com:
-              - Custo vindo do estoque/Custos
-              - Preço de venda definido aqui
-              - Preço por canal (obrigatório em cada canal)
-              - Kit (composto de outros produtos)
+              - Custo vindo do módulo Custos
+              - Especificação / Tamanho
+              - Preço por canal
+              - Kit (composto)
               - Toggle ativo/inativo + ação em massa
-              - Ordem alfabética + pesquisa
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -96,8 +95,14 @@ const MODULO_PRODUTOS = (() => {
     return Math.round((Number(v) + Number.EPSILON) * 100) / 100;
   }
 
+  function nomeCompletoProduto(p) {
+    if (!p) return '';
+    const espec = p.especificacao ? ' (' + p.especificacao + ')' : '';
+    return p.nome + espec;
+  }
+
   /* ==========================================================
-     CÁLCULO DE MARGEM
+     CÁLCULOS
      ========================================================== */
 
   function calcularMargem(produto) {
@@ -138,10 +143,6 @@ const MODULO_PRODUTOS = (() => {
     return arredondar2((custo + taxaFixa) / divisor);
   }
 
-  /* ==========================================================
-     CÁLCULO DE COMPONENTES (KIT)
-     ========================================================== */
-
   function calcularCustoComponentes(componentes) {
     return componentes.reduce((acc, c) => {
       return acc + (Number(c.custoUnitario) || 0) * (Number(c.quantidade) || 0);
@@ -154,6 +155,7 @@ const MODULO_PRODUTOS = (() => {
       return {
         produtoId: c.produtoId,
         nome: produto ? produto.nome : c.nome,
+        especificacao: produto ? (produto.especificacao || '') : (c.especificacao || ''),
         sku: produto ? produto.sku : c.sku,
         quantidade: Number(c.quantidade) || 0,
         custoUnitario: produto ? Number(produto.custo) || 0 : Number(c.custoUnitario) || 0
@@ -179,6 +181,7 @@ const MODULO_PRODUTOS = (() => {
       id: proximoId++,
       sku: dados.sku,
       nome: dados.nome,
+      especificacao: dados.especificacao || '',
       categoria: dados.categoria,
       descricao: dados.descricao || '',
       tipo,
@@ -212,16 +215,17 @@ const MODULO_PRODUTOS = (() => {
     return criarProduto({
       sku,
       nome: dados.nome,
+      especificacao: dados.especificacao || '',
       categoria: dados.categoria,
       descricao: dados.descricao || '',
       tipo: 'simples',
       custo: dados.custo,
       precoVarejo: dados.precoVarejo || 0,
-      precoAtacado: dados.precoAtacado || 0,
+      precoAtacado: dados.precoAtacado || dados.precoVarejo || 0,
       precosCanal: dados.precosCanal || {},
       margemMinima: dados.margemMinima || MARGEM_MINIMA_PADRAO,
       estoqueMinimo: dados.estoqueMinimo || 5,
-      estoqueAtual: dados.estoqueAtual || 0,
+      estoqueAtual: 0,
       unidade: dados.unidade || 'un',
       canais: dados.canais || [],
       status: 'ativo',
@@ -380,7 +384,7 @@ const MODULO_PRODUTOS = (() => {
       if (filtroMargem === 'ok' && margemAbaixoDoMinimo(p)) return false;
       if (filtroBusca) {
         const t = filtroBusca.toLowerCase();
-        const alvo = `${p.sku} ${p.nome} ${p.descricao}`.toLowerCase();
+        const alvo = `${p.sku} ${p.nome} ${p.especificacao} ${p.descricao}`.toLowerCase();
         if (!alvo.includes(t)) return false;
       }
       return true;
@@ -423,7 +427,7 @@ const MODULO_PRODUTOS = (() => {
       <div class="filtros-produtos">
         <div class="filtros-produtos__busca">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="search" placeholder="Buscar por SKU, nome ou descrição..." value="${escaparHTML(filtroBusca)}" oninput="MODULO_PRODUTOS.alterarFiltroBusca(this.value)" />
+          <input type="search" placeholder="Buscar por SKU, nome, tamanho ou descrição..." value="${escaparHTML(filtroBusca)}" oninput="MODULO_PRODUTOS.alterarFiltroBusca(this.value)" />
         </div>
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroTipo(this.value)">
@@ -465,10 +469,6 @@ const MODULO_PRODUTOS = (() => {
     `;
   }
 
-  /* ==========================================================
-     RENDER — TABELA
-     ========================================================== */
-
   function renderTabela() {
     const lista = produtosFiltrados();
 
@@ -484,7 +484,7 @@ const MODULO_PRODUTOS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${produtos.length === 0
-                ? 'Cadastre seu primeiro produto. O SKU é gerado automaticamente e o custo vem do módulo Custos.'
+                ? 'Cadastre um produto direto aqui ou use "Enviar para Produtos" no módulo Custos.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${produtos.length === 0 ? `
@@ -553,6 +553,7 @@ const MODULO_PRODUTOS = (() => {
             ${isKit ? '<span class="badge badge--info">Kit</span>' : ''}
             ${temPrecoCanal ? '<span class="badge badge--sucesso">Preço por canal</span>' : ''}
           </div>
+          ${p.especificacao ? `<div class="produto-espec">${escaparHTML(p.especificacao)}</div>` : ''}
           ${p.descricao ? `<div class="produto-desc">${escaparHTML(p.descricao)}</div>` : ''}
           ${isKit && p.componentes?.length ? `
             <div class="produto-kit-info">${p.componentes.length} ${p.componentes.length === 1 ? 'componente' : 'componentes'}</div>
@@ -678,6 +679,12 @@ const MODULO_PRODUTOS = (() => {
               <div class="form-grupo">
                 <label for="prod-nome">Nome <span class="form-obrigatorio">*</span></label>
                 <input id="prod-nome" type="text" required value="${escaparHTML(p?.nome || '')}" placeholder="Ex: Marca-página Imantada" />
+              </div>
+
+              <div class="form-grupo">
+                <label for="prod-especificacao">Especificação / Tamanho</label>
+                <input id="prod-especificacao" type="text" value="${escaparHTML(p?.especificacao || '')}" placeholder="Ex: 4,10 × 6,60 cm" />
+                <span class="form-ajuda">Ajuda a diferenciar quando o mesmo item tem tamanhos diferentes.</span>
               </div>
 
               <div class="form-grupo">
@@ -1005,6 +1012,7 @@ const MODULO_PRODUTOS = (() => {
             <tr>
               <td>
                 <div class="produto-nome">${escaparHTML(c.nome)}</div>
+                ${c.especificacao ? `<div class="produto-espec">${escaparHTML(c.especificacao)}</div>` : ''}
                 ${c.sku ? `<span class="sku">${escaparHTML(c.sku)}</span>` : ''}
               </td>
               <td class="tabela__numero">${c.quantidade}</td>
@@ -1055,8 +1063,15 @@ const MODULO_PRODUTOS = (() => {
               <select id="comp-produto">
                 <option value="">Selecione um produto</option>
                 ${disponiveis.map(p => `
-                  <option value="${p.id}" data-nome="${escaparHTML(p.nome)}" data-sku="${escaparHTML(p.sku)}" data-custo="${p.custo}" data-estoque="${p.estoqueAtual}">
-                    ${escaparHTML(p.sku)} — ${escaparHTML(p.nome)} · ${formatarMoedaFina(p.custo)} · ${p.estoqueAtual} un
+                  <option
+                    value="${p.id}"
+                    data-nome="${escaparHTML(p.nome)}"
+                    data-especificacao="${escaparHTML(p.especificacao || '')}"
+                    data-sku="${escaparHTML(p.sku)}"
+                    data-custo="${p.custo}"
+                    data-estoque="${p.estoqueAtual}"
+                  >
+                    ${escaparHTML(p.sku)} — ${escaparHTML(p.nome)}${p.especificacao ? ' (' + escaparHTML(p.especificacao) + ')' : ''} · ${formatarMoedaFina(p.custo)} · ${p.estoqueAtual} un
                   </option>
                 `).join('')}
               </select>
@@ -1091,12 +1106,13 @@ const MODULO_PRODUTOS = (() => {
 
     const produtoId = Number(sel.value);
     const nome = opt.dataset.nome;
+    const especificacao = opt.dataset.especificacao;
     const sku = opt.dataset.sku;
     const custoUnitario = Number(opt.dataset.custo || 0);
 
     const existente = componentesTemporarios.find(c => Number(c.produtoId) === produtoId);
     if (existente) existente.quantidade += quantidade;
-    else componentesTemporarios.push({ produtoId, nome, sku, quantidade, custoUnitario });
+    else componentesTemporarios.push({ produtoId, nome, especificacao, sku, quantidade, custoUnitario });
 
     atualizarListaComponentes();
     atualizarPreviewMargem();
@@ -1217,6 +1233,7 @@ const MODULO_PRODUTOS = (() => {
       categoria:     document.getElementById('prod-categoria').value,
       sku:           document.getElementById('prod-sku').value.trim(),
       nome:          document.getElementById('prod-nome').value.trim(),
+      especificacao: document.getElementById('prod-especificacao').value.trim(),
       descricao:     document.getElementById('prod-descricao').value.trim(),
       custo,
       precoVarejo,
@@ -1261,7 +1278,7 @@ const MODULO_PRODUTOS = (() => {
   function confirmarExclusao(id) {
     const p = buscarProduto(id);
     if (!p) return;
-    const ok = confirm(`Desativar o produto "${p.nome}" (${p.sku})?`);
+    const ok = confirm(`Desativar o produto "${nomeCompletoProduto(p)}"?`);
     if (!ok) return;
     excluirProduto(id);
     rerender();
