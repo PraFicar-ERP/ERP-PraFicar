@@ -1,0 +1,536 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO CUSTOS E FABRICAÇÃO
+   Arquivo: assets/css/modulos/custos.css
+   ============================================================ */
+
+/* ============================================================
+   1. ABAS
+   ============================================================ */
+
+.custos-abas {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+  margin-bottom: var(--esp-5);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.custos-aba {
+  padding: var(--esp-3) var(--esp-4);
+  font-size: var(--texto-base);
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  margin-bottom: -1px;
+}
+
+.custos-aba:hover {
+  color: var(--cor-texto-principal);
+}
+
+.custos-aba--ativa {
+  color: var(--azul-medio);
+  border-bottom-color: var(--azul-medio);
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   2. LAYOUT EM 2 COLUNAS
+   ============================================================ */
+
+.custos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: var(--esp-6);
+  align-items: start;
+}
+
+.custos-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-5);
+  min-width: 0;
+}
+
+.custos-resultado {
+  position: sticky;
+  top: calc(var(--altura-header) + var(--esp-4));
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+/* ============================================================
+   3. LINHAS DE FORMULÁRIO
+   ============================================================ */
+
+.form-linha-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--esp-3);
+}
+
+.form-linha-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-4);
+}
+
+.prec-info-calc {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(46, 111, 168, 0.15);
+}
+
+/* ============================================================
+   4. LISTA DE INSUMOS
+   ============================================================ */
+
+.insumos-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-8) var(--esp-6);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-lg);
+  background-color: var(--cinza-50);
+}
+
+.insumos-vazio p {
+  margin: 0;
+  font-weight: var(--peso-medio);
+}
+
+.tabela-insumos {
+  font-size: var(--texto-sm);
+}
+
+.tabela-insumos tfoot td {
+  padding-top: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-top: 2px solid var(--cor-borda-suave);
+  border-bottom: none;
+  background-color: var(--cinza-50);
+}
+
+.tabela-insumos tfoot .text-principal {
+  font-size: var(--texto-md);
+}
+
+/* ============================================================
+   5. CARD DE RESULTADO
+   ============================================================ */
+
+.resultado-card {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  box-shadow: 0 4px 16px rgba(27, 58, 92, 0.08);
+  overflow: hidden;
+}
+
+.resultado-card__header {
+  padding: var(--esp-6);
+  background: linear-gradient(180deg, var(--cinza-50) 0%, var(--branco) 100%);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.resultado-card__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-3xl);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: var(--letra-apertada);
+}
+
+.resultado-card__sub {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item {
+  padding: var(--esp-4) var(--esp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  text-align: center;
+}
+
+.resultado-card__item + .resultado-card__item {
+  border-left: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item-label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__item-valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resultado-card__acrescimo {
+  padding: var(--esp-4) var(--esp-5);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-50);
+}
+
+.resultado-card__acrescimo strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  color: var(--azul-marinho);
+  font-weight: var(--peso-bold);
+  font-size: var(--texto-base);
+}
+
+/* ============================================================
+   6. BOTÕES DE AÇÃO
+   ============================================================ */
+
+.btn-icone {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  cursor: pointer;
+}
+
+.btn-icone:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+  border-color: rgba(46, 111, 168, 0.15);
+}
+
+.btn-icone--perigo:hover {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border-color: rgba(217, 58, 58, 0.2);
+}
+
+.btn-icone svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+}
+
+/* ============================================================
+   7. BLOCOS DO MODAL DE INSUMO
+   ============================================================ */
+
+.ins-bloco {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.ins-bloco__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ins-bloco__opcional {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-regular);
+  color: var(--cor-texto-secundario);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ins-resultado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+}
+
+.ins-resultado__item {
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.ins-resultado__item--destaque {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.ins-resultado__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.ins-resultado__item--destaque .ins-resultado__label {
+  color: var(--azul-medio);
+}
+
+.ins-resultado__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+}
+
+.ins-resultado__item--destaque .ins-resultado__valor {
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   8. IMPRESSORA
+   ============================================================ */
+
+.prec-impressora-info {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.imp-linha {
+  margin-bottom: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.imp-linha:last-of-type {
+  border-bottom: none;
+}
+
+.imp-linha__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+}
+
+.imp-cor {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.imp-cor--preto   { background-color: #1F2733; }
+.imp-cor--ciano   { background-color: #00B8D4; }
+.imp-cor--magenta { background-color: #E91E63; }
+.imp-cor--amarelo { background-color: #FFC107; }
+
+.imp-totais {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  margin-top: var(--esp-4);
+}
+
+.imp-totais > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+}
+
+.imp-totais strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   9. MODAL VISUALIZAR INSUMO
+   ============================================================ */
+
+.vis-secao {
+  margin-bottom: var(--esp-5);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.vis-secao:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.vis-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.vis-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.vis-linha:last-child {
+  border-bottom: none;
+}
+
+.vis-linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.vis-linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.vis-linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   10. HISTÓRICO DE FABRICAÇÕES
+   ============================================================ */
+
+.custos-resultado .tabela {
+  font-size: var(--texto-sm);
+}
+
+.custos-resultado .tabela th {
+  padding: var(--esp-2) var(--esp-3);
+}
+
+.custos-resultado .tabela td {
+  padding: var(--esp-3);
+}
+
+/* ============================================================
+   11. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .custos-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .custos-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .custos-resultado {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .ins-resultado {
+    grid-template-columns: 1fr;
+  }
+
+  .form-linha-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .resultado-card__valor {
+    font-size: var(--texto-2xl);
+  }
+
+  .custos-abas {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .custos-aba {
+    white-space: nowrap;
+  }
+}
