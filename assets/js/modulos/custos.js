@@ -1,8 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v1)
+   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v2)
    Arquivo: assets/js/modulos/custos.js
    Descrição: calcula o custo real de um item e registra a
               fabricação (entrada no estoque com custo).
+   v2: corrigido — não reconstrói a tela a cada tecla digitada.
    ============================================================ */
 
 const MODULO_CUSTOS = (() => {
@@ -332,7 +333,7 @@ const MODULO_CUSTOS = (() => {
       </table>
     `;
   }
-    /* ==========================================================
+     /* ==========================================================
      ABA FABRICAÇÕES
      ========================================================== */
 
@@ -451,6 +452,7 @@ const MODULO_CUSTOS = (() => {
 
   /* ==========================================================
      AÇÕES DO FORMULÁRIO
+     CORREÇÃO: não reconstrói a tela ao digitar
      ========================================================== */
 
   function atualizar(campo, valor) {
@@ -459,7 +461,13 @@ const MODULO_CUSTOS = (() => {
     } else {
       form[campo] = valor;
     }
-    rerenderForm();
+    atualizarResultado();
+  }
+
+  function atualizarResultado() {
+    const coluna = document.querySelector('.custos-resultado');
+    if (!coluna) return;
+    coluna.innerHTML = renderResultado(calcular());
   }
 
   function alterarAba(aba) {
@@ -558,7 +566,6 @@ const MODULO_CUSTOS = (() => {
 
     fabricacoes.push(fabricacao);
 
-    // Dar entrada no estoque do produto (se existir)
     darEntradaNoEstoque(calculo.nome, aproveitaveis, calculo.custoUnitario);
 
     alert(
@@ -581,12 +588,8 @@ const MODULO_CUSTOS = (() => {
       p.nome.toLowerCase() === nomeItem.toLowerCase()
     );
 
-    if (!produto) {
-      // Produto não existe ainda — só guarda a fabricação
-      return;
-    }
+    if (!produto) return;
 
-    // Sobe o estoque do produto
     const produtoAtual = window.MODULO_PRODUTOS._buscar(produto.id);
     if (produtoAtual) {
       produtoAtual.estoqueAtual = Number(produtoAtual.estoqueAtual || 0) + quantidade;
@@ -712,7 +715,7 @@ const MODULO_CUSTOS = (() => {
             </div>
 
             <div class="ins-bloco">
-              <div class="ins-bloco__titulo">Uso nesta produção</div>
+              <div class="ins-bloco__titulo">Uso neste lote</div>
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="ins-qtd-usada" id="ins-label-qtd-usada">Quantas você usou?</label>
@@ -1039,6 +1042,7 @@ const MODULO_CUSTOS = (() => {
     render,
     alterarAba,
     atualizar,
+    atualizarResultado,
     novoCalculo,
     novaFabricacao,
     salvarCalculo,
