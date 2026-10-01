@@ -25,8 +25,8 @@
   <!-- CSS — módulos -->
   <link rel="stylesheet" href="assets/css/modulos/inicio.css" />
   <link rel="stylesheet" href="assets/css/modulos/produtos.css" />
+  <link rel="stylesheet" href="assets/css/modulos/custos.css" />
   <link rel="stylesheet" href="assets/css/modulos/canais.css" />
-  <link rel="stylesheet" href="assets/css/modulos/precificar.css" />
   <link rel="stylesheet" href="assets/css/modulos/encomendas.css" />
   <link rel="stylesheet" href="assets/css/modulos/vendas.css" />
   <link rel="stylesheet" href="assets/css/modulos/financeiro.css" />
@@ -39,7 +39,11 @@
 
   <div class="app" id="app">
 
+    <!-- =====================================================
+         SIDEBAR
+         ===================================================== -->
     <aside class="sidebar" id="sidebar">
+
       <div class="sidebar__logo">
         <img src="assets/img/logo.png" alt="PraFicar" onerror="this.style.display='none'" />
         <div class="sidebar__logo-texto">
@@ -48,7 +52,9 @@
         </div>
       </div>
 
-      <nav class="sidebar__nav" id="sidebar-menu"></nav>
+      <nav class="sidebar__nav" id="sidebar-menu">
+        <!-- preenchido via JS -->
+      </nav>
 
       <div class="sidebar__rodape">
         <div class="sidebar__usuario">
@@ -59,9 +65,14 @@
           </div>
         </div>
       </div>
+
     </aside>
 
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
     <header class="header">
+
       <button class="header__toggle" id="btn-toggle-sidebar" aria-label="Alternar menu">
         <svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
       </button>
@@ -72,34 +83,54 @@
         <span class="header__breadcrumb-atual">Início</span>
       </div>
 
-      <div class="header__busca"></div>
-      <div class="header__acoes" id="header-acoes"></div>
+      <div class="header__busca">
+        <!-- preenchido via JS -->
+      </div>
+
+      <div class="header__acoes" id="header-acoes">
+        <!-- preenchido via JS -->
+      </div>
+
     </header>
 
+    <!-- =====================================================
+         CONTEÚDO
+         ===================================================== -->
     <main class="conteudo">
-      <div class="conteudo__inner" id="conteudo-tela"></div>
+      <div class="conteudo__inner" id="conteudo-tela">
+        <!-- preenchido via JS -->
+      </div>
     </main>
 
   </div>
 
+  <!-- Overlay mobile -->
   <div class="app-overlay" id="app-overlay"></div>
 
-  <!-- JS — biblioteca QR -->
+  <!-- =====================================================
+       JS — biblioteca externa (QR Code)
+       ===================================================== -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
-  <!-- JS — núcleo -->
+  <!-- =====================================================
+       JS — núcleo
+       ===================================================== -->
   <script src="assets/js/sku.js"></script>
   <script src="assets/js/router.js"></script>
   <script src="assets/js/calculadora.js"></script>
 
-  <!-- JS — serviços -->
+  <!-- =====================================================
+       JS — serviços
+       ===================================================== -->
   <script src="assets/js/modulos/pesquisa-mercado.js"></script>
 
-  <!-- JS — módulos -->
+  <!-- =====================================================
+       JS — módulos
+       ===================================================== -->
   <script src="assets/js/modulos/inicio.js"></script>
   <script src="assets/js/modulos/produtos.js"></script>
+  <script src="assets/js/modulos/custos.js"></script>
   <script src="assets/js/modulos/canais.js"></script>
-  <script src="assets/js/modulos/precificar.js"></script>
   <script src="assets/js/modulos/encomendas.js"></script>
   <script src="assets/js/modulos/vendas.js"></script>
   <script src="assets/js/modulos/financeiro.js"></script>
@@ -108,7 +139,9 @@
   <script src="assets/js/modulos/qrcode.js"></script>
   <script src="assets/js/modulos/configuracoes.js"></script>
 
-  <!-- JS — app principal (último) -->
+  <!-- =====================================================
+       JS — app principal (último)
+       ===================================================== -->
   <script src="assets/js/app.js"></script>
 
 </body>
