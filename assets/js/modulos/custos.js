@@ -1,9 +1,7 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v2)
+   PRAFICAR ERP — MÓDULO CUSTOS E FABRICAÇÃO (v3)
    Arquivo: assets/js/modulos/custos.js
-   Descrição: calcula o custo real de um item e registra a
-              fabricação (entrada no estoque com custo).
-   v2: corrigido — não reconstrói a tela a cada tecla digitada.
+   Descrição: calcula o custo de 1 unidade e registra fabricação.
    ============================================================ */
 
 const MODULO_CUSTOS = (() => {
@@ -23,7 +21,7 @@ const MODULO_CUSTOS = (() => {
   function novoForm() {
     return {
       nome: '',
-      tamanhoLote: 1,
+      especificacao: '',
       insumos: [],
       paginasImpressas: 0,
       tipoImpressao: 'colorida'
@@ -71,6 +69,12 @@ const MODULO_CUSTOS = (() => {
       .replace(/'/g, '&#039;');
   }
 
+  function nomeCompleto(item) {
+    const nome = item.nome || '';
+    const espec = item.especificacao ? ' (' + item.especificacao + ')' : '';
+    return nome + espec;
+  }
+
   function custoPorPaginaColorida() {
     const t = impressora.tintas;
     return (t.preto.preco / t.preto.rendimento) +
@@ -104,18 +108,14 @@ const MODULO_CUSTOS = (() => {
   }
 
   function calcular() {
-    const lote = Math.max(1, Number(form.tamanhoLote) || 1);
     const custoInsumos = form.insumos.reduce((acc, i) => {
       return acc + (Number(i.custoPorUnidadeUso) || 0) * (Number(i.quantidadeUsada) || 0);
     }, 0);
     const custoImpressaoTotal = custoImpressao();
-    const custoTotalLote = custoInsumos + custoImpressaoTotal;
-    const custoUnitario = custoTotalLote / lote;
+    const custoUnitario = custoInsumos + custoImpressaoTotal;
     return {
-      lote,
       custoInsumos,
       custoImpressao: custoImpressaoTotal,
-      custoTotalLote,
       custoUnitario
     };
   }
@@ -126,7 +126,7 @@ const MODULO_CUSTOS = (() => {
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Custos e Fabricação</h1>
           <p class="pagina-header__subtitulo">
-            Calcule o custo real dos seus itens e registre a produção.
+            Calcule o custo de 1 unidade e registre a produção.
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -178,16 +178,16 @@ const MODULO_CUSTOS = (() => {
                 <input id="custo-nome" type="text" value="${escaparHTML(form.nome)}" placeholder="Ex: Marca-página Imantada" oninput="MODULO_CUSTOS.atualizar('nome', this.value)" />
               </div>
               <div class="form-grupo">
-                <label for="custo-lote">Quantas unidades você fabrica por lote?</label>
-                <input id="custo-lote" type="number" min="1" step="1" value="${form.tamanhoLote}" oninput="MODULO_CUSTOS.atualizar('tamanhoLote', this.value)" />
-                <span class="form-ajuda">O custo total será dividido por este número.</span>
+                <label for="custo-especificacao">Especificação / Tamanho</label>
+                <input id="custo-especificacao" type="text" value="${escaparHTML(form.especificacao)}" placeholder="Ex: 4,10 × 6,60 cm" oninput="MODULO_CUSTOS.atualizar('especificacao', this.value)" />
+                <span class="form-ajuda">Ajuda a diferenciar quando o mesmo item tem tamanhos diferentes.</span>
               </div>
             </div>
           </div>
 
           <div class="card">
             <div class="card__header">
-              <h3 class="card__titulo">2. Insumos usados no lote</h3>
+              <h3 class="card__titulo">2. Insumos usados em 1 unidade</h3>
               <button class="btn btn--secundario btn--sm" onclick="MODULO_CUSTOS.abrirModalInsumo()">
                 + Adicionar insumo
               </button>
@@ -247,9 +247,9 @@ const MODULO_CUSTOS = (() => {
     return `
       <div class="resultado-card">
         <div class="resultado-card__header">
-          <span class="resultado-card__label">Custo de cada unidade</span>
+          <span class="resultado-card__label">Custo de 1 unidade</span>
           <span class="resultado-card__valor">${formatarMoedaFina(r.custoUnitario)}</span>
-          <span class="resultado-card__sub">${r.lote} un no lote</span>
+          <span class="resultado-card__sub">${form.insumos.length} ${form.insumos.length === 1 ? 'insumo' : 'insumos'}${form.paginasImpressas > 0 ? ' · ' + form.paginasImpressas + ' pg' : ''}</span>
         </div>
 
         <div class="resultado-card__grid-2">
@@ -264,7 +264,7 @@ const MODULO_CUSTOS = (() => {
         </div>
 
         <div class="resultado-card__acrescimo">
-          Custo total do lote: <strong>${formatarMoedaFina(r.custoTotalLote)}</strong>
+          ${form.especificacao ? escaparHTML(form.especificacao) + ' · ' : ''}Custo de 1 unidade: <strong>${formatarMoedaFina(r.custoUnitario)}</strong>
         </div>
       </div>
     `;
@@ -293,7 +293,7 @@ const MODULO_CUSTOS = (() => {
             <th>Insumo</th>
             <th class="tabela__numero">Custo unitário</th>
             <th class="tabela__numero">Qtd usada</th>
-            <th class="tabela__numero">Custo no lote</th>
+            <th class="tabela__numero">Custo na unidade</th>
             <th class="tabela__acao"></th>
           </tr>
         </thead>
@@ -351,7 +351,7 @@ const MODULO_CUSTOS = (() => {
             </div>
             <div class="card__body">
               <p class="form-ajuda" style="margin-bottom: var(--esp-4);">
-                Escolha um cálculo salvo para usar como base. O custo unitário será aplicado ao estoque.
+                Escolha um cálculo salvo. O custo unitário será aplicado ao estoque.
               </p>
 
               ${calculos.length === 0 ? `
@@ -368,7 +368,7 @@ const MODULO_CUSTOS = (() => {
                     <option value="">Selecione um cálculo</option>
                     ${calculos.map(c => `
                       <option value="${c.id}">
-                        ${escaparHTML(c.nome)} — custo ${formatarMoedaFina(c.custoUnitario)}/un
+                        ${escaparHTML(nomeCompleto(c))} — R$ ${c.custoUnitario.toFixed(2).replace('.', ',')}/un
                       </option>
                     `).join('')}
                   </select>
@@ -376,8 +376,8 @@ const MODULO_CUSTOS = (() => {
 
                 <div class="form-linha-2">
                   <div class="form-grupo">
-                    <label for="fab-qtd">Quantidade produzida</label>
-                    <input id="fab-qtd" type="number" min="1" step="1" value="1" />
+                    <label for="fab-qtd">Quantas unidades você produziu?</label>
+                    <input id="fab-qtd" type="number" min="1" step="1" value="8" />
                   </div>
                   <div class="form-grupo">
                     <label for="fab-perdas">Perdas</label>
@@ -430,6 +430,7 @@ const MODULO_CUSTOS = (() => {
                             <td>${formatarData(f.criadoEm)}</td>
                             <td>
                               <div class="produto-nome">${escaparHTML(f.nome)}</div>
+                              ${f.especificacao ? '<div class="produto-desc">' + escaparHTML(f.especificacao) + '</div>' : ''}
                             </td>
                             <td class="tabela__numero peso-semibold">${f.quantidade}</td>
                             <td class="tabela__numero ${f.perdas > 0 ? 'text-critico' : ''}">${f.perdas}</td>
@@ -451,12 +452,11 @@ const MODULO_CUSTOS = (() => {
   }
 
   /* ==========================================================
-     AÇÕES DO FORMULÁRIO
-     CORREÇÃO: não reconstrói a tela ao digitar
+     AÇÕES
      ========================================================== */
 
   function atualizar(campo, valor) {
-    if (campo === 'tamanhoLote' || campo === 'paginasImpressas') {
+    if (campo === 'paginasImpressas') {
       form[campo] = Number(valor) || 0;
     } else {
       form[campo] = valor;
@@ -510,13 +510,12 @@ const MODULO_CUSTOS = (() => {
     const registro = {
       id: proximoIdCalculo++,
       nome: form.nome.trim(),
-      tamanhoLote: r.lote,
+      especificacao: form.especificacao.trim(),
       insumos: form.insumos.map(i => ({ ...i })),
       paginasImpressas: form.paginasImpressas,
       tipoImpressao: form.tipoImpressao,
       custoInsumos: r.custoInsumos,
       custoImpressao: r.custoImpressao,
-      custoTotalLote: r.custoTotalLote,
       custoUnitario: r.custoUnitario,
       criadoEm: new Date().toISOString()
     };
@@ -525,8 +524,8 @@ const MODULO_CUSTOS = (() => {
 
     alert(
       'Cálculo salvo!\n\n' +
-      'Item: ' + registro.nome + '\n' +
-      'Custo unitário: ' + formatarMoedaFina(registro.custoUnitario)
+      'Item: ' + nomeCompleto(registro) + '\n' +
+      'Custo de 1 unidade: ' + formatarMoedaFina(registro.custoUnitario)
     );
 
     form = novoForm();
@@ -551,42 +550,58 @@ const MODULO_CUSTOS = (() => {
     if (!calculo) return alert('Cálculo não encontrado.');
 
     const aproveitaveis = quantidade - perdas;
+    const custoTotalLote = calculo.custoUnitario * aproveitaveis;
 
     const fabricacao = {
       id: proximoIdFabricacao++,
       calculoId: calculo.id,
       nome: calculo.nome,
+      especificacao: calculo.especificacao,
       quantidade: quantidade,
       perdas: perdas,
       aproveitaveis: aproveitaveis,
       custoUnitario: calculo.custoUnitario,
+      custoTotalLote: custoTotalLote,
       observacoes: obs,
       criadoEm: new Date().toISOString()
     };
 
     fabricacoes.push(fabricacao);
 
-    darEntradaNoEstoque(calculo.nome, aproveitaveis, calculo.custoUnitario);
+    darEntradaNoEstoque(calculo.nome, calculo.especificacao, aproveitaveis, calculo.custoUnitario);
 
     alert(
       'Fabricação registrada!\n\n' +
-      'Item: ' + calculo.nome + '\n' +
+      'Item: ' + nomeCompleto(calculo) + '\n' +
       'Produzido: ' + quantidade + ' un\n' +
       'Perdas: ' + perdas + ' un\n' +
       'Aproveitáveis: ' + aproveitaveis + ' un\n' +
+      'Custo unitário: ' + formatarMoedaFina(calculo.custoUnitario) + '\n' +
+      'Custo do lote: ' + formatarMoedaFina(custoTotalLote) + '\n\n' +
       'Entrada no estoque: +' + aproveitaveis + ' un'
     );
 
     rerenderForm();
   }
 
-  function darEntradaNoEstoque(nomeItem, quantidade, custoUnitario) {
+  function darEntradaNoEstoque(nomeItem, especificacao, quantidade, custoUnitario) {
     if (!window.MODULO_PRODUTOS) return;
 
     const produtos = window.MODULO_PRODUTOS._listar() || [];
-    const produto = produtos.find(p =>
-      p.nome.toLowerCase() === nomeItem.toLowerCase()
-    );
+
+    // Tenta achar por nome + especificação, ou só por nome
+    let produto = null;
+    if (especificacao) {
+      produto = produtos.find(p =>
+        p.nome.toLowerCase() === nomeItem.toLowerCase() &&
+        (p.especificacao || '').toLowerCase() === especificacao.toLowerCase()
+      );
+    }
+    if (!produto) {
+      produto = produtos.find(p =>
+        p.nome.toLowerCase() === nomeItem.toLowerCase()
+      );
+    }
 
     if (!produto) return;
 
@@ -601,7 +616,7 @@ const MODULO_CUSTOS = (() => {
   }
 
   /* ==========================================================
-     MODAL DE INSUMO — NOVO / EDITAR
+     MODAL DE INSUMO
      ========================================================== */
 
   function abrirModalInsumo() {
@@ -715,14 +730,14 @@ const MODULO_CUSTOS = (() => {
             </div>
 
             <div class="ins-bloco">
-              <div class="ins-bloco__titulo">Uso neste lote</div>
+              <div class="ins-bloco__titulo">Uso em 1 unidade</div>
               <div class="form-linha">
                 <div class="form-grupo">
                   <label for="ins-qtd-usada" id="ins-label-qtd-usada">Quantas você usou?</label>
                   <input id="ins-qtd-usada" type="number" min="0" step="0.01" value="${v.quantidadeUsada}" oninput="MODULO_CUSTOS.recalcularSubtotalInsumo()" />
                 </div>
                 <div class="form-grupo">
-                  <label>Custo neste lote</label>
+                  <label>Custo na unidade</label>
                   <div class="prec-info-calc" id="ins-subtotal">R$ 0,00</div>
                 </div>
               </div>
@@ -899,7 +914,7 @@ const MODULO_CUSTOS = (() => {
   }
 
   /* ==========================================================
-     MODAL VISUALIZAR INSUMO
+     VISUALIZAR INSUMO
      ========================================================== */
 
   function abrirModalVisualizarInsumo(idx) {
@@ -938,9 +953,9 @@ const MODULO_CUSTOS = (() => {
             </div>
 
             <div class="vis-secao">
-              <div class="vis-secao__titulo">Uso neste lote</div>
+              <div class="vis-secao__titulo">Uso em 1 unidade</div>
               <div class="vis-linha"><span>Quantas ${escaparHTML((i.unidadeUso || 'unidade').toLowerCase())}(s) usou</span><strong>${i.quantidadeUsada}</strong></div>
-              <div class="vis-linha vis-linha--destaque"><span>Custo no lote</span><strong>${formatarMoedaFina(subtotal)}</strong></div>
+              <div class="vis-linha vis-linha--destaque"><span>Custo na unidade</span><strong>${formatarMoedaFina(subtotal)}</strong></div>
             </div>
           </div>
 
