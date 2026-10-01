@@ -1,12 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — ROTEADOR SPA (v2 — robusto)
+   PRAFICAR ERP — ROTEADOR SPA (v3)
    Arquivo: assets/js/router.js
    Descrição: roteamento por hash (#/modulo). Controla qual
-              tela é renderizada no conteúdo, atualiza o menu
-              ativo e o breadcrumb.
-
-   v2 — adiciona verificação de módulos carregados e logs de
-         diagnóstico no console quando um render não existe.
+              tela é renderizada, atualiza o menu e o breadcrumb.
    ============================================================ */
 
 const ROUTER_PRAFICAR = (() => {
@@ -18,7 +14,7 @@ const ROUTER_PRAFICAR = (() => {
   const ROTAS = {
     'inicio':       { titulo: 'Início',                  icone: 'inicio',     render: 'renderInicio' },
     'produtos':     { titulo: 'Produtos & Estoque',      icone: 'produtos',   render: 'renderProdutos' },
-    'precificar':   { titulo: 'Precificar',              icone: 'precificar', render: 'renderPrecificar' },
+    'custos':       { titulo: 'Custos e Fabricação',     icone: 'custos',     render: 'renderCustos' },
     'canais':       { titulo: 'Canais de Venda',         icone: 'canais',     render: 'renderCanais' },
     'encomendas':   { titulo: 'Encomendas',              icone: 'encomendas', render: 'renderEncomendas' },
     'vendas':       { titulo: 'Vendas',                  icone: 'vendas',     render: 'renderVendas' },
@@ -87,19 +83,15 @@ const ROUTER_PRAFICAR = (() => {
 
     rotaAtual = rota;
 
-    // Título do documento
     document.title = `${definicao.titulo} · PraFicar ERP`;
 
-    // Marca item do menu como ativo
     document.querySelectorAll('.sidebar__item').forEach(el => {
       el.classList.toggle('ativo', el.dataset.rota === rota);
     });
 
-    // Breadcrumb
     const breadcrumbAtual = document.querySelector('.header__breadcrumb-atual');
     if (breadcrumbAtual) breadcrumbAtual.textContent = definicao.titulo;
 
-    // Chama a função de render
     const funcaoRender = window[definicao.render];
     const container = document.getElementById('conteudo-tela');
 
@@ -111,7 +103,6 @@ const ROUTER_PRAFICAR = (() => {
         container.innerHTML = renderErro(rota, e.message);
       }
     } else if (container) {
-      // Só avisa uma vez por rota
       if (!avisosJaEmitidos.has(rota)) {
         console.warn(`[PraFicar Router] Módulo "${rota}" não carregado. Mostrando fallback.`);
         avisosJaEmitidos.add(rota);
@@ -119,7 +110,6 @@ const ROUTER_PRAFICAR = (() => {
       container.innerHTML = renderEmConstrucao(definicao.titulo, definicao.render);
     }
 
-    // Fecha sidebar no mobile
     const app = document.querySelector('.app');
     if (app && window.innerWidth <= 768) {
       app.classList.remove('sidebar-aberta');
@@ -187,18 +177,13 @@ const ROUTER_PRAFICAR = (() => {
      ========================================================== */
 
   function iniciar() {
-    // Diagnóstico
     verificarModulos();
-
-    // Primeira renderização
     executarRender(obterRotaAtual());
 
-    // Escuta mudanças no hash
     window.addEventListener('hashchange', () => {
       executarRender(obterRotaAtual());
     });
 
-    // Cliques em [data-rota]
     document.addEventListener('click', (e) => {
       const el = e.target.closest('[data-rota]');
       if (el) {
