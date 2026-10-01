@@ -1,13 +1,113 @@
 /* ============================================================
-   14. CONTROLE DE MARGEM (input + slider)
+   PRAFICAR ERP — ESTILOS DO MÓDULO PRECIFICAR (v7 premium)
+   Arquivo: assets/css/modulos/precificar.css
+   ============================================================ */
+
+/* ============================================================
+   1. LAYOUT EM 2 COLUNAS
+   ============================================================ */
+
+.precificar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: var(--esp-6);
+  align-items: start;
+}
+
+.precificar-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-5);
+  min-width: 0;
+}
+
+.precificar-resultado {
+  position: sticky;
+  top: calc(var(--altura-header) + var(--esp-4));
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+/* ============================================================
+   2. LINHAS DE FORMULÁRIO
+   ============================================================ */
+
+.form-linha-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-4);
+}
+
+.prec-info-calc {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  font-weight: var(--peso-bold);
+  color: var(--azul-marinho);
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(46, 111, 168, 0.15);
+}
+
+/* ============================================================
+   3. LISTA DE INSUMOS
+   ============================================================ */
+
+.insumos-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-8) var(--esp-6);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-lg);
+  background-color: var(--cinza-50);
+}
+
+.insumos-vazio p {
+  margin: 0;
+  font-weight: var(--peso-medio);
+}
+
+.tabela-insumos {
+  font-size: var(--texto-sm);
+}
+
+.tabela-insumos tfoot td {
+  padding-top: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-top: 2px solid var(--cor-borda-suave);
+  border-bottom: none;
+  background-color: var(--cinza-50);
+}
+
+.tabela-insumos tfoot .text-principal {
+  font-size: var(--texto-md);
+}
+
+/* ============================================================
+   4. CONTROLE DE MARGEM (campo + botões + slider)
    ============================================================ */
 
 .margem-controle {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.margem-controle__linha {
+  display: flex;
   align-items: center;
-  gap: var(--esp-3);
+  gap: var(--esp-4);
 }
 
 .margem-controle__btn {
@@ -17,75 +117,733 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--raio-md);
-  background-color: var(--cinza-100);
-  border: 1px solid var(--cor-borda-suave);
-  color: var(--cor-texto-padrao);
+  background-color: var(--branco);
+  border: 1px solid var(--cor-borda-media);
+  color: var(--azul-marinho);
   font-size: var(--texto-xl);
   font-weight: var(--peso-bold);
   cursor: pointer;
-  transition: background-color var(--transicao-rapida), color var(--transicao-rapida);
-  grid-row: 1;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida),
+              box-shadow var(--transicao-rapida);
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .margem-controle__btn:hover {
   background-color: var(--azul-suave);
+  border-color: var(--azul-medio);
   color: var(--azul-medio);
+  box-shadow: var(--sombra-xs);
 }
 
-.margem-controle__valor-wrapper {
+.margem-controle__btn:active {
+  transform: scale(0.96);
+}
+
+.margem-controle__campo {
+  flex: 1;
   position: relative;
   display: flex;
   align-items: center;
-  grid-row: 1;
 }
 
 .margem-controle__input {
   width: 100%;
-  height: 44px;
-  padding: 0 32px 0 var(--esp-4);
+  height: 52px;
+  padding: 0 48px 0 var(--esp-5);
   text-align: center;
   font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
-  font-size: var(--texto-xl);
+  font-size: var(--texto-2xl);
   font-weight: var(--peso-bold);
   color: var(--azul-marinho);
-  background-color: var(--azul-suave);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-md);
+  background-color: var(--branco);
+  border: 2px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--letra-apertada);
+  transition: border-color var(--transicao-rapida),
+              box-shadow var(--transicao-rapida);
+}
+
+.margem-controle__input:hover {
+  border-color: var(--cor-borda-media);
 }
 
 .margem-controle__input:focus {
   outline: none;
-  border-color: var(--cor-primaria);
-  box-shadow: var(--sombra-foco);
+  border-color: var(--azul-medio);
+  box-shadow: 0 0 0 4px rgba(46, 111, 168, 0.12);
+}
+
+/* Remove setinhas do input number */
+.margem-controle__input::-webkit-outer-spin-button,
+.margem-controle__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.margem-controle__input[type=number] {
+  -moz-appearance: textfield;
 }
 
 .margem-controle__sufixo {
   position: absolute;
-  right: var(--esp-4);
+  right: var(--esp-5);
   top: 50%;
   transform: translateY(-50%);
-  font-size: var(--texto-lg);
+  font-size: var(--texto-xl);
   font-weight: var(--peso-bold);
   color: var(--azul-medio);
   pointer-events: none;
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
 }
 
 .margem-controle__slider {
-  grid-column: 1 / -1;
-  grid-row: 2;
   width: 100%;
   accent-color: var(--azul-medio);
   height: 6px;
+  cursor: pointer;
+}
+
+.margem-controle__slider::-webkit-slider-thumb {
+  cursor: pointer;
+}
+
+/* Presets rápidos */
+.margem-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
   margin-top: var(--esp-2);
 }
 
-@media (max-width: 480px) {
-  .margem-controle {
-    grid-template-columns: 1fr auto 1fr;
+.margem-preset {
+  padding: var(--esp-2) var(--esp-3);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-100);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-pill);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+}
+
+.margem-preset:hover {
+  background-color: var(--azul-suave);
+  border-color: var(--azul-medio);
+  color: var(--azul-marinho);
+}
+
+.margem-preset--ativo {
+  background-color: var(--azul-marinho);
+  border-color: var(--azul-marinho);
+  color: var(--branco);
+}
+
+/* ============================================================
+   5. CARD DE RESULTADO — PRINCIPAL
+   ============================================================ */
+
+.resultado-card {
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  box-shadow: 0 4px 16px rgba(27, 58, 92, 0.08);
+  overflow: hidden;
+}
+
+.resultado-card__header {
+  padding: var(--esp-5);
+  background-color: var(--cinza-50);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.resultado-card__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__valor {
+  font-size: var(--texto-2xl);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.resultado-card__sub {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__destaque {
+  padding: var(--esp-6) var(--esp-5);
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  color: var(--branco);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  position: relative;
+  overflow: hidden;
+}
+
+.resultado-card__destaque::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(168, 200, 228, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.resultado-card__destaque .resultado-card__label {
+  color: var(--azul-claro);
+  opacity: 0.95;
+}
+
+.resultado-card__preco {
+  font-size: var(--texto-3xl);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: var(--letra-apertada);
+}
+
+.resultado-card__grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item {
+  padding: var(--esp-4) var(--esp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  text-align: center;
+}
+
+.resultado-card__item + .resultado-card__item {
+  border-left: 1px solid var(--cor-borda-suave);
+}
+
+.resultado-card__item-label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.resultado-card__item-valor {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resultado-card__acrescimo {
+  padding: var(--esp-3) var(--esp-5);
+  text-align: center;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  background-color: var(--cinza-50);
+}
+
+.resultado-card__acrescimo strong {
+  color: var(--cor-texto-principal);
+  font-weight: var(--peso-bold);
+}
+
+/* ============================================================
+   6. BOTÃO VER CÁLCULO + DETALHES
+   ============================================================ */
+
+.resultado-ver-calculo {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--esp-4);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-padrao);
+  background-color: var(--branco);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  cursor: pointer;
+  transition: background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida),
+              color var(--transicao-rapida);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+}
+
+.resultado-ver-calculo:hover {
+  background-color: var(--azul-suave);
+  border-color: var(--azul-medio);
+  color: var(--azul-marinho);
+}
+
+.resultado-detalhes {
+  margin-top: var(--esp-1);
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--branco);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--sombra-xs);
+}
+
+.calculo-detalhado__titulo {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.calculo-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.calculo-linha:last-child {
+  border-bottom: none;
+}
+
+.calculo-linha--destaque {
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  border-bottom: 1px solid var(--cor-borda-media);
+  padding-top: var(--esp-3);
+}
+
+.calculo-linha span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   7. CARD MERCADO
+   ============================================================ */
+
+.card--compacto {
+  box-shadow: var(--sombra-xs);
+}
+
+.mercado-faixas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+}
+
+.mercado-faixa {
+  padding: var(--esp-3);
+  border-radius: var(--raio-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.mercado-faixa--eco     { background-color: var(--verde-suave); color: #1E6B3E; }
+.mercado-faixa--mercado { background-color: var(--azul-suave); color: var(--azul-marinho); }
+.mercado-faixa--premium { background-color: var(--ambar-suave); color: #8A5D0A; }
+
+.mercado-faixa__label {
+  font-size: 10px;
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  opacity: 0.85;
+}
+
+.mercado-faixa__valor {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.mercado-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.mercado-loading__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cor-borda-suave);
+  border-top-color: var(--azul-medio);
+  border-radius: 50%;
+  animation: mercado-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mercado-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   8. BLOCOS DO MODAL DE INSUMO
+   ============================================================ */
+
+.ins-bloco {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.ins-bloco__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ins-bloco__opcional {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-regular);
+  color: var(--cor-texto-secundario);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ins-resultado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+}
+
+.ins-resultado__item {
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.ins-resultado__item--destaque {
+  background-color: var(--azul-suave);
+  border-color: rgba(46, 111, 168, 0.2);
+}
+
+.ins-resultado__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.ins-resultado__item--destaque .ins-resultado__label {
+  color: var(--azul-medio);
+}
+
+.ins-resultado__valor {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-xl);
+  font-weight: var(--peso-bold);
+  color: var(--cor-texto-principal);
+  font-variant-numeric: tabular-nums;
+}
+
+.ins-resultado__item--destaque .ins-resultado__valor {
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   9. IMPRESSORA
+   ============================================================ */
+
+.prec-impressora-info {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.imp-linha {
+  margin-bottom: var(--esp-4);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.imp-linha:last-of-type {
+  border-bottom: none;
+}
+
+.imp-linha__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin-bottom: var(--esp-3);
+}
+
+.imp-cor {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.imp-cor--preto   { background-color: #1F2733; }
+.imp-cor--ciano   { background-color: #00B8D4; }
+.imp-cor--magenta { background-color: #E91E63; }
+.imp-cor--amarelo { background-color: #FFC107; }
+
+.imp-totais {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  margin-top: var(--esp-4);
+}
+
+.imp-totais > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--texto-sm);
+}
+
+.imp-totais strong {
+  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  font-size: var(--texto-base);
+  color: var(--azul-marinho);
+}
+
+/* ============================================================
+   10. MODAL SALVAR COMO PRODUTO
+   ============================================================ */
+
+.resumo-salvar {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-4) var(--esp-5);
+  margin-bottom: var(--esp-5);
+}
+
+.resumo-salvar__linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.resumo-salvar__linha:last-child {
+  border-bottom: none;
+}
+
+.resumo-salvar__linha strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.resumo-salvar__linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.resumo-salvar__linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   11. MODAL VISUALIZAR INSUMO
+   ============================================================ */
+
+.vis-secao {
+  margin-bottom: var(--esp-5);
+  padding-bottom: var(--esp-4);
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.vis-secao:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.vis-secao__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+.vis-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--esp-2) 0;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  border-bottom: 1px dashed var(--cor-borda-suave);
+}
+
+.vis-linha:last-child {
+  border-bottom: none;
+}
+
+.vis-linha strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.vis-linha--destaque {
+  border-top: 1px solid var(--cor-borda-media);
+  border-bottom: none;
+  padding-top: var(--esp-3);
+  font-size: var(--texto-base);
+}
+
+.vis-linha--destaque strong {
+  color: var(--azul-medio);
+  font-size: var(--texto-lg);
+}
+
+/* ============================================================
+   12. AÇÕES DA LINHA
+   ============================================================ */
+
+.acoes-linha {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+}
+
+.btn-icone {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-sm);
+  color: var(--cor-texto-secundario);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color var(--transicao-rapida),
+              color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  cursor: pointer;
+}
+
+.btn-icone:hover {
+  background-color: var(--azul-suave);
+  color: var(--azul-medio);
+  border-color: rgba(46, 111, 168, 0.15);
+}
+
+.btn-icone--perigo:hover {
+  background-color: var(--cor-critico-fundo);
+  color: var(--cor-critico);
+  border-color: rgba(217, 58, 58, 0.2);
+}
+
+.btn-icone svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   13. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .precificar-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
   }
+}
+
+@media (max-width: 1024px) {
+  .precificar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .precificar-resultado {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .resultado-card__grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .resultado-card__item + .resultado-card__item {
+    border-left: none;
+    border-top: 1px solid var(--cor-borda-suave);
+  }
+
+  .mercado-faixas {
+    grid-template-columns: 1fr;
+  }
+
+  .ins-resultado {
+    grid-template-columns: 1fr;
+  }
+
   .margem-controle__input {
+    font-size: var(--texto-xl);
+    height: 48px;
+  }
+
+  .margem-controle__btn {
+    width: 40px;
+    height: 40px;
     font-size: var(--texto-lg);
   }
 }
