@@ -1,8 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO QR CODE (v3)
+   PRAFICAR ERP — MÓDULO QR CODE (v4)
    Arquivo: assets/js/modulos/qrcode.js
-   Descrição: QR Codes diretos com logo PraFicar no centro,
-              visual enterprise premium, copiar imagem.
+   Descrição: QR Codes diretos com logo PraFicar no centro.
+              A logo é embutida em Base64 antes de gerar PNG/SVG,
+              garantindo que apareça ao copiar, baixar e imprimir.
    ============================================================ */
 
 const MODULO_QRCODE = (() => {
@@ -18,6 +19,9 @@ const MODULO_QRCODE = (() => {
   let qrcodeEditandoId = null;
 
   const LOGO_PATH = 'assets/img/Logo.jpeg';
+
+  // Cache da logo em Base64 (carrega uma vez só)
+  let logoBase64Cache = null;
 
   /* ==========================================================
      2. TIPOS
@@ -70,7 +74,38 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     4. MONTAR DESTINO FINAL
+     4. CARREGAR LOGO EM BASE64
+     ========================================================== */
+
+  function carregarLogoBase64() {
+    return new Promise((resolve, reject) => {
+      if (logoBase64Cache) return resolve(logoBase64Cache);
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg');
+          logoBase64Cache = dataUrl;
+          resolve(dataUrl);
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Não foi possível carregar a logo.'));
+      img.src = LOGO_PATH;
+    });
+  }
+
+  /* ==========================================================
+     5. MONTAR DESTINO FINAL
      ========================================================== */
 
   function montarDestinoFinal(q) {
@@ -100,7 +135,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     5. CRUD
+     6. CRUD
      ========================================================== */
 
   function criarQRCode(dados) {
@@ -142,7 +177,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     6. FILTROS
+     7. FILTROS
      ========================================================== */
 
   function qrcodesFiltrados() {
@@ -161,10 +196,11 @@ const MODULO_QRCODE = (() => {
   function alterarFiltroTipo(v)   { filtroTipo = v; rerender(); }
 
   /* ==========================================================
-     7. GERAR SVG COM LOGO CENTRAL
+     8. GERAR SVG
      ========================================================== */
 
-  function gerarSVG(q, tamanho = 200) {
+  // Se logoBase64 for null, gera sem logo (fallback visual)
+  function gerarSVG(q, tamanho = 200, logoBase64 = null) {
     if (typeof qrcode === 'undefined') {
       return '<div class="qr-erro">Biblioteca QR não carregada.</div>';
     }
@@ -182,15 +218,10 @@ const MODULO_QRCODE = (() => {
 
     const cor = q.cor || '#1B3A5C';
 
-    // Área da logo (20% do total)
-    const logoPct = 0.20;
-    const logoSize = total * logoPct;
-    const logoX = (total - logoSize) / 2;
-    const logoY = (total - logoSize) / 2;
-
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${tamanho}" height="${tamanho}" shape-rendering="crispEdges">`;
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${total} ${total}" width="${tamanho}" height="${tamanho}" shape-rendering="crispEdges">`;
     svg += `<rect width="${total}" height="${total}" fill="#FFFFFF"/>`;
 
+    // Módulos do QR
     for (let r = 0; r < moduloCount; r++) {
       for (let c = 0; c < moduloCount; c++) {
         if (qr.isDark(r, c)) {
@@ -199,109 +230,136 @@ const MODULO_QRCODE = (() => {
       }
     }
 
-    // Fundo branco atrás da logo
-    const padding = total * 0.015;
-    svg += `<rect x="${logoX - padding}" y="${logoY - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" fill="#FFFFFF"/>`;
+    // Logo no centro (se tiver Base64)
+    if (logoBase64) {
+      const logoPct = 0.20;
+      const logoSize = total * logoPct;
+      const logoX = (total - logoSize) / 2;
+      const logoY = (total - logoSize) / 2;
+      const padding = total * 0.015;
 
-    // Logo
-    svg += `<image href="${LOGO_PATH}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`;
+      // Fundo branco atrás da logo
+      svg += `<rect x="${logoX - padding}" y="${logoY - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" fill="#FFFFFF"/>`;
+
+      // Logo embutida como Base64
+      svg += `<image xlink:href="${logoBase64}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`;
+    }
 
     svg += `</svg>`;
     return svg;
   }
 
   /* ==========================================================
-     8. DOWNLOAD PNG
+     9. SVG → PNG (blob)
      ========================================================== */
 
-  function baixarPNG(id) {
-    const q = buscarQRCode(id);
-    if (!q) return;
-    const svg = gerarSVG(q, 1024);
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
+  function svgParaPNGBlob(svgStr, tamanho = 1024) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
 
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, 1024, 1024);
-      ctx.drawImage(img, 0, 0, 1024, 1024);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = tamanho;
+        canvas.height = tamanho;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, tamanho, tamanho);
+        ctx.drawImage(img, 0, 0, tamanho, tamanho);
 
-      canvas.toBlob(blob => {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `qrcode-${q.codigo}.png`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      }, 'image/png');
+        canvas.toBlob(blobPng => {
+          URL.revokeObjectURL(url);
+          if (blobPng) resolve(blobPng);
+          else reject(new Error('Falha ao gerar PNG.'));
+        }, 'image/png');
+      };
 
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Falha ao renderizar SVG.'));
+      };
+
+      img.src = url;
+    });
   }
 
   /* ==========================================================
-     9. DOWNLOAD SVG
+     10. BAIXAR PNG
      ========================================================== */
 
-  function baixarSVG(id) {
+  async function baixarPNG(id) {
     const q = buscarQRCode(id);
     if (!q) return;
-    const svg = gerarSVG(q, 1024);
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `qrcode-${q.codigo}.svg`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+
+    try {
+      const logo = await carregarLogoBase64();
+      const svg = gerarSVG(q, 1024, logo);
+      const blobPng = await svgParaPNGBlob(svg, 1024);
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blobPng);
+      link.download = `qrcode-${q.codigo}.png`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao gerar PNG: ' + e.message);
+    }
   }
 
   /* ==========================================================
-     10. COPIAR IMAGEM PARA O CLIPBOARD
+     11. BAIXAR SVG
      ========================================================== */
 
-  function copiarImagem(id) {
+  async function baixarSVG(id) {
     const q = buscarQRCode(id);
     if (!q) return;
 
-    // Se o navegador não suporta Clipboard API com imagem, avisa
+    try {
+      const logo = await carregarLogoBase64();
+      const svg = gerarSVG(q, 1024, logo);
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `qrcode-${q.codigo}.svg`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao gerar SVG: ' + e.message);
+    }
+  }
+
+  /* ==========================================================
+     12. COPIAR IMAGEM
+     ========================================================== */
+
+  async function copiarImagem(id) {
+    const q = buscarQRCode(id);
+    if (!q) return;
+
     if (!navigator.clipboard || !window.ClipboardItem) {
-      return alert('Seu navegador não permite copiar imagens. Use o botão "Baixar PNG".');
+      return alert('Seu navegador não permite copiar imagens. Use "Baixar PNG".');
     }
 
-    const svg = gerarSVG(q, 1024);
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
+    try {
+      const logo = await carregarLogoBase64();
+      const svg = gerarSVG(q, 1024, logo);
+      const blobPng = await svgParaPNGBlob(svg, 1024);
 
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1024;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, 1024, 1024);
-      ctx.drawImage(img, 0, 0, 1024, 1024);
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blobPng })
+      ]);
 
-      canvas.toBlob(async (blobPng) => {
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blobPng })
-          ]);
-          mostrarToast('QR Code copiado');
-        } catch (e) {
-          console.error(e);
-          alert('Não foi possível copiar. Use o botão "Baixar PNG".');
-        }
-        URL.revokeObjectURL(url);
-      }, 'image/png');
-    };
+      mostrarToast('QR Code copiado');
 
-    img.src = url;
+    } catch (e) {
+      console.error(e);
+      alert('Não foi possível copiar. Use o botão "Baixar PNG".');
+    }
   }
 
   function mostrarToast(msg) {
@@ -318,48 +376,62 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     11. IMPRIMIR
+     13. IMPRIMIR
      ========================================================== */
 
-  function imprimir(id) {
+  async function imprimir(id) {
     const q = buscarQRCode(id);
     if (!q) return;
 
-    const svg = gerarSVG(q, 400);
-    const destino = montarDestinoFinal(q);
+    try {
+      const logo = await carregarLogoBase64();
+      const svg = gerarSVG(q, 400, logo);
+      const destino = montarDestinoFinal(q);
 
-    const janela = window.open('', '_blank');
-    janela.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${escaparHTML(q.titulo)}</title>
-        <style>
-          body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px; }
-          h1 { font-size: 20px; color: #1B3A5C; margin-bottom: 8px; }
-          p { color: #666; font-size: 13px; margin-bottom: 24px; }
-          .qr { display: inline-block; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
-          .dest { font-family: monospace; font-size: 11px; color: #888; margin-top: 16px; word-break: break-all; max-width: 400px; }
-          @media print { body { padding: 20px; } }
-        </style>
-      </head>
-      <body>
-        <h1>${escaparHTML(q.titulo)}</h1>
-        <p>${escaparHTML(tipoInfo(q.tipo).nome)}</p>
-        <div class="qr">${svg}</div>
-        <div class="dest">${escaparHTML(destino)}</div>
-        <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
-      </body>
-      </html>
-    `);
-    janela.document.close();
+      const janela = window.open('', '_blank');
+      janela.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${escaparHTML(q.titulo)}</title>
+          <style>
+            body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px; }
+            h1 { font-size: 20px; color: #1B3A5C; margin-bottom: 8px; }
+            p { color: #666; font-size: 13px; margin-bottom: 24px; }
+            .qr { display: inline-block; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
+            .dest { font-family: monospace; font-size: 11px; color: #888; margin-top: 16px; word-break: break-all; max-width: 400px; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <h1>${escaparHTML(q.titulo)}</h1>
+          <p>${escaparHTML(tipoInfo(q.tipo).nome)}</p>
+          <div class="qr">${svg}</div>
+          <div class="dest">${escaparHTML(destino)}</div>
+          <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
+        </body>
+        </html>
+      `);
+      janela.document.close();
+
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao imprimir: ' + e.message);
+    }
   }
 
   /* ==========================================================
-     12. RENDER — TELA PRINCIPAL
+     14. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
+    // Pré-carrega a logo em paralelo (sem bloquear)
+    carregarLogoBase64().then(() => {
+      // Depois que carrega, atualiza a grade para mostrar com logo
+      const wrapper = document.getElementById('grade-qrcode-wrapper');
+      if (wrapper) wrapper.innerHTML = renderGrade();
+    }).catch(() => {});
+
     return `
       <div class="pagina-header">
         <div class="pagina-header__info">
@@ -401,7 +473,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     13. RENDER — GRADE
+     15. RENDER — GRADE
      ========================================================== */
 
   function renderGrade() {
@@ -441,7 +513,7 @@ const MODULO_QRCODE = (() => {
 
   function renderCard(q) {
     const tipo = tipoInfo(q.tipo);
-    const svg = gerarSVG(q, 180);
+    const svg = gerarSVG(q, 180, logoBase64Cache);
     const destino = montarDestinoFinal(q);
 
     return `
@@ -472,8 +544,9 @@ const MODULO_QRCODE = (() => {
       </div>
     `;
   }
-     /* ==========================================================
-     14. MODAL
+
+  /* ==========================================================
+     16. MODAL
      ========================================================== */
 
   function abrirNovo() {
@@ -565,7 +638,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     15. AO MUDAR TIPO
+     17. AO MUDAR TIPO
      ========================================================== */
 
   function aoMudarTipo() {
@@ -598,7 +671,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     16. PREVIEW
+     18. PREVIEW
      ========================================================== */
 
   function atualizarPreview() {
@@ -618,11 +691,11 @@ const MODULO_QRCODE = (() => {
       return;
     }
 
-    container.innerHTML = gerarSVG(q, 200);
+    container.innerHTML = gerarSVG(q, 200, logoBase64Cache);
   }
 
   /* ==========================================================
-     17. SALVAR
+     19. SALVAR
      ========================================================== */
 
   function salvar() {
@@ -648,7 +721,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     18. EXCLUSÃO
+     20. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
@@ -661,7 +734,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     19. RERENDER
+     21. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -677,7 +750,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     20. API PÚBLICA
+     22. API PÚBLICA
      ========================================================== */
 
   return {
