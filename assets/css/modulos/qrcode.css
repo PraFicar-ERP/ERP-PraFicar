@@ -1,207 +1,232 @@
-/* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO QR CODE
-   Arquivo: assets/css/modulos/qrcode.css
-   ============================================================ */
+  /* ==========================================================
+     13. MODAL
+     ========================================================== */
 
-/* ============================================================
-   1. BARRA DE FILTROS
-   ============================================================ */
-
-.filtros-qrcode {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-3);
-  margin-bottom: var(--esp-5);
-  flex-wrap: wrap;
-}
-
-.filtros-qrcode__busca {
-  position: relative;
-  flex: 1;
-  min-width: 240px;
-}
-
-.filtros-qrcode__busca svg {
-  position: absolute;
-  left: var(--esp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  stroke: var(--cor-texto-secundario);
-  fill: none;
-  stroke-width: 2;
-  pointer-events: none;
-}
-
-.filtros-qrcode__busca input {
-  padding-left: var(--esp-10);
-  height: 38px;
-}
-
-.filtros-qrcode__select {
-  width: auto;
-  min-width: 200px;
-  height: 38px;
-  padding: 0 var(--esp-10) 0 var(--esp-3);
-}
-
-/* ============================================================
-   2. GRADE DE CARDS
-   ============================================================ */
-
-.qr-grade {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--esp-4);
-}
-
-.qr-card {
-  background-color: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-lg);
-  padding: var(--esp-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-3);
-  transition: box-shadow var(--transicao-padrao);
-}
-
-.qr-card:hover {
-  box-shadow: var(--sombra-md);
-}
-
-.qr-card__preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--esp-3);
-  background-color: var(--cinza-50);
-  border-radius: var(--raio-md);
-  min-height: 200px;
-}
-
-.qr-card__preview svg {
-  max-width: 100%;
-  height: auto;
-}
-
-.qr-card__info {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-2);
-  flex-wrap: wrap;
-}
-
-.qr-card__titulo {
-  font-weight: var(--peso-semibold);
-  color: var(--cor-texto-principal);
-  font-size: var(--texto-base);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.qr-card__destino {
-  font-size: var(--texto-xs);
-  color: var(--cor-texto-secundario);
-  background-color: var(--cinza-50);
-  padding: var(--esp-2) var(--esp-3);
-  border-radius: var(--raio-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.qr-card__destino-label {
-  font-weight: var(--peso-semibold);
-  margin-right: 4px;
-}
-
-.qr-card__destino-url {
-  font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
-}
-
-.qr-card__acoes {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-2);
-  flex-wrap: wrap;
-  margin-top: auto;
-  padding-top: var(--esp-3);
-  border-top: 1px solid var(--cor-borda-suave);
-}
-
-/* ============================================================
-   3. PREVIEW NO MODAL
-   ============================================================ */
-
-.qr-preview-wrapper {
-  margin-top: var(--esp-5);
-  padding-top: var(--esp-5);
-  border-top: 1px solid var(--cor-borda-suave);
-  text-align: center;
-}
-
-.qr-preview-label {
-  font-size: var(--texto-xs);
-  font-weight: var(--peso-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--letra-caps);
-  color: var(--cor-texto-secundario);
-  margin-bottom: var(--esp-3);
-}
-
-.qr-preview {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--esp-4);
-  background-color: var(--cinza-50);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-md);
-  min-width: 200px;
-  min-height: 200px;
-}
-
-.qr-preview-vazio {
-  color: var(--cor-texto-secundario);
-  font-size: var(--texto-sm);
-  padding: var(--esp-6);
-}
-
-/* ============================================================
-   4. ERRO
-   ============================================================ */
-
-.qr-erro {
-  color: var(--cor-critico);
-  font-size: var(--texto-sm);
-  padding: var(--esp-4);
-  text-align: center;
-}
-
-/* ============================================================
-   5. RESPONSIVO
-   ============================================================ */
-
-@media (max-width: 768px) {
-  .filtros-qrcode {
-    flex-direction: column;
-    align-items: stretch;
+  function abrirNovo() {
+    qrcodeEditandoId = null;
+    abrirModal();
   }
 
-  .filtros-qrcode__select {
-    width: 100%;
+  function abrirEdicao(id) {
+    qrcodeEditandoId = id;
+    abrirModal();
   }
 
-  .qr-grade {
-    grid-template-columns: 1fr;
+  function abrirModal() {
+    const q = qrcodeEditandoId ? buscarQRCode(qrcodeEditandoId) : null;
+    const editando = !!q;
+
+    const html = `
+      <div class="modal-overlay ativo" id="modal-qrcode">
+        <div class="modal modal--grande" role="dialog" aria-modal="true">
+          <div class="modal__header">
+            <h2 class="modal__titulo">${editando ? 'Editar QR Code' : 'Novo QR Code'}</h2>
+            <button class="modal__fechar" onclick="MODULO_QRCODE.fecharModal()" aria-label="Fechar">
+              <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="modal__body">
+            <div class="form-grupo">
+              <label for="qr-titulo">Título <span class="form-obrigatorio">*</span></label>
+              <input id="qr-titulo" type="text" required value="${escaparHTML(q?.titulo || '')}" placeholder="Ex: WhatsApp da loja" oninput="MODULO_QRCODE.atualizarPreview()" />
+            </div>
+
+            <div class="form-linha">
+              <div class="form-grupo">
+                <label for="qr-tipo">Tipo <span class="form-obrigatorio">*</span></label>
+                <select id="qr-tipo" required onchange="MODULO_QRCODE.aoMudarTipo()">
+                  ${TIPOS.map(t => `
+                    <option value="${t.codigo}" ${(q?.tipo || 'link') === t.codigo ? 'selected' : ''}>${t.nome}</option>
+                  `).join('')}
+                </select>
+              </div>
+
+              <div class="form-grupo">
+                <label for="qr-cor">Cor do QR Code</label>
+                <input id="qr-cor" type="color" value="${q?.cor || '#1B3A5C'}" oninput="MODULO_QRCODE.atualizarPreview()" />
+              </div>
+            </div>
+
+            <div class="form-grupo">
+              <label for="qr-destino" id="qr-destino-label">Destino <span class="form-obrigatorio">*</span></label>
+              <input id="qr-destino" type="text" value="${escaparHTML(q?.destino || '')}" placeholder="Preencha o destino" oninput="MODULO_QRCODE.atualizarPreview()" />
+              <span class="form-ajuda" id="qr-destino-ajuda">URL, texto ou link do destino.</span>
+            </div>
+
+            <div class="form-grupo">
+              <label for="qr-obs">Observações</label>
+              <textarea id="qr-obs" placeholder="Anotações...">${escaparHTML(q?.observacoes || '')}</textarea>
+            </div>
+
+            <div class="qr-preview-wrapper">
+              <div class="qr-preview-label">Pré-visualização</div>
+              <div class="qr-preview" id="qr-preview"></div>
+            </div>
+          </div>
+
+          <div class="modal__footer">
+            <button class="btn btn--secundario" onclick="MODULO_QRCODE.fecharModal()">Cancelar</button>
+            <button class="btn btn--primario" onclick="MODULO_QRCODE.salvar()">
+              ${editando ? 'Salvar alterações' : 'Gerar QR Code'}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('modal-qrcode')?.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    setTimeout(() => {
+      aoMudarTipo();
+      atualizarPreview();
+      document.getElementById('qr-titulo')?.focus();
+    }, 60);
   }
 
-  .qr-card__acoes {
-    justify-content: center;
+  function fecharModal() {
+    document.getElementById('modal-qrcode')?.remove();
+    qrcodeEditandoId = null;
   }
-}
+
+  /* ==========================================================
+     14. AO MUDAR TIPO
+     ========================================================== */
+
+  function aoMudarTipo() {
+    const tipo = document.getElementById('qr-tipo')?.value;
+    const label = document.getElementById('qr-destino-label');
+    const ajuda = document.getElementById('qr-destino-ajuda');
+    const input = document.getElementById('qr-destino');
+    if (!label || !ajuda || !input) return;
+
+    const config = {
+      email:     { label: 'E-mail', placeholder: 'cliente@email.com', ajuda: 'Endereço de e-mail do destino.' },
+      whatsapp:  { label: 'Número do WhatsApp', placeholder: '5511999999999', ajuda: 'Número com DDD e código do país (55 para Brasil).' },
+      instagram: { label: 'Usuário do Instagram', placeholder: '@praficar', ajuda: 'Só o @usuario ou link completo do perfil.' },
+      pix:       { label: 'Chave Pix', placeholder: 'email@dominio.com', ajuda: 'Chave Pix (e-mail, telefone, CPF ou chave aleatória).' },
+      telefone:  { label: 'Telefone', placeholder: '(11) 99999-9999', ajuda: 'Número de telefone fixo ou celular.' },
+      site:      { label: 'URL do site', placeholder: 'https://praficar.com.br', ajuda: 'Endereço completo do site.' },
+      produto:   { label: 'Link do produto', placeholder: 'https://...', ajuda: 'Link da página do produto no catálogo.' },
+      encomenda: { label: 'Link da encomenda', placeholder: 'https://...', ajuda: 'Link de acompanhamento da encomenda.' },
+      venda:     { label: 'Link da venda', placeholder: 'https://...', ajuda: 'Link de acompanhamento da venda.' },
+      catalogo:  { label: 'Link do catálogo', placeholder: 'https://...', ajuda: 'Link do catálogo online.' },
+      link:      { label: 'Link livre', placeholder: 'https://...', ajuda: 'Qualquer URL ou texto.' }
+    };
+
+    const c = config[tipo] || config.link;
+    label.innerHTML = c.label + ' <span class="form-obrigatorio">*</span>';
+    input.placeholder = c.placeholder;
+    ajuda.textContent = c.ajuda;
+
+    atualizarPreview();
+  }
+
+  /* ==========================================================
+     15. PREVIEW
+     ========================================================== */
+
+  function atualizarPreview() {
+    const container = document.getElementById('qr-preview');
+    if (!container) return;
+
+    const q = {
+      titulo: document.getElementById('qr-titulo')?.value || '',
+      tipo: document.getElementById('qr-tipo')?.value || 'link',
+      destino: document.getElementById('qr-destino')?.value || '',
+      cor: document.getElementById('qr-cor')?.value || '#1B3A5C',
+      codigo: qrcodeEditandoId ? (buscarQRCode(qrcodeEditandoId)?.codigo || 'preview') : 'preview'
+    };
+
+    if (!q.destino) {
+      container.innerHTML = '<div class="qr-preview-vazio">Preencha o destino para visualizar.</div>';
+      return;
+    }
+
+    container.innerHTML = gerarSVG(q, 200);
+  }
+
+  /* ==========================================================
+     16. SALVAR
+     ========================================================== */
+
+  function salvar() {
+    const titulo = document.getElementById('qr-titulo').value.trim();
+    const tipo = document.getElementById('qr-tipo').value;
+    const destino = document.getElementById('qr-destino').value.trim();
+    const cor = document.getElementById('qr-cor').value;
+    const observacoes = document.getElementById('qr-obs').value.trim();
+
+    if (!titulo) return alert('Informe o título.');
+    if (!destino) return alert('Informe o destino.');
+
+    const dados = { titulo, tipo, destino, cor, observacoes };
+
+    if (qrcodeEditandoId) {
+      atualizarQRCode(qrcodeEditandoId, dados);
+    } else {
+      criarQRCode(dados);
+    }
+
+    fecharModal();
+    rerender();
+  }
+
+  /* ==========================================================
+     17. EXCLUSÃO
+     ========================================================== */
+
+  function confirmarExclusao(id) {
+    const q = buscarQRCode(id);
+    if (!q) return;
+    const ok = confirm(`Excluir o QR Code "${q.titulo}"?`);
+    if (!ok) return;
+    excluirQRCode(id);
+    rerender();
+  }
+
+  /* ==========================================================
+     18. RERENDER
+     ========================================================== */
+
+  function rerender() {
+    const container = document.getElementById('conteudo-tela');
+    if (container && window.ROUTER_PRAFICAR?.obterRotaAtual() === 'qrcode') {
+      container.innerHTML = render();
+    }
+  }
+
+  function rerenderGrade() {
+    const wrapper = document.getElementById('grade-qrcode-wrapper');
+    if (wrapper) wrapper.innerHTML = renderGrade();
+  }
+
+  /* ==========================================================
+     19. API PÚBLICA
+     ========================================================== */
+
+  return {
+    render,
+    abrirNovo,
+    abrirEdicao,
+    fecharModal,
+    salvar,
+    confirmarExclusao,
+    alterarFiltroBusca,
+    alterarFiltroTipo,
+    atualizarPreview,
+    aoMudarTipo,
+    baixarPNG,
+    baixarSVG,
+    imprimir,
+    _listar: () => [...qrcodes],
+    _buscar: buscarQRCode,
+    _montarDestino: montarDestinoFinal,
+    TIPOS
+  };
+
+})();
+
+window.MODULO_QRCODE = MODULO_QRCODE;
+window.renderQRCode = MODULO_QRCODE.render;
