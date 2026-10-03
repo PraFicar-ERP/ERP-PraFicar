@@ -1,11 +1,8 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO QR CODE
+   PRAFICAR ERP — MÓDULO QR CODE (v2)
    Arquivo: assets/js/modulos/qrcode.js
-   Descrição: geração de QR Codes estáticos e dinâmicos para
-              produtos, Pix, WhatsApp, Instagram, catálogo,
-              encomendas, vendas e links livres.
-
-   Biblioteca: qrcode-generator (CDN, sem dependências)
+   Descrição: geração de QR Codes diretos (sem redirecionamento)
+              com logo PraFicar no centro.
    ============================================================ */
 
 const MODULO_QRCODE = (() => {
@@ -18,22 +15,26 @@ const MODULO_QRCODE = (() => {
   let proximoId = 1;
   let filtroBusca = '';
   let filtroTipo = '';
-
   let qrcodeEditandoId = null;
 
+  const LOGO_PATH = 'assets/img/Logo.jpeg';
+
   /* ==========================================================
-     2. TIPOS DE QR CODE
+     2. TIPOS
      ========================================================== */
 
   const TIPOS = [
-    { codigo: 'produto',    nome: 'Produto',        icone: 'pacote' },
-    { codigo: 'encomenda',  nome: 'Encomenda',      icone: 'encomendas' },
-    { codigo: 'venda',      nome: 'Venda',          icone: 'vendas' },
-    { codigo: 'pix',        nome: 'Pix',            icone: 'dinheiro' },
-    { codigo: 'whatsapp',   nome: 'WhatsApp',       icone: 'user' },
-    { codigo: 'instagram',  nome: 'Instagram',      icone: 'canais' },
-    { codigo: 'catalogo',   nome: 'Catálogo',       icone: 'produtos' },
-    { codigo: 'link',       nome: 'Link livre',     icone: 'raio' }
+    { codigo: 'email',      nome: 'E-mail' },
+    { codigo: 'whatsapp',   nome: 'WhatsApp' },
+    { codigo: 'instagram',  nome: 'Instagram' },
+    { codigo: 'pix',        nome: 'Pix' },
+    { codigo: 'telefone',   nome: 'Telefone' },
+    { codigo: 'site',       nome: 'Site / link' },
+    { codigo: 'produto',    nome: 'Produto' },
+    { codigo: 'encomenda',  nome: 'Encomenda' },
+    { codigo: 'venda',      nome: 'Venda' },
+    { codigo: 'catalogo',   nome: 'Catálogo' },
+    { codigo: 'link',       nome: 'Link livre' }
   ];
 
   function tipoInfo(codigo) {
@@ -61,34 +62,64 @@ const MODULO_QRCODE = (() => {
     return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function gerarSlug() {
+  function gerarId() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let slug = '';
-    for (let i = 0; i < 8; i++) slug += chars[Math.floor(Math.random() * chars.length)];
-    return slug;
-  }
-
-  function urlBase() {
-    return window.location.origin + window.location.pathname;
+    let id = '';
+    for (let i = 0; i < 8; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
   }
 
   /* ==========================================================
-     4. CRUD
+     4. MONTAR DESTINO FINAL
+     ========================================================== */
+
+  function montarDestinoFinal(q) {
+    const destino = String(q.destino || '').trim();
+
+    if (!destino) return '';
+
+    switch (q.tipo) {
+      case 'email':
+        return destino.startsWith('mailto:') ? destino : 'mailto:' + destino;
+      case 'whatsapp':
+        // Aceita número com ou sem formatação
+        const num = destino.replace(/\D/g, '');
+        return 'https://wa.me/' + num;
+      case 'instagram':
+        if (destino.startsWith('http')) return destino;
+        const user = destino.replace('@', '');
+        return 'https://instagram.com/' + user;
+      case 'telefone':
+        return destino.startsWith('tel:') ? destino : 'tel:' + destino.replace(/\D/g, '');
+      case 'pix':
+        return destino; // chave ou payload Pix
+      case 'site':
+      case 'produto':
+      case 'encomenda':
+      case 'venda':
+      case 'catalogo':
+      case 'link':
+        if (destino.startsWith('http')) return destino;
+        return 'https://' + destino;
+      default:
+        return destino;
+    }
+  }
+
+  /* ==========================================================
+     5. CRUD
      ========================================================== */
 
   function criarQRCode(dados) {
     const q = {
       id: proximoId++,
+      codigo: gerarId(),
       titulo: dados.titulo || 'Sem título',
       tipo: dados.tipo || 'link',
-      slug: gerarSlug(),
       destino: dados.destino || '',
-      referenciaId: dados.referenciaId || null,
-      referenciaNome: dados.referenciaNome || '',
       observacoes: dados.observacoes || '',
       cor: dados.cor || '#1B3A5C',
-      comLogo: !!dados.comLogo,
-      dinamico: dados.dinamico !== false,
+      comLogo: true,
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
@@ -119,7 +150,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     5. FILTROS
+     6. FILTROS
      ========================================================== */
 
   function qrcodesFiltrados() {
@@ -127,49 +158,51 @@ const MODULO_QRCODE = (() => {
       if (filtroTipo && q.tipo !== filtroTipo) return false;
       if (filtroBusca) {
         const t = filtroBusca.toLowerCase();
-        const alvo = `${q.titulo} ${q.destino} ${q.referenciaNome}`.toLowerCase();
+        const alvo = `${q.titulo} ${q.destino}`.toLowerCase();
         if (!alvo.includes(t)) return false;
       }
       return true;
     });
   }
 
-  function alterarFiltroBusca(v) { filtroBusca = v; rerenderTabela(); }
+  function alterarFiltroBusca(v) { filtroBusca = v; rerenderGrade(); }
   function alterarFiltroTipo(v)   { filtroTipo = v; rerender(); }
 
   /* ==========================================================
-     6. GERAÇÃO DE QR CODE
-     Usa a biblioteca qrcode-generator. Para QR dinâmico, a URL
-     é do próprio sistema: #/q/<slug>
+     7. GERAÇÃO DO QR CODE COM LOGO
      ========================================================== */
-
-  function urlDoQRCode(q) {
-    if (q.dinamico) {
-      return `${urlBase()}#/q/${q.slug}`;
-    }
-    return q.destino;
-  }
 
   function gerarSVG(q, tamanho = 220) {
     if (typeof qrcode === 'undefined') {
       return '<div class="qr-erro">Biblioteca QR não carregada.</div>';
     }
 
-    const conteudo = urlDoQRCode(q);
-    const qr = qrcode(0, 'M');
+    const conteudo = montarDestinoFinal(q);
+    if (!conteudo) {
+      return '<div class="qr-erro">Destino vazio.</div>';
+    }
+
+    // Nível H = 30% de correção (permite logo no centro)
+    const qr = qrcode(0, 'H');
     qr.addData(conteudo);
     qr.make();
 
     const moduloCount = qr.getModuleCount();
     const margem = 2;
     const total = moduloCount + margem * 2;
-    const escala = tamanho / total;
 
     const cor = q.cor || '#1B3A5C';
+
+    // Área da logo (20% do total)
+    const logoPct = 0.20;
+    const logoSize = total * logoPct;
+    const logoX = (total - logoSize) / 2;
+    const logoY = (total - logoSize) / 2;
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${tamanho}" height="${tamanho}" shape-rendering="crispEdges">`;
     svg += `<rect width="${total}" height="${total}" fill="#FFFFFF"/>`;
 
+    // Módulos do QR
     for (let r = 0; r < moduloCount; r++) {
       for (let c = 0; c < moduloCount; c++) {
         if (qr.isDark(r, c)) {
@@ -178,17 +211,19 @@ const MODULO_QRCODE = (() => {
       }
     }
 
+    // Fundo branco atrás da logo (com padding)
+    const padding = total * 0.015;
+    svg += `<rect x="${logoX - padding}" y="${logoY - padding}" width="${logoSize + padding * 2}" height="${logoSize + padding * 2}" fill="#FFFFFF"/>`;
+
+    // Logo no centro
+    svg += `<image href="${LOGO_PATH}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`;
+
     svg += `</svg>`;
     return svg;
   }
 
-  function gerarSVGDataURL(q, tamanho = 220) {
-    const svg = gerarSVG(q, tamanho);
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  }
-
   /* ==========================================================
-     7. DOWNLOAD — PNG
+     8. DOWNLOAD PNG
      ========================================================== */
 
   function baixarPNG(id) {
@@ -212,7 +247,7 @@ const MODULO_QRCODE = (() => {
       canvas.toBlob(blob => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `qrcode-${q.slug}.png`;
+        link.download = `qrcode-${q.codigo}.png`;
         link.click();
         URL.revokeObjectURL(link.href);
       }, 'image/png');
@@ -224,24 +259,23 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     8. DOWNLOAD — SVG
+     9. DOWNLOAD SVG
      ========================================================== */
 
   function baixarSVG(id) {
     const q = buscarQRCode(id);
     if (!q) return;
-
     const svg = gerarSVG(q, 1024);
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `qrcode-${q.slug}.svg`;
+    link.download = `qrcode-${q.codigo}.svg`;
     link.click();
     URL.revokeObjectURL(link.href);
   }
 
   /* ==========================================================
-     9. IMPRIMIR
+     10. IMPRIMIR
      ========================================================== */
 
   function imprimir(id) {
@@ -249,6 +283,8 @@ const MODULO_QRCODE = (() => {
     if (!q) return;
 
     const svg = gerarSVG(q, 400);
+    const destino = montarDestinoFinal(q);
+
     const janela = window.open('', '_blank');
     janela.document.write(`
       <!DOCTYPE html>
@@ -260,7 +296,7 @@ const MODULO_QRCODE = (() => {
           h1 { font-size: 20px; color: #1B3A5C; margin-bottom: 8px; }
           p { color: #666; font-size: 13px; margin-bottom: 24px; }
           .qr { display: inline-block; padding: 16px; background: #fff; border: 1px solid #ddd; border-radius: 8px; }
-          .url { font-family: monospace; font-size: 11px; color: #888; margin-top: 16px; word-break: break-all; max-width: 400px; }
+          .dest { font-family: monospace; font-size: 11px; color: #888; margin-top: 16px; word-break: break-all; max-width: 400px; }
           @media print { body { padding: 20px; } }
         </style>
       </head>
@@ -268,8 +304,8 @@ const MODULO_QRCODE = (() => {
         <h1>${escaparHTML(q.titulo)}</h1>
         <p>${escaparHTML(tipoInfo(q.tipo).nome)}</p>
         <div class="qr">${svg}</div>
-        <div class="url">${escaparHTML(urlDoQRCode(q))}</div>
-        <script>window.onload = () => setTimeout(() => window.print(), 200);</script>
+        <div class="dest">${escaparHTML(destino)}</div>
+        <script>window.onload = () => setTimeout(() => window.print(), 300);</script>
       </body>
       </html>
     `);
@@ -277,7 +313,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     10. RENDER — TELA PRINCIPAL
+     11. RENDER — TELA PRINCIPAL
      ========================================================== */
 
   function render() {
@@ -287,7 +323,7 @@ const MODULO_QRCODE = (() => {
           <h1 class="pagina-header__titulo">QR Code</h1>
           <p class="pagina-header__subtitulo">
             ${qrcodes.length} ${qrcodes.length === 1 ? 'código gerado' : 'códigos gerados'} ·
-            dinâmicos continuam funcionando mesmo se o destino mudar
+            todos levam direto ao destino, com a logo PraFicar no centro
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -302,7 +338,7 @@ const MODULO_QRCODE = (() => {
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input
             type="search"
-            placeholder="Buscar por título, destino ou referência..."
+            placeholder="Buscar por título ou destino..."
             value="${escaparHTML(filtroBusca)}"
             oninput="MODULO_QRCODE.alterarFiltroBusca(this.value)"
           />
@@ -316,14 +352,14 @@ const MODULO_QRCODE = (() => {
         </select>
       </div>
 
-      <div id="tabela-qrcode-wrapper">
+      <div id="grade-qrcode-wrapper">
         ${renderGrade()}
       </div>
     `;
   }
 
   /* ==========================================================
-     11. RENDER — GRADE DE CARDS
+     12. RENDER — GRADE
      ========================================================== */
 
   function renderGrade() {
@@ -341,7 +377,7 @@ const MODULO_QRCODE = (() => {
             </h3>
             <p class="vazio__descricao">
               ${qrcodes.length === 0
-                ? 'Gere QR Codes para produtos, Pix, WhatsApp, Instagram, catálogo, encomendas e links livres. Baixe em PNG, SVG ou imprima.'
+                ? 'Gere QR Codes para e-mail, WhatsApp, Instagram, Pix, telefone, site, produto, encomenda e mais.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${qrcodes.length === 0 ? `
@@ -363,7 +399,8 @@ const MODULO_QRCODE = (() => {
 
   function renderCard(q) {
     const tipo = tipoInfo(q.tipo);
-    const svg = gerarSVG(q, 180);
+    const svg = gerarSVG(q, 200);
+    const destino = montarDestinoFinal(q);
 
     return `
       <div class="qr-card">
@@ -374,24 +411,17 @@ const MODULO_QRCODE = (() => {
         <div class="qr-card__info">
           <div class="qr-card__titulo">${escaparHTML(q.titulo)}</div>
           <span class="badge badge--info">${escaparHTML(tipo.nome)}</span>
-          ${q.dinamico ? '<span class="badge badge--sucesso">Dinâmico</span>' : '<span class="badge badge--neutro">Estático</span>'}
         </div>
 
         <div class="qr-card__destino">
           <span class="qr-card__destino-label">Destino:</span>
-          <span class="qr-card__destino-url">${escaparHTML(urlDoQRCode(q))}</span>
+          <span class="qr-card__destino-url">${escaparHTML(destino)}</span>
         </div>
 
         <div class="qr-card__acoes">
-          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.baixarPNG(${q.id})" title="Baixar PNG">
-            PNG
-          </button>
-          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.baixarSVG(${q.id})" title="Baixar SVG">
-            SVG
-          </button>
-          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.imprimir(${q.id})" title="Imprimir">
-            Imprimir
-          </button>
+          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.baixarPNG(${q.id})" title="Baixar PNG">PNG</button>
+          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.baixarSVG(${q.id})" title="Baixar SVG">SVG</button>
+          <button class="btn btn--secundario btn--sm" onclick="MODULO_QRCODE.imprimir(${q.id})" title="Imprimir">Imprimir</button>
           <button class="btn-icone" onclick="MODULO_QRCODE.abrirEdicao(${q.id})" title="Editar">
             <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
           </button>
@@ -402,9 +432,8 @@ const MODULO_QRCODE = (() => {
       </div>
     `;
   }
-
-  /* ==========================================================
-     12. MODAL
+     /* ==========================================================
+     13. MODAL
      ========================================================== */
 
   function abrirNovo() {
@@ -434,7 +463,7 @@ const MODULO_QRCODE = (() => {
           <div class="modal__body">
             <div class="form-grupo">
               <label for="qr-titulo">Título <span class="form-obrigatorio">*</span></label>
-              <input id="qr-titulo" type="text" required value="${escaparHTML(q?.titulo || '')}" placeholder="Ex: Chaveiro Coração" oninput="MODULO_QRCODE.atualizarPreview()" />
+              <input id="qr-titulo" type="text" required value="${escaparHTML(q?.titulo || '')}" placeholder="Ex: WhatsApp da loja" oninput="MODULO_QRCODE.atualizarPreview()" />
             </div>
 
             <div class="form-linha">
@@ -453,18 +482,10 @@ const MODULO_QRCODE = (() => {
               </div>
             </div>
 
-            <div class="form-grupo" id="qr-destino-grupo">
-              <label for="qr-destino">Destino <span class="form-obrigatorio">*</span></label>
-              <input id="qr-destino" type="text" value="${escaparHTML(q?.destino || '')}" placeholder="https://..." oninput="MODULO_QRCODE.atualizarPreview()" />
-              <span class="form-ajuda" id="qr-destino-ajuda">URL, texto ou link do destino.</span>
-            </div>
-
             <div class="form-grupo">
-              <label>
-                <input type="checkbox" id="qr-dinamico" ${q?.dinamico !== false ? 'checked' : ''} onchange="MODULO_QRCODE.atualizarPreview()" />
-                QR Code dinâmico
-              </label>
-              <span class="form-ajuda">Dinâmico continua funcionando mesmo se o destino mudar. Ideal para materiais impressos.</span>
+              <label for="qr-destino" id="qr-destino-label">Destino <span class="form-obrigatorio">*</span></label>
+              <input id="qr-destino" type="text" value="${escaparHTML(q?.destino || '')}" placeholder="Preencha o destino" oninput="MODULO_QRCODE.atualizarPreview()" />
+              <span class="form-ajuda" id="qr-destino-ajuda">URL, texto ou link do destino.</span>
             </div>
 
             <div class="form-grupo">
@@ -492,6 +513,7 @@ const MODULO_QRCODE = (() => {
     document.body.insertAdjacentHTML('beforeend', html);
 
     setTimeout(() => {
+      aoMudarTipo();
       atualizarPreview();
       document.getElementById('qr-titulo')?.focus();
     }, 60);
@@ -503,7 +525,40 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     13. PREVIEW EM TEMPO REAL
+     14. AO MUDAR TIPO
+     ========================================================== */
+
+  function aoMudarTipo() {
+    const tipo = document.getElementById('qr-tipo')?.value;
+    const label = document.getElementById('qr-destino-label');
+    const ajuda = document.getElementById('qr-destino-ajuda');
+    const input = document.getElementById('qr-destino');
+    if (!label || !ajuda || !input) return;
+
+    const config = {
+      email:     { label: 'E-mail', placeholder: 'cliente@email.com', ajuda: 'Endereço de e-mail do destino.' },
+      whatsapp:  { label: 'Número do WhatsApp', placeholder: '5511999999999', ajuda: 'Número com DDD e código do país (55 para Brasil).' },
+      instagram: { label: 'Usuário do Instagram', placeholder: '@praficar', ajuda: 'Só o @usuario ou link completo do perfil.' },
+      pix:       { label: 'Chave Pix', placeholder: 'email@dominio.com', ajuda: 'Chave Pix (e-mail, telefone, CPF ou chave aleatória).' },
+      telefone:  { label: 'Telefone', placeholder: '(11) 99999-9999', ajuda: 'Número de telefone fixo ou celular.' },
+      site:      { label: 'URL do site', placeholder: 'https://praficar.com.br', ajuda: 'Endereço completo do site.' },
+      produto:   { label: 'Link do produto', placeholder: 'https://...', ajuda: 'Link da página do produto no catálogo.' },
+      encomenda: { label: 'Link da encomenda', placeholder: 'https://...', ajuda: 'Link de acompanhamento da encomenda.' },
+      venda:     { label: 'Link da venda', placeholder: 'https://...', ajuda: 'Link de acompanhamento da venda.' },
+      catalogo:  { label: 'Link do catálogo', placeholder: 'https://...', ajuda: 'Link do catálogo online.' },
+      link:      { label: 'Link livre', placeholder: 'https://...', ajuda: 'Qualquer URL ou texto.' }
+    };
+
+    const c = config[tipo] || config.link;
+    label.innerHTML = c.label + ' <span class="form-obrigatorio">*</span>';
+    input.placeholder = c.placeholder;
+    ajuda.textContent = c.ajuda;
+
+    atualizarPreview();
+  }
+
+  /* ==========================================================
+     15. PREVIEW
      ========================================================== */
 
   function atualizarPreview() {
@@ -515,40 +570,19 @@ const MODULO_QRCODE = (() => {
       tipo: document.getElementById('qr-tipo')?.value || 'link',
       destino: document.getElementById('qr-destino')?.value || '',
       cor: document.getElementById('qr-cor')?.value || '#1B3A5C',
-      dinamico: document.getElementById('qr-dinamico')?.checked ?? true,
-      slug: qrcodeEditandoId ? (buscarQRCode(qrcodeEditandoId)?.slug || 'preview') : 'preview'
+      codigo: qrcodeEditandoId ? (buscarQRCode(qrcodeEditandoId)?.codigo || 'preview') : 'preview'
     };
 
-    if (!q.destino && !q.dinamico) {
+    if (!q.destino) {
       container.innerHTML = '<div class="qr-preview-vazio">Preencha o destino para visualizar.</div>';
       return;
     }
 
-    container.innerHTML = gerarSVG(q, 180);
-  }
-
-  function aoMudarTipo() {
-    const tipo = document.getElementById('qr-tipo')?.value;
-    const label = document.getElementById('qr-destino-ajuda');
-    if (!label) return;
-
-    const dicas = {
-      produto:   'Link da página do produto.',
-      encomenda: 'Link da encomenda no sistema.',
-      venda:     'Link da venda no sistema.',
-      pix:       'Chave Pix ou payload Pix.',
-      whatsapp:  'Número no formato https://wa.me/55...',
-      instagram: 'Link do perfil do Instagram.',
-      catalogo:  'Link do catálogo online.',
-      link:      'Qualquer URL ou texto.'
-    };
-    label.textContent = dicas[tipo] || 'URL, texto ou link do destino.';
-
-    atualizarPreview();
+    container.innerHTML = gerarSVG(q, 200);
   }
 
   /* ==========================================================
-     14. SALVAR
+     16. SALVAR
      ========================================================== */
 
   function salvar() {
@@ -556,16 +590,12 @@ const MODULO_QRCODE = (() => {
     const tipo = document.getElementById('qr-tipo').value;
     const destino = document.getElementById('qr-destino').value.trim();
     const cor = document.getElementById('qr-cor').value;
-    const dinamico = document.getElementById('qr-dinamico').checked;
     const observacoes = document.getElementById('qr-obs').value.trim();
 
     if (!titulo) return alert('Informe o título.');
+    if (!destino) return alert('Informe o destino.');
 
-    // Se for dinâmico e não tiver destino, cria com destino vazio (pode ser configurado depois)
-    // Se for estático, exige destino
-    if (!dinamico && !destino) return alert('QR Code estático precisa de um destino.');
-
-    const dados = { titulo, tipo, destino, cor, dinamico, observacoes };
+    const dados = { titulo, tipo, destino, cor, observacoes };
 
     if (qrcodeEditandoId) {
       atualizarQRCode(qrcodeEditandoId, dados);
@@ -578,7 +608,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     15. EXCLUSÃO
+     17. EXCLUSÃO
      ========================================================== */
 
   function confirmarExclusao(id) {
@@ -591,7 +621,7 @@ const MODULO_QRCODE = (() => {
   }
 
   /* ==========================================================
-     16. RERENDER
+     18. RERENDER
      ========================================================== */
 
   function rerender() {
@@ -601,13 +631,13 @@ const MODULO_QRCODE = (() => {
     }
   }
 
-  function rerenderTabela() {
-    const wrapper = document.getElementById('tabela-qrcode-wrapper');
+  function rerenderGrade() {
+    const wrapper = document.getElementById('grade-qrcode-wrapper');
     if (wrapper) wrapper.innerHTML = renderGrade();
   }
 
   /* ==========================================================
-     17. API PÚBLICA
+     19. API PÚBLICA
      ========================================================== */
 
   return {
@@ -626,6 +656,7 @@ const MODULO_QRCODE = (() => {
     imprimir,
     _listar: () => [...qrcodes],
     _buscar: buscarQRCode,
+    _montarDestino: montarDestinoFinal,
     TIPOS
   };
 
