@@ -1,0 +1,268 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO ORÇAMENTOS
+   Arquivo: assets/css/modulos/orcamentos.css
+   ============================================================ */
+
+/* ============================================================
+   1. FILTROS
+   ============================================================ */
+
+.filtros-orcamentos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-orcamentos__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-orcamentos__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-orcamentos__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-orcamentos__select {
+  width: auto;
+  min-width: 200px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. COLUNAS DA TABELA
+   ============================================================ */
+
+.orc-cliente {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.orc-email {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+}
+
+.orc-vencido {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-critico);
+  margin-top: 2px;
+}
+
+/* ============================================================
+   3. MODAL DE ORÇAMENTO
+   ============================================================ */
+
+#modal-orcamento .modal {
+  max-width: 860px;
+}
+
+.orc-secao {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.orc-secao__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.orc-secao__titulo {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin: 0;
+}
+
+/* ============================================================
+   4. LISTA DE ITENS NO MODAL
+   ============================================================ */
+
+.orc-itens-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  background-color: var(--cinza-50);
+}
+
+.tabela-itens {
+  font-size: var(--texto-sm);
+}
+
+.tabela-itens tfoot td {
+  padding-top: var(--esp-3);
+  padding-bottom: var(--esp-3);
+  border-top: 2px solid var(--cor-borda-suave);
+  border-bottom: none;
+}
+
+/* ============================================================
+   5. RESUMO
+   ============================================================ */
+
+.orc-resumo {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.orc-resumo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-3);
+}
+
+.orc-resumo__item {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-3) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.orc-resumo__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.orc-resumo__valor {
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.orc-resumo__item--destaque {
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  border-color: var(--azul-marinho);
+}
+
+.orc-resumo__item--destaque .orc-resumo__label {
+  color: var(--azul-claro);
+}
+
+.orc-resumo__item--destaque .orc-resumo__valor {
+  color: var(--branco);
+}
+
+/* ============================================================
+   6. DETALHES
+   ============================================================ */
+
+.orc-detalhe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+}
+
+.orc-detalhe-grid strong {
+  color: var(--cor-texto-principal);
+  font-weight: var(--peso-semibold);
+  margin-right: var(--esp-1);
+}
+
+/* ============================================================
+   7. COMENTÁRIOS
+   ============================================================ */
+
+.orc-comentarios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+.orc-comentario {
+  padding: var(--esp-3) var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  border-left: 3px solid var(--azul-medio);
+}
+
+.orc-comentario__autor {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+.orc-comentario__texto {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+  margin-top: var(--esp-1);
+  line-height: var(--linha-normal);
+}
+
+.orc-comentario__data {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: var(--esp-1);
+}
+
+/* ============================================================
+   8. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-orcamentos {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-orcamentos__select {
+    width: 100%;
+  }
+
+  #modal-orcamento .modal {
+    max-width: 100%;
+  }
+
+  .orc-resumo__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .orc-resumo__grid {
+    grid-template-columns: 1fr;
+  }
+}
