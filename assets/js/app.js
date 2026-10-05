@@ -1,5 +1,5 @@
 /* ============================================================
-   PRAFICAR ERP — APP PRINCIPAL (v7)
+   PRAFICAR ERP — APP PRINCIPAL (v8)
    Arquivo: assets/js/app.js
    Descrição: inicialização, menu lateral, header, ícones e
               botão da calculadora flutuante.
@@ -13,11 +13,14 @@ const APP_PRAFICAR = (() => {
 
   const ICONES = {
     inicio:       '<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>',
-    produtos:     '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
-    custos:       '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><path d="M3 3v18h18" opacity="0.4"/></svg>',
-    canais:       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg>',
-    encomendas:   '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     vendas:       '<svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+    orcamentos:   '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>',
+    encomendas:   '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    produtos:     '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
+    estoque:      '<svg viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M5 7v14h14V7"/><path d="M9 11h6"/><path d="M9 15h6"/></svg>',
+    kits:         '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18"/><path d="M12 8V3"/><path d="M8 8V5a4 4 0 0 1 8 0v3"/></svg>',
+    custos:       '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    canais:       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg>',
     financeiro:   '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
     clientes:     '<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     relatorios:   '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
@@ -36,34 +39,33 @@ const APP_PRAFICAR = (() => {
 
   const MENU = [
     {
-      grupo: 'Operação',
+      grupo: 'Comercial',
       itens: [
         { rota: 'inicio',     texto: 'Início' },
         { rota: 'vendas',     texto: 'Vendas' },
+        { rota: 'orcamentos', texto: 'Orçamentos' },
         { rota: 'encomendas', texto: 'Encomendas' }
       ]
     },
     {
-      grupo: 'Catálogo',
+      grupo: 'Cadastros',
       itens: [
-        { rota: 'produtos',   texto: 'Produtos & Estoque' },
-        { rota: 'custos',     texto: 'Custos e Fabricação' },
-        { rota: 'canais',     texto: 'Canais de Venda' }
+        { rota: 'produtos',   texto: 'Produtos' },
+        { rota: 'estoque',    texto: 'Estoque' },
+        { rota: 'kits',       texto: 'Kits' }
       ]
     },
     {
-      grupo: 'Gestão',
+      grupo: 'Análise',
       itens: [
-        { rota: 'financeiro', texto: 'Financeiro' },
-        { rota: 'clientes',   texto: 'Clientes & Fornecedores' },
-        { rota: 'relatorios', texto: 'Relatórios' }
+        { rota: 'relatorios', texto: 'Relatórios' },
+        { rota: 'qrcode',     texto: 'QR Code' }
       ]
     },
     {
-      grupo: 'Ferramentas',
+      grupo: 'Configurações',
       itens: [
-        { rota: 'qrcode', texto: 'QR Code' },
-        { rota: 'config', texto: 'Configurações' }
+        { rota: 'config',     texto: 'Configurações' }
       ]
     }
   ];
