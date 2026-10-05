@@ -1,8 +1,9 @@
 /* ============================================================
-   PRAFICAR ERP — ROTEADOR SPA (v3)
+   PRAFICAR ERP — ROTEADOR SPA (v4)
    Arquivo: assets/js/router.js
    Descrição: roteamento por hash (#/modulo). Controla qual
-              tela é renderizada, atualiza o menu e o breadcrumb.
+              tela é renderizada, atualiza o menu ativo e o
+              breadcrumb.
    ============================================================ */
 
 const ROUTER_PRAFICAR = (() => {
@@ -13,11 +14,14 @@ const ROUTER_PRAFICAR = (() => {
 
   const ROTAS = {
     'inicio':       { titulo: 'Início',                  icone: 'inicio',     render: 'renderInicio' },
+    'vendas':       { titulo: 'Vendas',                  icone: 'vendas',     render: 'renderVendas' },
+    'orcamentos':   { titulo: 'Orçamentos',              icone: 'orcamentos', render: 'renderOrcamentos' },
+    'encomendas':   { titulo: 'Encomendas',              icone: 'encomendas', render: 'renderEncomendas' },
     'produtos':     { titulo: 'Produtos & Estoque',      icone: 'produtos',   render: 'renderProdutos' },
+    'estoque':      { titulo: 'Estoque',                 icone: 'estoque',    render: 'renderEstoque' },
+    'kits':         { titulo: 'Kits',                    icone: 'kits',       render: 'renderKits' },
     'custos':       { titulo: 'Custos e Fabricação',     icone: 'custos',     render: 'renderCustos' },
     'canais':       { titulo: 'Canais de Venda',         icone: 'canais',     render: 'renderCanais' },
-    'encomendas':   { titulo: 'Encomendas',              icone: 'encomendas', render: 'renderEncomendas' },
-    'vendas':       { titulo: 'Vendas',                  icone: 'vendas',     render: 'renderVendas' },
     'financeiro':   { titulo: 'Financeiro',              icone: 'financeiro', render: 'renderFinanceiro' },
     'clientes':     { titulo: 'Clientes & Fornecedores', icone: 'clientes',   render: 'renderClientes' },
     'relatorios':   { titulo: 'Relatórios',              icone: 'relatorios', render: 'renderRelatorios' },
