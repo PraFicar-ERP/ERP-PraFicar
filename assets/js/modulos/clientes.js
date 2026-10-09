@@ -1,8 +1,13 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CLIENTES & FORNECEDORES
+   PRAFICAR ERP — MÓDULO CLIENTES & FORNECEDORES (v2)
    Arquivo: assets/js/modulos/clientes.js
    Descrição: cadastro de clientes (com origem para análise de
               canal) e de fornecedores (com histórico de preços).
+
+   v2:
+   - Correção: MODULO_VENDAS → MODULO_VENDAS_CORE
+   - Correção: totais.subtotal → totais.subtotalPraticado
+   - Visual ERP enterprise premium
    ============================================================ */
 
 const MODULO_CLIENTES = (() => {
@@ -16,7 +21,7 @@ const MODULO_CLIENTES = (() => {
   let proximoIdCliente = 1;
   let proximoIdFornecedor = 1;
 
-  let abaAtiva = 'clientes';   // clientes | fornecedores
+  let abaAtiva = 'clientes';       // clientes | fornecedores
   let filtroBusca = '';
   let filtroOrigem = '';
   let filtroStatus = '';
@@ -29,17 +34,17 @@ const MODULO_CLIENTES = (() => {
      ========================================================== */
 
   const ORIGENS = [
-    { codigo: 'instagram',   nome: 'Instagram' },
-    { codigo: 'whatsapp',    nome: 'WhatsApp' },
-    { codigo: 'facebook',    nome: 'Facebook' },
-    { codigo: 'shopee',      nome: 'Shopee' },
-    { codigo: 'mercado-livre', nome: 'Mercado Livre' },
-    { codigo: 'google',      nome: 'Google' },
-    { codigo: 'indicacao',   nome: 'Indicação' },
-    { codigo: 'site',        nome: 'Site' },
-    { codigo: 'loja-fisica', nome: 'Loja física' },
-    { codigo: 'evento',      nome: 'Evento / feira' },
-    { codigo: 'outros',      nome: 'Outros' }
+    { codigo: 'instagram',    nome: 'Instagram' },
+    { codigo: 'whatsapp',     nome: 'WhatsApp' },
+    { codigo: 'facebook',     nome: 'Facebook' },
+    { codigo: 'shopee',       nome: 'Shopee' },
+    { codigo: 'mercado-livre',nome: 'Mercado Livre' },
+    { codigo: 'google',       nome: 'Google' },
+    { codigo: 'indicacao',    nome: 'Indicação' },
+    { codigo: 'site',         nome: 'Site' },
+    { codigo: 'loja-fisica',  nome: 'Loja física' },
+    { codigo: 'evento',       nome: 'Evento / feira' },
+    { codigo: 'outros',       nome: 'Outros' }
   ];
 
   function nomeOrigem(codigo) {
@@ -71,10 +76,6 @@ const MODULO_CLIENTES = (() => {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('pt-BR');
-  }
-
-  function apenasDigitos(v) {
-    return String(v || '').replace(/\D/g, '');
   }
 
   /* ==========================================================
@@ -176,15 +177,19 @@ const MODULO_CLIENTES = (() => {
 
   /* ==========================================================
      6. HISTÓRICO DO CLIENTE
-     (integra com MODULO_VENDAS)
      ========================================================== */
 
   function historicoCliente(cliente) {
-    if (!window.MODULO_VENDAS) return { compras: 0, total: 0, ultima: null };
-    const vendas = (window.MODULO_VENDAS._listar() || [])
-      .filter(v => v.status !== 'cancelada' && v.cliente && v.cliente.toLowerCase() === cliente.nome.toLowerCase());
+    if (!window.MODULO_VENDAS_CORE) return { compras: 0, total: 0, ultima: null };
 
-    const total = vendas.reduce((acc, v) => acc + (Number(v.totais?.subtotal) || 0), 0);
+    const vendas = (window.MODULO_VENDAS_CORE._listar() || [])
+      .filter(v =>
+        v.status !== 'cancelada' &&
+        v.cliente &&
+        v.cliente.toLowerCase() === cliente.nome.toLowerCase()
+      );
+
+    const total = vendas.reduce((acc, v) => acc + (Number(v.totais?.subtotalPraticado) || 0), 0);
     const ultima = vendas.length > 0
       ? vendas.reduce((a, b) => (a.criadoEm > b.criadoEm ? a : b)).criadoEm
       : null;
@@ -790,7 +795,6 @@ const MODULO_CLIENTES = (() => {
     alterarFiltroBusca,
     alterarFiltroOrigem,
     alterarFiltroStatus,
-    // Uso futuro
     _listarClientes: () => [...clientes],
     _listarFornecedores: () => [...fornecedores],
     _buscarCliente: buscarCliente,
