@@ -1,9 +1,15 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO FINANCEIRO (v2 com Sangria)
+   PRAFICAR ERP — MÓDULO FINANCEIRO (v3)
    Arquivo: assets/js/modulos/financeiro.js
    Descrição: contas a receber, contas a pagar, fluxo de caixa
               e aba SANGRIA calculada sobre a Margem de
               Contribuição (Faturamento − CMV − Taxas − Frete).
+
+   v3:
+   - Correção: MODULO_VENDAS → MODULO_VENDAS_CORE
+   - Correção: totais.subtotal → totais.subtotalPraticado
+   - Visual ERP enterprise premium
+   - Subtítulos didáticos em todas as abas
    ============================================================ */
 
 const MODULO_FINANCEIRO = (() => {
@@ -13,7 +19,7 @@ const MODULO_FINANCEIRO = (() => {
      ========================================================== */
 
   let lancamentos = [];
-  let sangrias = [];              // histórico de sangrias
+  let sangrias = [];
   let proximoId = 1;
   let proximoIdSangria = 1;
 
@@ -23,7 +29,6 @@ const MODULO_FINANCEIRO = (() => {
 
   let lancamentoEditandoId = null;
 
-  // Período selecionado na Sangria
   let periodoSangria = { inicio: '', fim: '' };
 
   /* ==========================================================
@@ -43,10 +48,10 @@ const MODULO_FINANCEIRO = (() => {
   ];
 
   const CATEGORIAS_SANGRIA = [
-    { chave: 'lucro_retido',   nome: 'Lucro Retido',   percentual: 10 },
-    { chave: 'pro_labore',     nome: 'Pró-labore',     percentual: 50 },
-    { chave: 'impostos',       nome: 'Impostos',       percentual: 18 },
-    { chave: 'reinvestimento', nome: 'Reinvestimento', percentual: 22 }
+    { chave: 'lucro_retido',   nome: 'Lucro Retido',   percentual: 10, descricao: 'Reserva para imprevistos e crescimento' },
+    { chave: 'pro_labore',     nome: 'Pró-labore',     percentual: 50, descricao: 'Sua retirada pelo trabalho' },
+    { chave: 'impostos',       nome: 'Impostos',       percentual: 18, descricao: 'Reserva para tributos' },
+    { chave: 'reinvestimento', nome: 'Reinvestimento', percentual: 22, descricao: 'Compra de insumos e equipamentos' }
   ];
 
   function statusInfo(codigo) {
@@ -74,7 +79,7 @@ const MODULO_FINANCEIRO = (() => {
 
   function formatarData(iso) {
     if (!iso) return '—';
-    const d = new Date(iso + 'T00:00:00');
+    const d = new Date(iso + (iso.includes('T') ? '' : 'T00:00:00'));
     if (isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('pt-BR');
   }
@@ -155,9 +160,9 @@ const MODULO_FINANCEIRO = (() => {
      ========================================================== */
 
   function sincronizarComVendas() {
-    if (!window.MODULO_VENDAS) return;
+    if (!window.MODULO_VENDAS_CORE) return;
 
-    const vendas = window.MODULO_VENDAS._listar() || [];
+    const vendas = window.MODULO_VENDAS_CORE._listar() || [];
 
     vendas.forEach(v => {
       if (v.status === 'cancelada') return;
@@ -175,7 +180,7 @@ const MODULO_FINANCEIRO = (() => {
       criarLancamento({
         tipo: 'receber',
         descricao: `Venda ${v.numero} · ${v.cliente || 'sem cliente'} · ${v.canalNome}`,
-        valor: v.totais?.subtotal || 0,
+        valor: v.totais?.subtotalPraticado || 0,
         vencimento,
         status: v.status === 'pago' ? 'pago' : 'pendente',
         categoria: 'Vendas',
@@ -227,19 +232,18 @@ const MODULO_FINANCEIRO = (() => {
     const inicio = periodoSangria.inicio || inicioDoMes();
     const fim = periodoSangria.fim || hojeISO();
 
-    const vendas = (window.MODULO_VENDAS?._listar() || []).filter(v => {
+    const vendas = (window.MODULO_VENDAS_CORE?._listar() || []).filter(v => {
       const data = v.criadoEm?.split('T')[0];
       return data >= inicio && data <= fim && v.status !== 'cancelada';
     });
 
-    const faturamentoBruto = vendas.reduce((a, v) => a + (Number(v.totais?.subtotal) || 0), 0);
+    const faturamentoBruto = vendas.reduce((a, v) => a + (Number(v.totais?.subtotalPraticado) || 0), 0);
     const cmv = vendas.reduce((a, v) => a + (Number(v.totais?.custoTotal) || 0), 0);
     const taxasCanal = vendas.reduce((a, v) => a + (Number(v.totais?.taxaCanalValor) || 0) + (Number(v.totais?.taxaFixa) || 0), 0);
     const freteVendedor = vendas.reduce((a, v) => a + (Number(v.freteVendedor) || 0), 0);
 
     const margemContribuicao = faturamentoBruto - cmv - taxasCanal - freteVendedor;
 
-    // Distribuição
     const distribuicao = CATEGORIAS_SANGRIA.map(cat => ({
       ...cat,
       valor: margemContribuicao * (cat.percentual / 100)
@@ -264,13 +268,13 @@ const MODULO_FINANCEIRO = (() => {
   function registrarSangria(categoria, dados) {
     const s = {
       id: proximoIdSangria++,
-      categoria,                    // chave da categoria
+      categoria,
       categoriaNome: dados.categoriaNome,
       percentual: Number(dados.percentual) || 0,
       planejado: Number(dados.planejado) || 0,
       realizado: Number(dados.realizado) || 0,
       diferenca: (Number(dados.realizado) || 0) - (Number(dados.planejado) || 0),
-      status: dados.status,         // pendente | realizada | divergente
+      status: dados.status,
       data: dados.data || hojeISO(),
       responsavel: dados.responsavel || 'Administrador',
       observacao: dados.observacao || '',
@@ -359,7 +363,7 @@ const MODULO_FINANCEIRO = (() => {
             </span>
           </div>
           <div class="kpi__valor text-sucesso">${formatarMoeda(k.aReceber)}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">Pendente</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Pendente de recebimento</div>
         </div>
 
         <div class="kpi">
@@ -370,7 +374,7 @@ const MODULO_FINANCEIRO = (() => {
             </span>
           </div>
           <div class="kpi__valor text-critico">${formatarMoeda(k.aPagar)}</div>
-          <div class="kpi__variacao kpi__variacao--neutra">Pendente</div>
+          <div class="kpi__variacao kpi__variacao--neutra">Pendente de pagamento</div>
         </div>
 
         <div class="kpi">
@@ -415,6 +419,12 @@ const MODULO_FINANCEIRO = (() => {
 
   function renderAbaLancamentos() {
     return `
+      <div class="fin-info">
+        ${abaAtiva === 'receber'
+          ? 'Vendas geram contas a receber automaticamente, respeitando o prazo de repasse do canal.'
+          : 'Cadastre contas a pagar para acompanhar custos e despesas.'}
+      </div>
+
       <div class="filtros-financeiro">
         <div class="filtros-financeiro__busca">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -445,6 +455,9 @@ const MODULO_FINANCEIRO = (() => {
 
     if (lista.length === 0) {
       const titulo = abaAtiva === 'receber' ? 'Nenhuma conta a receber' : 'Nenhuma conta a pagar';
+      const desc = abaAtiva === 'receber'
+        ? 'Vendas por marketplace geram contas a receber automaticamente.'
+        : 'Cadastre contas a pagar para acompanhar seus custos.';
 
       return `
         <div class="card">
@@ -453,11 +466,7 @@ const MODULO_FINANCEIRO = (() => {
               <svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             </div>
             <h3 class="vazio__titulo">${titulo}</h3>
-            <p class="vazio__descricao">
-              ${abaAtiva === 'receber'
-                ? 'Vendas por marketplace geram contas a receber automaticamente, respeitando o prazo de repasse do canal.'
-                : 'Cadastre contas a pagar para acompanhar seus custos e despesas.'}
-            </p>
+            <p class="vazio__descricao">${desc}</p>
             <button class="btn btn--primario" onclick="MODULO_FINANCEIRO.abrirNovo('${abaAtiva}')">
               + Nova conta
             </button>
@@ -507,7 +516,9 @@ const MODULO_FINANCEIRO = (() => {
         <td>
           ${l.origem === 'venda'
             ? `<span class="badge badge--info">Venda</span>`
-            : `<span class="badge badge--neutro">Manual</span>`}
+            : l.origem === 'sangria'
+              ? `<span class="badge badge--atencao">Sangria</span>`
+              : `<span class="badge badge--neutro">Manual</span>`}
         </td>
         <td><span class="badge badge--${s.cor}">${s.nome}</span></td>
         <td class="tabela__acao">
@@ -561,6 +572,10 @@ const MODULO_FINANCEIRO = (() => {
     }
 
     return `
+      <div class="fin-info">
+        Previsão de entradas e saídas para os próximos 30 dias.
+      </div>
+
       <div class="grid grid--3 mb-6">
         <div class="kpi">
           <div class="kpi__topo"><span class="kpi__label">Entradas 30 dias</span></div>
@@ -622,6 +637,11 @@ const MODULO_FINANCEIRO = (() => {
     const b = baseSangria();
 
     return `
+      <div class="fin-info">
+        Sangria distribui a <strong>margem de contribuição</strong> (faturamento − custos − taxas − frete)
+        entre pró-labore, impostos, reserva e reinvestimento.
+      </div>
+
       <div class="sangria">
 
         <div class="sangria__filtros">
@@ -707,6 +727,8 @@ const MODULO_FINANCEIRO = (() => {
           <div class="sangria-card__nome">${escaparHTML(d.nome)}</div>
           <div class="sangria-card__pct">${d.percentual}%</div>
         </div>
+
+        ${d.descricao ? `<div class="sangria-card__desc">${escaparHTML(d.descricao)}</div>` : ''}
 
         <div class="sangria-card__valor-principal">
           ${formatarMoeda(d.valor)}
@@ -931,7 +953,6 @@ const MODULO_FINANCEIRO = (() => {
       status = Math.abs(diferenca) < 0.01 ? 'realizada' : 'divergente';
     }
 
-    // Remove registro anterior para o mesmo período/categoria
     sangrias = sangrias.filter(s =>
       !(s.categoria === chaveCategoria && s.periodoInicio === b.inicio && s.periodoFim === b.fim)
     );
@@ -949,7 +970,6 @@ const MODULO_FINANCEIRO = (() => {
       periodoFim: b.fim
     });
 
-    // Se realizada, lança movimentações financeiras reais
     if (status !== 'pendente') {
       registrarMovimentacoesDaSangria(cat, valorRealizado, data, b);
     }
@@ -959,7 +979,6 @@ const MODULO_FINANCEIRO = (() => {
   }
 
   function registrarMovimentacoesDaSangria(cat, valor, data, b) {
-    // Remove lançamentos anteriores desta sangria
     lancamentos = lancamentos.filter(l =>
       !(l.origem === 'sangria' && l.categoria === cat.nome &&
         l.descricao.includes(b.inicio) && l.descricao.includes(b.fim))
@@ -967,7 +986,6 @@ const MODULO_FINANCEIRO = (() => {
 
     if (valor <= 0) return;
 
-    // Sangria = saída de caixa (dinheiro que sai do "caixa" para as destinações)
     criarLancamento({
       tipo: 'pagar',
       descricao: `Sangria ${cat.nome} · ${b.inicio} a ${b.fim}`,
