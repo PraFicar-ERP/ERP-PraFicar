@@ -2,8 +2,12 @@
    PRAFICAR ERP — MÓDULO ORÇAMENTOS
    Arquivo: assets/js/modulos/orcamentos.js
    Descrição: orçamentos para cliente. Pode ser alterado várias
-              vezes antes de aprovar. Aprovado vira encomenda.
+              vezes antes de aprovar. Aprovado vira pedido.
               Link público permite ao cliente comentar/negociar.
+
+   Fluxo de status:
+     rascunho → enviado → negociacao → aprovado
+     (e também: recusado / expirado / cancelado / virou_pedido)
    ============================================================ */
 
 const MODULO_ORCAMENTOS = (() => {
@@ -27,14 +31,14 @@ const MODULO_ORCAMENTOS = (() => {
      ========================================================== */
 
   const STATUS = [
-    { codigo: 'rascunho',     nome: 'Rascunho',     cor: 'neutro' },
-    { codigo: 'enviado',      nome: 'Enviado',      cor: 'info' },
-    { codigo: 'negociacao',   nome: 'Em negociação',cor: 'atencao' },
-    { codigo: 'aprovado',     nome: 'Aprovado',     cor: 'sucesso' },
-    { codigo: 'recusado',     nome: 'Recusado',     cor: 'critico' },
-    { codigo: 'expirado',     nome: 'Expirado',     cor: 'neutro' },
-    { codigo: 'cancelado',    nome: 'Cancelado',    cor: 'neutro' },
-    { codigo: 'virou_pedido', nome: 'Virou pedido', cor: 'sucesso' }
+    { codigo: 'rascunho',     nome: 'Rascunho',      cor: 'neutro'  },
+    { codigo: 'enviado',      nome: 'Enviado',       cor: 'info'    },
+    { codigo: 'negociacao',   nome: 'Em negociação', cor: 'atencao' },
+    { codigo: 'aprovado',     nome: 'Aprovado',      cor: 'sucesso' },
+    { codigo: 'recusado',     nome: 'Recusado',      cor: 'critico' },
+    { codigo: 'expirado',     nome: 'Expirado',      cor: 'neutro'  },
+    { codigo: 'cancelado',    nome: 'Cancelado',     cor: 'neutro'  },
+    { codigo: 'virou_pedido', nome: 'Virou pedido',  cor: 'sucesso' }
   ];
 
   function statusInfo(codigo) {
@@ -84,7 +88,7 @@ const MODULO_ORCAMENTOS = (() => {
   function gerarNumero() {
     const n = String(proximoNumero).padStart(4, '0');
     proximoNumero++;
-    return `PF-ORC-${n}`;
+    return `ORC-${n}`;
   }
 
   function gerarSlug() {
@@ -121,8 +125,8 @@ const MODULO_ORCAMENTOS = (() => {
       historico: [
         { data: new Date().toISOString(), status: dados.status || 'rascunho' }
       ],
-      encomendaId: null,
-      encomendaNumero: null,
+      pedidoId: null,
+      pedidoNumero: null,
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     };
@@ -161,6 +165,7 @@ const MODULO_ORCAMENTOS = (() => {
     const o = buscarOrcamento(id);
     if (!o) return false;
     if (o.status === 'virou_pedido') return false;
+    if (o.status === novoStatus) return false;
 
     o.status = novoStatus;
     o.historico.push({
@@ -224,12 +229,20 @@ const MODULO_ORCAMENTOS = (() => {
      ========================================================== */
 
   function render() {
+    const total = orcamentos.length;
+    const abertos = orcamentos.filter(o => ['rascunho', 'enviado', 'negociacao'].includes(o.status)).length;
+    const aprovados = orcamentos.filter(o => o.status === 'aprovado').length;
+    const vencidos = orcamentos.filter(o => {
+      if (['aprovado', 'virou_pedido', 'cancelado', 'recusado'].includes(o.status)) return false;
+      return o.validade && o.validade < hojeISO();
+    }).length;
+
     return `
       <div class="pagina-header">
         <div class="pagina-header__info">
           <h1 class="pagina-header__titulo">Orçamentos</h1>
           <p class="pagina-header__subtitulo">
-            ${orcamentos.length} ${orcamentos.length === 1 ? 'orçamento' : 'orçamentos'}
+            Cotações para clientes. Ao aprovar, viram pedido.
           </p>
         </div>
         <div class="pagina-header__acoes">
@@ -238,6 +251,56 @@ const MODULO_ORCAMENTOS = (() => {
           </button>
         </div>
       </div>
+
+      ${total > 0 ? `
+        <div class="grid grid--4 mb-6">
+          <div class="kpi">
+            <div class="kpi__topo">
+              <span class="kpi__label">Total</span>
+              <span class="kpi__icone">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>
+              </span>
+            </div>
+            <div class="kpi__valor">${total}</div>
+            <div class="kpi__variacao kpi__variacao--neutra">${total === 1 ? 'orçamento' : 'orçamentos'}</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi__topo">
+              <span class="kpi__label">Em aberto</span>
+              <span class="kpi__icone">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </span>
+            </div>
+            <div class="kpi__valor">${abertos}</div>
+            <div class="kpi__variacao kpi__variacao--neutra">aguardando cliente</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi__topo">
+              <span class="kpi__label">Aprovados</span>
+              <span class="kpi__icone">
+                <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+            </div>
+            <div class="kpi__valor text-sucesso">${aprovados}</div>
+            <div class="kpi__variacao kpi__variacao--neutra">prontos para pedido</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi__topo">
+              <span class="kpi__label">Vencidos</span>
+              <span class="kpi__icone">
+                <svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              </span>
+            </div>
+            <div class="kpi__valor ${vencidos > 0 ? 'text-critico' : ''}">${vencidos}</div>
+            <div class="kpi__variacao ${vencidos > 0 ? 'kpi__variacao--negativa' : 'kpi__variacao--neutra'}">
+              ${vencidos > 0 ? 'fora da validade' : 'dentro da validade'}
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       <div class="filtros-orcamentos">
         <div class="filtros-orcamentos__busca">
@@ -279,7 +342,7 @@ const MODULO_ORCAMENTOS = (() => {
             </h3>
             <p class="vazio__descricao">
               ${orcamentos.length === 0
-                ? 'Crie orçamentos para enviar aos clientes. Após aprovado, vira encomenda sem redigitar.'
+                ? 'Crie orçamentos para enviar aos clientes. Após aprovado, vira pedido sem redigitar.'
                 : 'Tente ajustar a busca ou os filtros.'}
             </p>
             ${orcamentos.length === 0 ? `
@@ -444,7 +507,10 @@ const MODULO_ORCAMENTOS = (() => {
 
               <div class="orc-secao">
                 <div class="orc-secao__header">
-                  <h3 class="orc-secao__titulo">Itens do orçamento</h3>
+                  <div>
+                    <h3 class="orc-secao__titulo">Itens do orçamento</h3>
+                    <p class="orc-secao__desc">Produtos que o cliente está cotando.</p>
+                  </div>
                   <button type="button" class="btn btn--secundario btn--sm" onclick="MODULO_ORCAMENTOS.abrirModalItem()">
                     + Adicionar item
                   </button>
@@ -462,7 +528,7 @@ const MODULO_ORCAMENTOS = (() => {
                 <div class="form-grupo">
                   <label for="orc-frete">Frete (R$)</label>
                   <input id="orc-frete" type="number" min="0" step="0.01" value="${o?.frete ?? ''}" placeholder="0,00" oninput="MODULO_ORCAMENTOS.atualizarResumo()" />
-                  <span class="form-ajuda">Deixe 0 se cliente paga</span>
+                  <span class="form-ajuda">Deixe 0 se o cliente paga</span>
                 </div>
               </div>
 
@@ -784,6 +850,7 @@ const MODULO_ORCAMENTOS = (() => {
     const s = statusInfo(o.status);
     const t = calcularTotais(o);
     const editavel = podeEditar(o);
+    const aprovado = o.status === 'aprovado';
 
     const html = `
       <div class="modal-overlay ativo" id="modal-detalhes-orc">
@@ -869,21 +936,44 @@ const MODULO_ORCAMENTOS = (() => {
                 </div>
               </div>
             ` : ''}
+
+            ${o.pedidoNumero ? `
+              <div class="alerta alerta--sucesso mt-4">
+                <span class="alerta__icone">
+                  <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <div class="alerta__conteudo">
+                  <div class="alerta__titulo">Virou pedido ${escaparHTML(o.pedidoNumero)}</div>
+                  Este orçamento foi convertido e não pode mais ser editado.
+                </div>
+              </div>
+            ` : ''}
           </div>
 
           <div class="modal__footer">
             <button class="btn btn--secundario" onclick="MODULO_ORCAMENTOS.fecharDetalhes()">Fechar</button>
 
             ${editavel ? `
-              <button class="btn btn--secundario" onclick="MODULO_ORCAMENTOS.alterarStatus(${o.id}, 'enviado')">Marcar como enviado</button>
-              <button class="btn btn--primario" onclick="MODULO_ORCAMENTOS.alterarStatus(${o.id}, 'aprovado')">Aprovar</button>
+              <button class="btn btn--secundario" onclick="MODULO_ORCAMENTOS.alterarStatus(${o.id}, 'enviado')">
+                Marcar como enviado
+              </button>
             ` : ''}
 
-            ${o.status === 'aprovado' ? `
-              <button class="btn btn--primario" onclick="MODULO_ORCAMENTOS.converterEmEncomenda(${o.id})">Converter em encomenda</button>
+            ${editavel ? `
+              <button class="btn btn--sucesso" onclick="MODULO_ORCAMENTOS.alterarStatus(${o.id}, 'aprovado')">
+                Aprovar
+              </button>
             ` : ''}
 
-            <button class="btn btn--secundario" onclick="MODULO_ORCAMENTOS.gerarLink(${o.id})">Gerar link</button>
+            ${aprovado ? `
+              <button class="btn btn--primario" onclick="MODULO_ORCAMENTOS.converterEmPedido(${o.id})">
+                Converter em pedido
+              </button>
+            ` : ''}
+
+            <button class="btn btn--ghost" onclick="MODULO_ORCAMENTOS.gerarLink(${o.id})">
+              Gerar link
+            </button>
           </div>
         </div>
       </div>
@@ -905,10 +995,10 @@ const MODULO_ORCAMENTOS = (() => {
   function marcarAprovado(id) { alterarStatus(id, 'aprovado'); fecharDetalhes(); rerender(); }
 
   /* ==========================================================
-     15. CONVERTER EM ENCOMENDA
+     15. CONVERTER EM PEDIDO
      ========================================================== */
 
-  function converterEmEncomenda(id) {
+  function converterEmPedido(id) {
     const o = buscarOrcamento(id);
     if (!o) return;
 
@@ -916,17 +1006,21 @@ const MODULO_ORCAMENTOS = (() => {
       return alert('Só é possível converter orçamento com status "Aprovado".');
     }
 
-    if (!window.MODULO_ENCOMENDAS) {
-      return alert('Módulo de Encomendas não disponível.');
+    if (!window.MODULO_PEDIDOS) {
+      return alert('Módulo de Pedidos não disponível.');
     }
 
-    if (!confirm(`Converter o orçamento ${o.numero} em encomenda?`)) return;
+    if (!confirm(`Converter o orçamento ${o.numero} em pedido?`)) return;
 
     try {
       const t = calcularTotais(o);
 
-      const encomenda = window.MODULO_ENCOMENDAS._criarDoOrcamento({
+      const pedido = window.MODULO_PEDIDOS._criarDoOrcamento({
         cliente: o.cliente,
+        clienteId: o.clienteId,
+        whatsapp: o.whatsapp,
+        email: o.email,
+        documento: o.documento,
         itens: o.itens.map(i => ({
           produtoId: i.produtoId,
           nome: i.nome,
@@ -938,6 +1032,8 @@ const MODULO_ORCAMENTOS = (() => {
         desconto: o.descontoGeral,
         frete: o.frete,
         prazo: o.prazo,
+        formaPagamento: o.formaPagamento,
+        formaEntrega: o.formaEntrega,
         observacoes: `Gerado do orçamento ${o.numero}`,
         personalizacao: { tema: '', cor: '', texto: '' },
         orcamentoId: o.id,
@@ -945,8 +1041,8 @@ const MODULO_ORCAMENTOS = (() => {
       });
 
       o.status = 'virou_pedido';
-      o.encomendaId = encomenda.id;
-      o.encomendaNumero = encomenda.numero;
+      o.pedidoId = pedido.id;
+      o.pedidoNumero = pedido.numero;
       o.historico.push({
         data: new Date().toISOString(),
         status: 'virou_pedido'
@@ -955,13 +1051,13 @@ const MODULO_ORCAMENTOS = (() => {
       fecharDetalhes();
 
       alert(
-        'Orçamento convertido em encomenda!\n\n' +
-        'Encomenda: ' + encomenda.numero + '\n' +
+        'Orçamento convertido em pedido!\n\n' +
+        'Pedido: ' + pedido.numero + '\n' +
         'Cliente: ' + o.cliente + '\n' +
         'Total: ' + formatarMoeda(t.total)
       );
 
-      setTimeout(() => window.ROUTER_PRAFICAR?.irPara('encomendas'), 300);
+      setTimeout(() => window.ROUTER_PRAFICAR?.irPara('pedidos'), 300);
 
     } catch (e) {
       console.error(e);
@@ -1024,7 +1120,7 @@ const MODULO_ORCAMENTOS = (() => {
     marcarEnviado,
     marcarAprovado,
     alterarStatus,
-    converterEmEncomenda,
+    converterEmPedido,
     gerarLink,
     abrirModalItem,
     fecharModalItem,
