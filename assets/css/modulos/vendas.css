@@ -1,352 +1,123 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO VENDAS (v4)
+   PRAFICAR ERP — ESTILOS DO MÓDULO VENDAS (unificado)
    Arquivo: assets/css/modulos/vendas.css
+   Descrição: estilos das abas e do layout da tela unificada.
+              Estilos específicos de cada aba ficam em:
+              - vendas-core.css  (aba Vendas)
+              - orcamentos.css   (aba Orçamentos)
+              - pedidos.css      (aba Pedidos)
    ============================================================ */
 
 /* ============================================================
-   1. FILTROS
+   1. ABAS PRINCIPAIS
    ============================================================ */
 
-.filtros-vendas {
+.vendas-abas {
   display: flex;
-  align-items: center;
-  gap: var(--esp-3);
+  align-items: stretch;
+  gap: var(--esp-1);
+  border-bottom: 1px solid var(--cor-borda-suave);
   margin-bottom: var(--esp-5);
-  flex-wrap: wrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
-.filtros-vendas__busca {
+.vendas-abas::-webkit-scrollbar {
+  height: 4px;
+}
+
+.vendas-abas::-webkit-scrollbar-thumb {
+  background-color: var(--cor-borda-media);
+  border-radius: var(--raio-pill);
+}
+
+.vendas-aba {
   position: relative;
-  flex: 1;
-  min-width: 240px;
-}
-
-.filtros-vendas__busca svg {
-  position: absolute;
-  left: var(--esp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  stroke: var(--cor-texto-secundario);
-  fill: none;
-  stroke-width: 2;
-  pointer-events: none;
-}
-
-.filtros-vendas__busca input {
-  padding-left: var(--esp-10);
-  height: 38px;
-}
-
-.filtros-vendas__select {
-  width: auto;
-  min-width: 200px;
-  height: 38px;
-  padding: 0 var(--esp-10) 0 var(--esp-3);
-}
-
-/* ============================================================
-   2. BADGES NA TABELA
-   ============================================================ */
-
-.venda-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-/* ============================================================
-   3. MODAL NOVA VENDA
-   ============================================================ */
-
-#modal-venda .modal {
-  max-width: 780px;
-}
-
-#modal-venda .form-grupo:last-child {
-  margin-bottom: 0;
-}
-
-#modal-venda .enc-secao {
-  margin-top: var(--esp-5);
-  padding-top: var(--esp-5);
-  border-top: 1px solid var(--cor-borda-suave);
-}
-
-#modal-venda .enc-secao__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--esp-3);
-  margin-bottom: var(--esp-4);
-}
-
-#modal-venda .enc-secao__titulo {
-  font-size: var(--texto-md);
-  font-weight: var(--peso-semibold);
-  color: var(--cor-texto-principal);
-  margin: 0;
-}
-
-/* ============================================================
-   4. LISTA DE ITENS
-   ============================================================ */
-
-.enc-itens-vazio {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--esp-3);
-  padding: var(--esp-5) var(--esp-4);
-  text-align: center;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--esp-3) var(--esp-5);
+  font-family: var(--fonte-base);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
   color: var(--cor-texto-secundario);
-  font-size: var(--texto-sm);
-  border: 1px dashed var(--cor-borda-media);
-  border-radius: var(--raio-md);
-  background-color: var(--cinza-50);
-}
-
-.tabela-itens {
-  font-size: var(--texto-sm);
-}
-
-.tabela-itens tfoot td {
-  padding-top: var(--esp-3);
-  padding-bottom: var(--esp-3);
-  border-top: 2px solid var(--cor-borda-suave);
-  border-bottom: none;
-}
-
-.enc-item-nome {
-  font-weight: var(--peso-medio);
-  color: var(--cor-texto-principal);
-}
-
-/* Origem do preço */
-.venda-item-origem {
-  font-size: 10px;
-  color: var(--azul-medio);
-  font-weight: var(--peso-semibold);
-  margin-top: 2px;
-}
-
-/* Info do canal dentro do modal de item */
-.venda-item-canal-info {
-  padding: var(--esp-3) var(--esp-4);
-  background-color: var(--azul-suave);
-  border-radius: var(--raio-md);
-  font-size: var(--texto-sm);
-  color: var(--cor-texto-padrao);
-  margin-bottom: var(--esp-4);
-}
-
-.venda-item-canal-info strong {
-  color: var(--azul-marinho);
-}
-
-/* ============================================================
-   5. MODAL DE ITEM
-   ============================================================ */
-
-#modal-item-venda .modal {
-  max-width: 640px;
-}
-
-.venda-item-tipo {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--esp-2);
-  margin: var(--esp-4) 0;
-}
-
-.venda-item-tipo__opcao {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-2);
-  padding: var(--esp-3) var(--esp-4);
-  background-color: var(--cinza-50);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-md);
-  font-size: var(--texto-sm);
-  font-weight: var(--peso-medio);
-  color: var(--cor-texto-padrao);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
   cursor: pointer;
-  transition: background-color var(--transicao-rapida),
-              border-color var(--transicao-rapida),
-              color var(--transicao-rapida);
-  user-select: none;
+  transition: color var(--transicao-rapida),
+              background-color var(--transicao-rapida),
+              border-color var(--transicao-rapida);
+  white-space: nowrap;
+  text-align: left;
 }
 
-.venda-item-tipo__opcao:hover {
-  background-color: var(--azul-suave);
-  border-color: rgba(46, 111, 168, 0.2);
-}
-
-.venda-item-tipo__opcao input {
-  display: none;
-}
-
-.venda-item-tipo__opcao input:checked ~ span {
-  color: var(--azul-marinho);
-}
-
-.venda-item-tipo__opcao:has(input:checked) {
-  background-color: var(--azul-suave);
-  border-color: var(--azul-medio);
-  color: var(--azul-marinho);
-  font-weight: var(--peso-semibold);
-}
-
-.venda-item-preview {
-  margin-top: var(--esp-4);
-  padding: var(--esp-4);
+.vendas-aba:hover {
+  color: var(--cor-texto-principal);
   background-color: var(--cinza-50);
-  border-radius: var(--raio-md);
 }
 
-.venda-item-preview__linha {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--esp-2) 0;
-  font-size: var(--texto-sm);
-  color: var(--cor-texto-padrao);
-  border-bottom: 1px dashed var(--cor-borda-suave);
+.vendas-aba--ativa {
+  color: var(--azul-medio);
+  border-bottom-color: var(--azul-medio);
 }
 
-.venda-item-preview__linha:last-child {
-  border-bottom: none;
-}
-
-.venda-item-preview__linha strong {
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--peso-semibold);
-}
-
-.venda-item-preview__linha--destaque {
-  border-top: 1px solid var(--cor-borda-media);
-  border-bottom: none;
-  padding-top: var(--esp-3);
+.vendas-aba__nome {
   font-size: var(--texto-base);
   font-weight: var(--peso-semibold);
-  color: var(--cor-texto-principal);
-}
-
-/* ============================================================
-   6. RESUMO EM TEMPO REAL
-   ============================================================ */
-
-.venda-resumo {
-  margin-top: var(--esp-5);
-  padding-top: var(--esp-5);
-  border-top: 1px solid var(--cor-borda-suave);
-}
-
-.venda-resumo__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--esp-3);
-}
-
-.venda-resumo__item {
-  background-color: var(--cinza-50);
-  border: 1px solid var(--cor-borda-suave);
-  border-radius: var(--raio-md);
-  padding: var(--esp-3) var(--esp-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--esp-1);
-}
-
-.venda-resumo__label {
-  font-size: var(--texto-xs);
-  font-weight: var(--peso-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--letra-caps);
-  color: var(--cor-texto-secundario);
-}
-
-.venda-resumo__valor {
-  font-size: var(--texto-lg);
-  font-weight: var(--peso-bold);
-  font-variant-numeric: tabular-nums;
-  color: var(--cor-texto-principal);
   letter-spacing: var(--letra-apertada);
+  line-height: 1.2;
 }
 
-.venda-resumo__item--destaque {
-  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
-  border-color: var(--azul-marinho);
+.vendas-aba--ativa .vendas-aba__nome {
+  color: var(--azul-marinho);
 }
 
-.venda-resumo__item--destaque .venda-resumo__label {
-  color: var(--azul-claro);
+.vendas-aba__desc {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-regular);
+  color: var(--cor-texto-secundario);
+  line-height: 1.2;
 }
 
-.venda-resumo__item--destaque .venda-resumo__valor {
-  color: var(--branco);
-}
-
-.venda-resumo__item--destaque .venda-resumo__valor.text-sucesso {
-  color: #7FE0A0;
-}
-
-.venda-resumo__item--destaque .venda-resumo__valor.text-critico {
-  color: #FFB1B1;
+.vendas-aba--ativa .vendas-aba__desc {
+  color: var(--azul-medio);
+  opacity: 0.85;
 }
 
 /* ============================================================
-   7. DETALHES DA VENDA
+   2. CONTEÚDO
    ============================================================ */
 
-.venda-detalhe-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--esp-3);
-  padding: var(--esp-4);
-  background-color: var(--cinza-50);
-  border-radius: var(--raio-md);
-  font-size: var(--texto-sm);
-  color: var(--cor-texto-padrao);
-}
-
-.venda-detalhe-grid strong {
-  color: var(--cor-texto-principal);
-  font-weight: var(--peso-semibold);
-  margin-right: var(--esp-1);
+.vendas-conteudo {
+  min-height: 400px;
 }
 
 /* ============================================================
-   8. RESPONSIVO
+   3. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 768px) {
-  .filtros-vendas {
-    flex-direction: column;
-    align-items: stretch;
+  .vendas-aba {
+    padding: var(--esp-3) var(--esp-4);
   }
 
-  .filtros-vendas__select {
-    width: 100%;
+  .vendas-aba__nome {
+    font-size: var(--texto-sm);
   }
 
-  .venda-resumo__grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .venda-item-tipo {
-    grid-template-columns: 1fr;
-  }
-
-  #modal-venda .modal,
-  #modal-item-venda .modal {
-    max-width: 100%;
+  .vendas-aba__desc {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
-  .venda-resumo__grid {
-    grid-template-columns: 1fr;
+  .vendas-aba {
+    padding: var(--esp-2) var(--esp-3);
+    flex: 1;
+    align-items: center;
+    text-align: center;
   }
 }
