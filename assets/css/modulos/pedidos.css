@@ -1,0 +1,280 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO PEDIDOS
+   Arquivo: assets/css/modulos/pedidos.css
+   Descrição: estilos da tela de pedidos confirmados.
+              Substitui o antigo encomendas.css.
+   ============================================================ */
+
+/* ============================================================
+   1. FILTROS
+   ============================================================ */
+
+.filtros-pedidos {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-pedidos__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-pedidos__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-pedidos__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-pedidos__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. COLUNAS DA TABELA
+   ============================================================ */
+
+.pedido-cliente {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+.pedido-tema {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  margin-top: 2px;
+}
+
+.pedido-atraso {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-critico);
+  margin-top: 2px;
+}
+
+/* ============================================================
+   3. MODAL DE PEDIDO
+   ============================================================ */
+
+#modal-pedido .modal {
+  max-width: 860px;
+}
+
+.ped-detalhe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-padrao);
+}
+
+.ped-detalhe-grid strong {
+  color: var(--cor-texto-principal);
+  font-weight: var(--peso-semibold);
+  margin-right: var(--esp-1);
+}
+
+/* ============================================================
+   4. ITEM COM ESTOQUE
+   ============================================================ */
+
+.ped-item-estoque {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+
+.ped-item-estoque__qtd {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+}
+
+.ped-item-falta {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-critico);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   5. RESUMO DO PEDIDO
+   ============================================================ */
+
+.ped-resumo {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.ped-resumo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--esp-3);
+}
+
+.ped-resumo__item {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-3) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.ped-resumo__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.ped-resumo__valor {
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+  letter-spacing: var(--letra-apertada);
+}
+
+.ped-resumo__item--destaque {
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  border-color: var(--azul-marinho);
+}
+
+.ped-resumo__item--destaque .ped-resumo__label {
+  color: var(--azul-claro);
+}
+
+.ped-resumo__item--destaque .ped-resumo__valor {
+  color: var(--branco);
+}
+
+/* ============================================================
+   6. HISTÓRICO
+   ============================================================ */
+
+.ped-historico {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.ped-historico__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  padding: var(--esp-2) var(--esp-3);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+}
+
+.ped-historico__data {
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-xs);
+}
+
+/* ============================================================
+   7. SEÇÕES COMPARTILHADAS
+   ============================================================ */
+
+.enc-secao {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.enc-secao__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-4);
+  flex-wrap: wrap;
+}
+
+.enc-secao__titulo {
+  font-size: var(--texto-md);
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+  margin: 0;
+}
+
+.enc-secao__desc {
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+  margin: 4px 0 0;
+}
+
+.enc-itens-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-5) var(--esp-4);
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  font-size: var(--texto-sm);
+  border: 1px dashed var(--cor-borda-media);
+  border-radius: var(--raio-md);
+  background-color: var(--cinza-50);
+}
+
+.enc-item-nome {
+  font-weight: var(--peso-medio);
+  color: var(--cor-texto-principal);
+}
+
+/* ============================================================
+   8. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-pedidos {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-pedidos__select {
+    width: 100%;
+  }
+
+  #modal-pedido .modal {
+    max-width: 100%;
+  }
+
+  .ped-resumo__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .ped-resumo__grid {
+    grid-template-columns: 1fr;
+  }
+}
