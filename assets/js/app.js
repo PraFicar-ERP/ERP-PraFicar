@@ -1,8 +1,13 @@
 /* ============================================================
-   PRAFICAR ERP — APP PRINCIPAL (v8)
+   PRAFICAR ERP — APP PRINCIPAL (v9)
    Arquivo: assets/js/app.js
    Descrição: inicialização, menu lateral, header, ícones e
               botão da calculadora flutuante.
+
+   v9:
+   - Menu reorganizado
+   - "Encomendas" → "Pedidos"
+   - Removido "Kits" (kits vivem em Produtos)
    ============================================================ */
 
 const APP_PRAFICAR = (() => {
@@ -15,10 +20,9 @@ const APP_PRAFICAR = (() => {
     inicio:       '<svg viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>',
     vendas:       '<svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
     orcamentos:   '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>',
-    encomendas:   '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    pedidos:      '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     produtos:     '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
     estoque:      '<svg viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M5 7v14h14V7"/><path d="M9 11h6"/><path d="M9 15h6"/></svg>',
-    kits:         '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18"/><path d="M12 8V3"/><path d="M8 8V5a4 4 0 0 1 8 0v3"/></svg>',
     custos:       '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
     canais:       '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20"/><path d="M12 2a15 15 0 0 0 0 20"/></svg>',
     financeiro:   '<svg viewBox="0 0 24 24"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
@@ -42,17 +46,14 @@ const APP_PRAFICAR = (() => {
       grupo: 'Comercial',
       itens: [
         { rota: 'inicio',     texto: 'Início' },
-        { rota: 'vendas',     texto: 'Vendas' },
-        { rota: 'orcamentos', texto: 'Orçamentos' },
-        { rota: 'encomendas', texto: 'Encomendas' }
+        { rota: 'vendas',     texto: 'Vendas' }
       ]
     },
     {
       grupo: 'Cadastros',
       itens: [
         { rota: 'produtos',   texto: 'Produtos' },
-        { rota: 'estoque',    texto: 'Estoque' },
-        { rota: 'kits',       texto: 'Kits' }
+        { rota: 'estoque',    texto: 'Estoque' }
       ]
     },
     {
@@ -135,7 +136,7 @@ const APP_PRAFICAR = (() => {
     if (b) {
       b.innerHTML = `
         ${ICONES.busca}
-        <input type="search" placeholder="Buscar produtos, clientes, encomendas..." />
+        <input type="search" placeholder="Buscar produtos, clientes, pedidos..." />
       `;
     }
 
