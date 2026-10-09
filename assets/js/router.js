@@ -1,14 +1,16 @@
 /* ============================================================
-   PRAFICAR ERP — ROTEADOR SPA (v5)
+   PRAFICAR ERP — ROTEADOR SPA (v6)
    Arquivo: assets/js/router.js
    Descrição: roteamento por hash (#/modulo). Controla qual
               tela é renderizada, atualiza o menu ativo e o
               breadcrumb.
 
-   v5:
-   - Rota "encomendas" → "pedidos"
-   - Rota "kits" removida (kits vivem em Produtos)
-   - Rota "estoque" agora aponta para renderEstoque real
+   v6:
+   - Rotas removidas: orcamentos, pedidos, custos
+     (vivem dentro de Vendas ou Produtos como abas)
+   - Rota nova: fornecedores (usa o mesmo clientes.js,
+     mas abre na aba "fornecedores")
+   - 11 rotas comerciais
    ============================================================ */
 
 const ROUTER_PRAFICAR = (() => {
@@ -18,19 +20,17 @@ const ROUTER_PRAFICAR = (() => {
      ========================================================== */
 
   const ROTAS = {
-    'inicio':       { titulo: 'Início',                  icone: 'inicio',     render: 'renderInicio' },
-    'vendas':       { titulo: 'Vendas',                  icone: 'vendas',     render: 'renderVendas' },
-    'orcamentos':   { titulo: 'Orçamentos',              icone: 'orcamentos', render: 'renderOrcamentos' },
-    'pedidos':      { titulo: 'Pedidos',                 icone: 'pedidos',    render: 'renderPedidos' },
-    'produtos':     { titulo: 'Produtos & Estoque',      icone: 'produtos',   render: 'renderProdutos' },
-    'estoque':      { titulo: 'Estoque',                 icone: 'estoque',    render: 'renderEstoque' },
-    'custos':       { titulo: 'Custos e Fabricação',     icone: 'custos',     render: 'renderCustos' },
-    'canais':       { titulo: 'Canais de Venda',         icone: 'canais',     render: 'renderCanais' },
-    'financeiro':   { titulo: 'Financeiro',              icone: 'financeiro', render: 'renderFinanceiro' },
-    'clientes':     { titulo: 'Clientes & Fornecedores', icone: 'clientes',   render: 'renderClientes' },
-    'relatorios':   { titulo: 'Relatórios',              icone: 'relatorios', render: 'renderRelatorios' },
-    'qrcode':       { titulo: 'QR Code',                 icone: 'qrcode',     render: 'renderQRCode' },
-    'config':       { titulo: 'Configurações',           icone: 'config',     render: 'renderConfig' }
+    'inicio':       { titulo: 'Início',                  icone: 'inicio',       render: 'renderInicio' },
+    'vendas':       { titulo: 'Vendas',                  icone: 'vendas',       render: 'renderVendas' },
+    'clientes':     { titulo: 'Clientes',                icone: 'clientes',     render: 'renderClientes' },
+    'produtos':     { titulo: 'Produtos',                icone: 'produtos',     render: 'renderProdutos' },
+    'estoque':      { titulo: 'Estoque',                 icone: 'estoque',      render: 'renderEstoque' },
+    'fornecedores': { titulo: 'Fornecedores',            icone: 'fornecedores', render: 'renderFornecedores' },
+    'financeiro':   { titulo: 'Financeiro',              icone: 'financeiro',   render: 'renderFinanceiro' },
+    'relatorios':   { titulo: 'Relatórios',              icone: 'relatorios',   render: 'renderRelatorios' },
+    'qrcode':       { titulo: 'QR Code',                 icone: 'qrcode',       render: 'renderQRCode' },
+    'canais':       { titulo: 'Canais de Venda',         icone: 'canais',       render: 'renderCanais' },
+    'config':       { titulo: 'Configurações',           icone: 'config',       render: 'renderConfig' }
   };
 
   const ROTA_PADRAO = 'inicio';
@@ -71,8 +71,7 @@ const ROUTER_PRAFICAR = (() => {
     if (faltando.length > 0) {
       console.warn(
         '[PraFicar Router] Módulos com render ausente:\n' +
-        faltando.map(f => `  - ${f.rota} → window.${f.funcao}`).join('\n') +
-        '\n\nVerifique se o <script> do módulo está incluído no index.html e se não há erro de sintaxe.'
+        faltando.map(f => `  - ${f.rota} → window.${f.funcao}`).join('\n')
       );
     } else {
       console.log('[PraFicar Router] Todos os módulos carregados com sucesso.');
