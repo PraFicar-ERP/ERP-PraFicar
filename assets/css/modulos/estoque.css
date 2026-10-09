@@ -1,0 +1,204 @@
+/* ============================================================
+   PRAFICAR ERP — ESTILOS DO MÓDULO ESTOQUE
+   Arquivo: assets/css/modulos/estoque.css
+   Descrição: estilos da tela de estoque, produção e ajuste.
+   ============================================================ */
+
+/* ============================================================
+   1. FILTROS
+   ============================================================ */
+
+.filtros-estoque {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-5);
+  flex-wrap: wrap;
+}
+
+.filtros-estoque__busca {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.filtros-estoque__busca svg {
+  position: absolute;
+  left: var(--esp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--cor-texto-secundario);
+  fill: none;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.filtros-estoque__busca input {
+  padding-left: var(--esp-10);
+  height: 38px;
+}
+
+.filtros-estoque__select {
+  width: auto;
+  min-width: 180px;
+  height: 38px;
+  padding: 0 var(--esp-10) 0 var(--esp-3);
+}
+
+/* ============================================================
+   2. CÉLULA DE ESTOQUE NA TABELA
+   ============================================================ */
+
+.produto-estoque-celula {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.produto-estoque-numero {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--peso-semibold);
+  color: var(--cor-texto-principal);
+}
+
+/* ============================================================
+   3. MODAL DE PRODUÇÃO
+   ============================================================ */
+
+#modal-producao .modal {
+  max-width: 720px;
+}
+
+.estoque-prod-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background-color: var(--cinza-50);
+  border-radius: var(--raio-md);
+  margin-bottom: var(--esp-4);
+}
+
+.estoque-prod-info__linha {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--texto-sm);
+  color: var(--cor-texto-secundario);
+}
+
+.estoque-prod-info__linha strong {
+  font-size: var(--texto-base);
+  color: var(--cor-texto-principal);
+  font-weight: var(--peso-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   4. COMPONENTES QUE SERÃO CONSUMIDOS
+   ============================================================ */
+
+.estoque-componentes {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.estoque-componentes__titulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--esp-3);
+}
+
+/* ============================================================
+   5. RESUMO DA PRODUÇÃO
+   ============================================================ */
+
+.estoque-prod-resumo {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-5);
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.estoque-prod-resumo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--esp-3);
+}
+
+.estoque-prod-resumo__item {
+  background-color: var(--cinza-50);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-md);
+  padding: var(--esp-3) var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.estoque-prod-resumo__label {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--letra-caps);
+  color: var(--cor-texto-secundario);
+}
+
+.estoque-prod-resumo__valor {
+  font-size: var(--texto-lg);
+  font-weight: var(--peso-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-principal);
+}
+
+.estoque-prod-resumo__item--destaque {
+  background: linear-gradient(180deg, var(--azul-marinho) 0%, var(--azul-medio) 100%);
+  border-color: var(--azul-marinho);
+}
+
+.estoque-prod-resumo__item--destaque .estoque-prod-resumo__label {
+  color: var(--azul-claro);
+}
+
+.estoque-prod-resumo__item--destaque .estoque-prod-resumo__valor {
+  color: var(--branco);
+}
+
+/* ============================================================
+   6. RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .filtros-estoque {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros-estoque__select {
+    width: 100%;
+  }
+
+  #modal-producao .modal {
+    max-width: 100%;
+  }
+
+  .estoque-prod-info {
+    grid-template-columns: 1fr;
+  }
+
+  .estoque-prod-resumo__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .estoque-prod-resumo__grid {
+    grid-template-columns: 1fr;
+  }
+}
