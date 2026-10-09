@@ -1,6 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO FINANCEIRO (v2 com Sangria)
+   PRAFICAR ERP — ESTILOS DO MÓDULO FINANCEIRO (v3)
    Arquivo: assets/css/modulos/financeiro.css
+   Descrição: abas, filtros, fluxo de caixa e sangria.
+
+   v3:
+   - Nova classe .fin-info (aviso didático no topo das abas)
+   - Nova classe .sangria-card__desc (descrição do card de sangria)
+   - Visual ERP enterprise premium
    ============================================================ */
 
 /* ============================================================
@@ -13,10 +19,22 @@
   gap: var(--esp-1);
   margin-bottom: var(--esp-5);
   border-bottom: 1px solid var(--cor-borda-suave);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.fin-abas::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fin-abas::-webkit-scrollbar-thumb {
+  background-color: var(--cor-borda-media);
+  border-radius: var(--raio-pill);
 }
 
 .fin-aba {
-  padding: var(--esp-3) var(--esp-4);
+  padding: var(--esp-3) var(--esp-5);
+  font-family: var(--fonte-base);
   font-size: var(--texto-base);
   font-weight: var(--peso-medio);
   color: var(--cor-texto-secundario);
@@ -26,9 +44,12 @@
   cursor: pointer;
   transition: color var(--transicao-rapida), border-color var(--transicao-rapida);
   margin-bottom: -1px;
+  white-space: nowrap;
 }
 
-.fin-aba:hover { color: var(--cor-texto-principal); }
+.fin-aba:hover {
+  color: var(--cor-texto-principal);
+}
 
 .fin-aba--ativa {
   color: var(--azul-medio);
@@ -37,7 +58,25 @@
 }
 
 /* ============================================================
-   2. FILTROS
+   2. INFO DIDÁTICA (aviso no topo de cada aba)
+   ============================================================ */
+
+.fin-info {
+  padding: var(--esp-4) var(--esp-5);
+  background-color: var(--azul-suave);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--azul-marinho);
+  margin-bottom: var(--esp-5);
+  line-height: var(--linha-normal);
+}
+
+.fin-info strong {
+  font-weight: var(--peso-semibold);
+}
+
+/* ============================================================
+   3. FILTROS
    ============================================================ */
 
 .filtros-financeiro {
@@ -80,7 +119,7 @@
 }
 
 /* ============================================================
-   3. COLUNAS DA TABELA
+   4. COLUNAS DA TABELA
    ============================================================ */
 
 .fin-descricao {
@@ -99,7 +138,7 @@
 }
 
 /* ============================================================
-   4. FLUXO DE CAIXA
+   5. FLUXO DE CAIXA
    ============================================================ */
 
 .fluxo-semanas {
@@ -156,7 +195,7 @@
 }
 
 /* ============================================================
-   5. SANGRIA
+   6. SANGRIA
    ============================================================ */
 
 .sangria {
@@ -278,6 +317,13 @@
   font-variant-numeric: tabular-nums;
 }
 
+.sangria-card__desc {
+  font-size: var(--texto-xs);
+  color: var(--cor-texto-secundario);
+  line-height: var(--linha-normal);
+  margin-top: -4px;
+}
+
 .sangria-card__valor-principal {
   font-size: var(--texto-2xl);
   font-weight: var(--peso-bold);
@@ -374,7 +420,7 @@
 }
 
 /* ============================================================
-   6. RESPONSIVO
+   7. RESPONSIVO
    ============================================================ */
 
 @media (max-width: 768px) {
