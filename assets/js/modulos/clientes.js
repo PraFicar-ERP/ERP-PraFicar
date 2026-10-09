@@ -1,13 +1,14 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO CLIENTES & FORNECEDORES (v2)
+   PRAFICAR ERP — MÓDULO CLIENTES & FORNECEDORES (v3)
    Arquivo: assets/js/modulos/clientes.js
    Descrição: cadastro de clientes (com origem para análise de
               canal) e de fornecedores (com histórico de preços).
 
-   v2:
-   - Correção: MODULO_VENDAS → MODULO_VENDAS_CORE
-   - Correção: totais.subtotal → totais.subtotalPraticado
-   - Visual ERP enterprise premium
+   v3:
+   - Função _irParaAba(aba) — troca de aba sem rerenderizar
+   - window.renderClientes() — abre na aba "clientes"
+   - window.renderFornecedores() — abre na aba "fornecedores"
+   - Mantém toda a lógica da v2
    ============================================================ */
 
 const MODULO_CLIENTES = (() => {
@@ -214,6 +215,16 @@ const MODULO_CLIENTES = (() => {
       }
       return true;
     });
+  }
+
+  // Troca de aba SEM rerenderizar (usado externamente)
+  function _irParaAba(aba) {
+    if (['clientes', 'fornecedores'].includes(aba)) {
+      abaAtiva = aba;
+      filtroBusca = '';
+      filtroOrigem = '';
+      filtroStatus = '';
+    }
   }
 
   function alterarAba(aba) {
@@ -765,7 +776,8 @@ const MODULO_CLIENTES = (() => {
 
   function rerender() {
     const container = document.getElementById('conteudo-tela');
-    if (container && window.ROUTER_PRAFICAR?.obterRotaAtual() === 'clientes') {
+    const rotaAtual = window.ROUTER_PRAFICAR?.obterRotaAtual();
+    if (container && (rotaAtual === 'clientes' || rotaAtual === 'fornecedores')) {
       container.innerHTML = render();
     }
   }
@@ -795,6 +807,7 @@ const MODULO_CLIENTES = (() => {
     alterarFiltroBusca,
     alterarFiltroOrigem,
     alterarFiltroStatus,
+    _irParaAba,
     _listarClientes: () => [...clientes],
     _listarFornecedores: () => [...fornecedores],
     _buscarCliente: buscarCliente,
@@ -805,4 +818,15 @@ const MODULO_CLIENTES = (() => {
 })();
 
 window.MODULO_CLIENTES = MODULO_CLIENTES;
-window.renderClientes = MODULO_CLIENTES.render;
+
+/* Renderizadores para o router */
+
+window.renderClientes = () => {
+  MODULO_CLIENTES._irParaAba('clientes');
+  return MODULO_CLIENTES.render();
+};
+
+window.renderFornecedores = () => {
+  MODULO_CLIENTES._irParaAba('fornecedores');
+  return MODULO_CLIENTES.render();
+};
