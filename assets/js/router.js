@@ -1,9 +1,14 @@
 /* ============================================================
-   PRAFICAR ERP — ROTEADOR SPA (v4)
+   PRAFICAR ERP — ROTEADOR SPA (v5)
    Arquivo: assets/js/router.js
    Descrição: roteamento por hash (#/modulo). Controla qual
               tela é renderizada, atualiza o menu ativo e o
               breadcrumb.
+
+   v5:
+   - Rota "encomendas" → "pedidos"
+   - Rota "kits" removida (kits vivem em Produtos)
+   - Rota "estoque" agora aponta para renderEstoque real
    ============================================================ */
 
 const ROUTER_PRAFICAR = (() => {
@@ -16,10 +21,9 @@ const ROUTER_PRAFICAR = (() => {
     'inicio':       { titulo: 'Início',                  icone: 'inicio',     render: 'renderInicio' },
     'vendas':       { titulo: 'Vendas',                  icone: 'vendas',     render: 'renderVendas' },
     'orcamentos':   { titulo: 'Orçamentos',              icone: 'orcamentos', render: 'renderOrcamentos' },
-    'encomendas':   { titulo: 'Encomendas',              icone: 'encomendas', render: 'renderEncomendas' },
+    'pedidos':      { titulo: 'Pedidos',                 icone: 'pedidos',    render: 'renderPedidos' },
     'produtos':     { titulo: 'Produtos & Estoque',      icone: 'produtos',   render: 'renderProdutos' },
     'estoque':      { titulo: 'Estoque',                 icone: 'estoque',    render: 'renderEstoque' },
-    'kits':         { titulo: 'Kits',                    icone: 'kits',       render: 'renderKits' },
     'custos':       { titulo: 'Custos e Fabricação',     icone: 'custos',     render: 'renderCustos' },
     'canais':       { titulo: 'Canais de Venda',         icone: 'canais',     render: 'renderCanais' },
     'financeiro':   { titulo: 'Financeiro',              icone: 'financeiro', render: 'renderFinanceiro' },
