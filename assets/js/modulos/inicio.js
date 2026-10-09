@@ -1,9 +1,15 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO INÍCIO / DASHBOARD (v2)
+   PRAFICAR ERP — MÓDULO INÍCIO / DASHBOARD (v3)
    Arquivo: assets/js/modulos/inicio.js
    Descrição: Dashboard com KPIs, ponto de equilíbrio,
               ranking de produtos, reposição de estoque
               e alertas inteligentes.
+
+   v3:
+   - MODULO_VENDAS → MODULO_VENDAS_CORE (dados de venda)
+   - MODULO_ENCOMENDAS → MODULO_PEDIDOS
+   - "Encomenda" → "Pedido"
+   - Atalho "Precificar" → "Estoque"
    ============================================================ */
 
 const MODULO_INICIO = (() => {
@@ -19,9 +25,9 @@ const MODULO_INICIO = (() => {
     alerta:     '<svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
     relatorios: '<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
     vendas:     '<svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
-    precificar: '<svg viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>',
+    estoque:    '<svg viewBox="0 0 24 24"><path d="M3 3h18v4H3z"/><path d="M5 7v14h14V7"/><path d="M9 11h6"/><path d="M9 15h6"/></svg>',
     produtos:   '<svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>',
-    encomendas: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    pedidos:    '<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
     qrcode:     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M21 14v3M14 21h3M21 21h.01"/></svg>',
     seta_cima:  '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>',
     seta_baixo: '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
@@ -99,21 +105,21 @@ const MODULO_INICIO = (() => {
 
     let vendasHoje = 0;
     let lucroHoje = 0;
-    if (window.MODULO_VENDAS) {
-      const vendas = (window.MODULO_VENDAS._listar() || [])
+    if (window.MODULO_VENDAS_CORE) {
+      const vendas = (window.MODULO_VENDAS_CORE._listar() || [])
         .filter(v => v.status !== 'cancelada' && v.criadoEm?.split('T')[0] === hoje);
       vendasHoje = vendas.reduce((a, v) => a + (Number(v.totais?.subtotalPraticado) || 0), 0);
       lucroHoje = vendas.reduce((a, v) => a + (Number(v.totais?.lucro) || 0), 0);
     }
 
-    let encomendasAbertas = 0;
-    let encomendasAtrasadas = 0;
-    if (window.MODULO_ENCOMENDAS) {
-      const encs = window.MODULO_ENCOMENDAS._listar() || [];
-      encomendasAbertas = encs.filter(e => !['entregue', 'cancelada'].includes(e.status)).length;
-      encomendasAtrasadas = encs.filter(e =>
-        !['entregue', 'cancelada'].includes(e.status) &&
-        e.prazo && e.prazo < hoje
+    let pedidosAbertos = 0;
+    let pedidosAtrasados = 0;
+    if (window.MODULO_PEDIDOS) {
+      const pedidos = window.MODULO_PEDIDOS._listar() || [];
+      pedidosAbertos = pedidos.filter(p => !['entregue', 'cancelado'].includes(p.status)).length;
+      pedidosAtrasados = pedidos.filter(p =>
+        !['entregue', 'cancelado'].includes(p.status) &&
+        p.prazo && p.prazo < hoje
       ).length;
     }
 
@@ -142,8 +148,8 @@ const MODULO_INICIO = (() => {
     return {
       vendasHoje,
       lucroHoje,
-      encomendasAbertas,
-      encomendasAtrasadas,
+      pedidosAbertos,
+      pedidosAtrasados,
       estoqueBaixo,
       produtosMargemBaixa,
       contasVencidas,
@@ -158,14 +164,13 @@ const MODULO_INICIO = (() => {
   function calcularPontoEquilibrio() {
     const custosFixos = obterCustosFixos();
 
-    // Vendas do mês atual
     const hoje = new Date();
     const ano = hoje.getFullYear();
     const mes = String(hoje.getMonth() + 1).padStart(2, '0');
     const inicioMes = `${ano}-${mes}-01`;
     const fimMes = hojeISO();
 
-    const vendas = (window.MODULO_VENDAS?._listar() || []).filter(v => {
+    const vendas = (window.MODULO_VENDAS_CORE?._listar() || []).filter(v => {
       const data = v.criadoEm?.split('T')[0];
       return data >= inicioMes && data <= fimMes && v.status !== 'cancelada';
     });
@@ -174,12 +179,10 @@ const MODULO_INICIO = (() => {
     const lucro = vendas.reduce((a, v) => a + (Number(v.totais?.lucro) || 0), 0);
     const margemMedia = faturamento > 0 ? (lucro / faturamento) * 100 : 0;
 
-    // Meta = custos fixos ÷ margem média
     let meta = 0;
     if (custosFixos > 0 && margemMedia > 0) {
       meta = custosFixos / (margemMedia / 100);
     } else if (custosFixos > 0) {
-      // Se não tem margem ainda, usa 50% como padrão
       meta = custosFixos / 0.5;
     }
 
@@ -211,12 +214,12 @@ const MODULO_INICIO = (() => {
      ========================================================== */
 
   function rankingProdutos() {
-    if (!window.MODULO_VENDAS) return { mais: [], menos: [], total: 0 };
+    if (!window.MODULO_VENDAS_CORE) return { mais: [], menos: [], total: 0 };
 
     const hoje = hojeISO();
     const inicio = adicionarDias(hoje, -periodoRanking);
 
-    const vendas = (window.MODULO_VENDAS._listar() || []).filter(v => {
+    const vendas = (window.MODULO_VENDAS_CORE._listar() || []).filter(v => {
       const data = v.criadoEm?.split('T')[0];
       return data >= inicio && data <= hoje && v.status !== 'cancelada';
     });
@@ -332,14 +335,14 @@ const MODULO_INICIO = (() => {
 
         <div class="kpi">
           <div class="kpi__topo">
-            <span class="kpi__label">Encomendas</span>
+            <span class="kpi__label">Pedidos</span>
             <span class="kpi__icone">${ICONES.pacote}</span>
           </div>
-          <div class="kpi__valor">${k.encomendasAbertas}</div>
-          <div class="kpi__variacao ${k.encomendasAtrasadas > 0 ? 'kpi__variacao--negativa' : 'kpi__variacao--neutra'}">
-            ${k.encomendasAtrasadas > 0
-              ? `${k.encomendasAtrasadas} atrasada${k.encomendasAtrasadas > 1 ? 's' : ''}`
-              : k.encomendasAbertas > 0 ? 'Em andamento' : 'Nenhuma em aberto'}
+          <div class="kpi__valor">${k.pedidosAbertos}</div>
+          <div class="kpi__variacao ${k.pedidosAtrasados > 0 ? 'kpi__variacao--negativa' : 'kpi__variacao--neutra'}">
+            ${k.pedidosAtrasados > 0
+              ? `${k.pedidosAtrasados} atrasado${k.pedidosAtrasados > 1 ? 's' : ''}`
+              : k.pedidosAbertos > 0 ? 'Em andamento' : 'Nenhum em aberto'}
           </div>
         </div>
 
@@ -383,14 +386,14 @@ const MODULO_INICIO = (() => {
           </div>
           <div class="card__body">
             <div class="grid grid--2">
-              <button class="btn btn--secundario btn--bloco" data-rota="precificar">
-                ${ICONES.precificar} Precificar
+              <button class="btn btn--secundario btn--bloco" data-rota="estoque">
+                ${ICONES.estoque} Estoque
               </button>
               <button class="btn btn--secundario btn--bloco" data-rota="produtos">
                 ${ICONES.produtos} Produtos
               </button>
-              <button class="btn btn--secundario btn--bloco" data-rota="encomendas">
-                ${ICONES.encomendas} Encomendas
+              <button class="btn btn--secundario btn--bloco" data-rota="pedidos">
+                ${ICONES.pedidos} Pedidos
               </button>
               <button class="btn btn--secundario btn--bloco" data-rota="qrcode">
                 ${ICONES.qrcode} QR Code
@@ -438,7 +441,7 @@ const MODULO_INICIO = (() => {
       <div class="card mb-6 pe-card">
         <div class="card__header">
           <div>
-            <h3 class="card__titulo">Ponto de equilíbrio — Outubro</h3>
+            <h3 class="card__titulo">Ponto de equilíbrio do mês</h3>
             <p class="card__subtitulo">Meta do mês baseada nos custos fixos e na margem média</p>
           </div>
         </div>
@@ -512,11 +515,11 @@ const MODULO_INICIO = (() => {
       });
     }
 
-    if (k.encomendasAtrasadas > 0) {
+    if (k.pedidosAtrasados > 0) {
       alertas.push({
         tipo: 'critico',
-        texto: `${k.encomendasAtrasadas} encomenda${k.encomendasAtrasadas > 1 ? 's' : ''} atrasada${k.encomendasAtrasadas > 1 ? 's' : ''}`,
-        rota: 'encomendas'
+        texto: `${k.pedidosAtrasados} pedido${k.pedidosAtrasados > 1 ? 's' : ''} atrasado${k.pedidosAtrasados > 1 ? 's' : ''}`,
+        rota: 'pedidos'
       });
     }
 
@@ -622,7 +625,7 @@ const MODULO_INICIO = (() => {
                 : `${lista.length} ${lista.length === 1 ? 'produto' : 'produtos'} abaixo do estoque mínimo`}
             </p>
           </div>
-          ${lista.length > 6 ? `<button class="btn btn--ghost btn--sm" data-rota="produtos">Ver todos</button>` : ''}
+          ${lista.length > 6 ? `<button class="btn btn--ghost btn--sm" data-rota="estoque">Ver todos</button>` : ''}
         </div>
         <div class="card__body">
           ${lista.length === 0 ? `
@@ -729,11 +732,11 @@ const MODULO_INICIO = (() => {
   function renderAlertas(k) {
     const alertas = [];
 
-    if (k.encomendasAtrasadas > 0) {
+    if (k.pedidosAtrasados > 0) {
       alertas.push({
         tipo: 'critico',
-        titulo: `${k.encomendasAtrasadas} encomenda${k.encomendasAtrasadas > 1 ? 's' : ''} atrasada${k.encomendasAtrasadas > 1 ? 's' : ''}`,
-        texto: 'Verifique o prazo no módulo Encomendas.'
+        titulo: `${k.pedidosAtrasados} pedido${k.pedidosAtrasados > 1 ? 's' : ''} atrasado${k.pedidosAtrasados > 1 ? 's' : ''}`,
+        texto: 'Verifique o prazo no módulo Pedidos.'
       });
     }
 
@@ -783,7 +786,8 @@ const MODULO_INICIO = (() => {
       </div>
     `).join('');
   }
-     /* ==========================================================
+
+  /* ==========================================================
      17. AÇÕES
      ========================================================== */
 
