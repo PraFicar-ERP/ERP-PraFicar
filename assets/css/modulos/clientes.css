@@ -1,6 +1,12 @@
 /* ============================================================
-   PRAFICAR ERP — ESTILOS DO MÓDULO CLIENTES & FORNECEDORES
+   PRAFICAR ERP — ESTILOS DO MÓDULO CLIENTES & FORNECEDORES (v2)
    Arquivo: assets/css/modulos/clientes.css
+   Descrição: abas, filtros e colunas das tabelas de clientes
+              e fornecedores.
+
+   v2:
+   - Abas com scroll horizontal em mobile
+   - Visual ERP enterprise premium
    ============================================================ */
 
 /* ============================================================
@@ -13,10 +19,22 @@
   gap: var(--esp-1);
   margin-bottom: var(--esp-5);
   border-bottom: 1px solid var(--cor-borda-suave);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.cli-abas::-webkit-scrollbar {
+  height: 4px;
+}
+
+.cli-abas::-webkit-scrollbar-thumb {
+  background-color: var(--cor-borda-media);
+  border-radius: var(--raio-pill);
 }
 
 .cli-aba {
-  padding: var(--esp-3) var(--esp-4);
+  padding: var(--esp-3) var(--esp-5);
+  font-family: var(--fonte-base);
   font-size: var(--texto-base);
   font-weight: var(--peso-medio);
   color: var(--cor-texto-secundario);
@@ -24,9 +42,9 @@
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: color var(--transicao-rapida),
-              border-color var(--transicao-rapida);
+  transition: color var(--transicao-rapida), border-color var(--transicao-rapida);
   margin-bottom: -1px;
+  white-space: nowrap;
 }
 
 .cli-aba:hover {
