@@ -1,10 +1,16 @@
 /* ============================================================
-   PRAFICAR ERP — MÓDULO PRODUTOS (v9)
+   PRAFICAR ERP — MÓDULO PRODUTOS (v10)
    Arquivo: assets/js/modulos/produtos.js
    Descrição: cadastro de produtos com:
               - Lista flexível de custos (componentes, embalagem, extras)
               - Preço por canal
               - Estoque vindo de fabricação
+              - Badge visual de estoque (novo)
+
+   Ajustes v10:
+   - Novo método `_atualizarEstoque(id, dados)` para o módulo Estoque
+   - Badge de status de estoque na lista
+   - Botão "Produzir" na linha do produto
    ============================================================ */
 
 const MODULO_PRODUTOS = (() => {
@@ -17,10 +23,11 @@ const MODULO_PRODUTOS = (() => {
   let filtroStatus = '';
   let filtroCanal = '';
   let filtroMargem = '';
+  let filtroEstoque = '';
 
   let produtoEditandoId = null;
   let selecionados = new Set();
-  let itensTemporarios = [];       // lista flexível: componentes + embalagem + extras
+  let itensTemporarios = [];
   let precosCanalTemporarios = {};
 
   const MARGEM_MINIMA_PADRAO = 30;
@@ -62,7 +69,6 @@ const MODULO_PRODUTOS = (() => {
     return c ? c.nome : '—';
   }
 
-  // Lista de todos os produtos (podem ser usados como item de custo)
   function produtosDisponiveisComoItem(excluirId) {
     return produtos
       .filter(p => p.status === 'ativo' && p.id !== excluirId)
@@ -111,6 +117,46 @@ const MODULO_PRODUTOS = (() => {
   }
 
   /* ==========================================================
+     CLASSIFICAÇÃO DE ESTOQUE (novo)
+     ========================================================== */
+
+  // Regras:
+  //   zerado  → estoque = 0
+  //   critico → estoque <= mínimo
+  //   atencao → estoque <= mínimo × 2
+  //   ok      → estoque > mínimo × 2
+  function classificarEstoque(produto) {
+    const atual = Number(produto.estoqueAtual) || 0;
+    const minimo = Number(produto.estoqueMinimo) || 0;
+
+    if (atual === 0) return 'zerado';
+    if (atual <= minimo) return 'critico';
+    if (minimo > 0 && atual <= minimo * 2) return 'atencao';
+    return 'ok';
+  }
+
+  function nomeStatusEstoque(status) {
+    if (status === 'zerado')  return 'Zerado';
+    if (status === 'critico') return 'Crítico';
+    if (status === 'atencao') return 'Atenção';
+    return 'OK';
+  }
+
+  function corStatusEstoque(status) {
+    if (status === 'zerado')  return 'critico';
+    if (status === 'critico') return 'critico';
+    if (status === 'atencao') return 'atencao';
+    return 'sucesso';
+  }
+
+  function iconeStatusEstoque(status) {
+    if (status === 'zerado')  return '🔴';
+    if (status === 'critico') return '🔴';
+    if (status === 'atencao') return '🟡';
+    return '🟢';
+  }
+
+  /* ==========================================================
      CÁLCULOS
      ========================================================== */
 
@@ -124,7 +170,6 @@ const MODULO_PRODUTOS = (() => {
 
   function sincronizarItens(itens) {
     return itens.map(i => {
-      // Se é componente/embalagem (tem produtoId), atualiza do produto
       if (i.produtoId) {
         const produto = buscarProduto(i.produtoId);
         return {
@@ -137,7 +182,6 @@ const MODULO_PRODUTOS = (() => {
           custoUnitario: produto ? Number(produto.custo) || 0 : Number(i.custoUnitario) || 0
         };
       }
-      // Se é extra (digitado), mantém como está
       return {
         tipo: i.tipo,
         produtoId: null,
@@ -279,6 +323,22 @@ const MODULO_PRODUTOS = (() => {
     return produtos[idx];
   }
 
+  // NOVO: usado pelo módulo Estoque
+  function _atualizarEstoque(id, dados) {
+    const p = buscarProduto(id);
+    if (!p) return null;
+
+    if (dados.estoqueAtual !== undefined) {
+      p.estoqueAtual = Number(dados.estoqueAtual) || 0;
+    }
+    if (dados.estoqueMinimo !== undefined) {
+      p.estoqueMinimo = Number(dados.estoqueMinimo) || 0;
+    }
+
+    p.atualizadoEm = new Date().toISOString();
+    return p;
+  }
+
   function recalcularProdutosQueUsam(produtoId) {
     produtos.forEach(p => {
       const usa = (p.itens || []).some(i => Number(i.produtoId) === Number(produtoId));
@@ -387,6 +447,12 @@ const MODULO_PRODUTOS = (() => {
       if (filtroCanal && !(p.canais || []).map(String).includes(String(filtroCanal))) return false;
       if (filtroMargem === 'abaixo' && !margemAbaixoDoMinimo(p)) return false;
       if (filtroMargem === 'ok' && margemAbaixoDoMinimo(p)) return false;
+      if (filtroEstoque) {
+        const status = classificarEstoque(p);
+        if (filtroEstoque === 'repor' && !['zerado', 'critico'].includes(status)) return false;
+        if (filtroEstoque === 'atencao' && status !== 'atencao') return false;
+        if (filtroEstoque === 'ok' && status !== 'ok') return false;
+      }
       if (filtroBusca) {
         const t = filtroBusca.toLowerCase();
         const alvo = `${p.sku} ${p.nome} ${p.especificacao} ${p.descricao}`.toLowerCase();
@@ -402,6 +468,7 @@ const MODULO_PRODUTOS = (() => {
   function alterarFiltroStatus(v)    { filtroStatus = v; rerender(); }
   function alterarFiltroCanal(v)     { filtroCanal = v; rerender(); }
   function alterarFiltroMargem(v)    { filtroMargem = v; rerender(); }
+  function alterarFiltroEstoque(v)   { filtroEstoque = v; rerender(); }
 
   /* ==========================================================
      RENDER — TELA PRINCIPAL
@@ -409,6 +476,7 @@ const MODULO_PRODUTOS = (() => {
 
   function render() {
     const abaixoDoMinimo = produtos.filter(p => p.status === 'ativo' && margemAbaixoDoMinimo(p)).length;
+    const precisaRepor = produtos.filter(p => p.status === 'ativo' && ['zerado', 'critico'].includes(classificarEstoque(p))).length;
 
     return `
       <div class="pagina-header">
@@ -416,6 +484,7 @@ const MODULO_PRODUTOS = (() => {
           <h1 class="pagina-header__titulo">Produtos & Estoque</h1>
           <p class="pagina-header__subtitulo">
             ${produtos.length} ${produtos.length === 1 ? 'produto cadastrado' : 'produtos cadastrados'}
+            ${precisaRepor > 0 ? ` · <span class="text-critico">${precisaRepor} precisa${precisaRepor > 1 ? 'm' : ''} de reposição</span>` : ''}
             ${abaixoDoMinimo > 0 ? ` · <span class="text-atencao">${abaixoDoMinimo} com margem abaixo do mínimo</span>` : ''}
           </p>
         </div>
@@ -437,6 +506,13 @@ const MODULO_PRODUTOS = (() => {
           ${categorias().map(c => `
             <option value="${c.codigo}" ${filtroCategoria === c.codigo ? 'selected' : ''}>${c.nome}</option>
           `).join('')}
+        </select>
+
+        <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroEstoque(this.value)">
+          <option value="">Todo o estoque</option>
+          <option value="repor"   ${filtroEstoque === 'repor' ? 'selected' : ''}>🔴 Precisa repor</option>
+          <option value="atencao" ${filtroEstoque === 'atencao' ? 'selected' : ''}>🟡 Atenção</option>
+          <option value="ok"      ${filtroEstoque === 'ok' ? 'selected' : ''}>🟢 Estoque OK</option>
         </select>
 
         <select class="filtros-produtos__select" onchange="MODULO_PRODUTOS.alterarFiltroCanal(this.value)">
@@ -523,13 +599,9 @@ const MODULO_PRODUTOS = (() => {
   }
 
   function renderLinha(p) {
-    const baixo = p.estoqueAtual > 0 && p.estoqueAtual <= p.estoqueMinimo;
-    const critico = p.estoqueAtual === 0;
-    const classeEstoque = critico
-      ? 'text-critico peso-semibold'
-      : baixo
-        ? 'text-atencao peso-semibold'
-        : '';
+    const statusEstoque = classificarEstoque(p);
+    const corEstoque = corStatusEstoque(statusEstoque);
+    const precisaRepor = ['zerado', 'critico'].includes(statusEstoque);
 
     const { margem } = calcularMargem(p);
     const minima = Number(p.margemMinima) || MARGEM_MINIMA_PADRAO;
@@ -555,8 +627,13 @@ const MODULO_PRODUTOS = (() => {
           ` : ''}
         </td>
         <td>${escaparHTML(nomeCategoria(p.categoria))}</td>
-        <td class="tabela__numero ${classeEstoque}">
-          ${p.estoqueAtual} ${escaparHTML(p.unidade)}
+        <td class="tabela__numero">
+          <div class="produto-estoque-celula">
+            <span class="produto-estoque-numero ${precisaRepor ? 'text-critico peso-semibold' : statusEstoque === 'atencao' ? 'text-atencao peso-semibold' : ''}">
+              ${p.estoqueAtual} ${escaparHTML(p.unidade)}
+            </span>
+            <span class="badge badge--${corEstoque}">${iconeStatusEstoque(statusEstoque)} ${nomeStatusEstoque(statusEstoque)}</span>
+          </div>
         </td>
         <td class="tabela__numero">${formatarMoedaFina(p.custo)}</td>
         <td class="tabela__numero">${formatarMoeda(p.precoVarejo)}</td>
@@ -575,6 +652,9 @@ const MODULO_PRODUTOS = (() => {
         </td>
         <td class="tabela__acao">
           <div class="acoes-linha">
+            <button class="btn-icone" title="Produzir" onclick="MODULO_PRODUTOS.produzir(${p.id})">
+              <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>
+            </button>
             <button class="btn-icone" title="Editar" onclick="MODULO_PRODUTOS.abrirEdicao(${p.id})">
               <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
             </button>
@@ -586,7 +666,23 @@ const MODULO_PRODUTOS = (() => {
       </tr>
     `;
   }
-     /* ==========================================================
+
+  /* ==========================================================
+     AÇÃO: PRODUZIR (atalho para o módulo Estoque)
+     ========================================================== */
+
+  function produzir(produtoId) {
+    if (window.MODULO_ESTOQUE) {
+      // Se o módulo de estoque estiver carregado, delega
+      window.MODULO_ESTOQUE.abrirProducao(produtoId);
+    } else {
+      // Fallback: navega para o módulo de estoque
+      window.ROUTER_PRAFICAR?.irPara('estoque');
+      setTimeout(() => window.MODULO_ESTOQUE?.abrirProducao(produtoId), 200);
+    }
+  }
+
+  /* ==========================================================
      MODAL DE PRODUTO
      ========================================================== */
 
@@ -744,7 +840,7 @@ const MODULO_PRODUTOS = (() => {
                 <div class="form-grupo">
                   <label for="prod-estoque">Estoque atual</label>
                   <input id="prod-estoque" type="number" step="1" min="0" value="${p?.estoqueAtual ?? 0}" readonly />
-                  <span class="form-ajuda">Sobe ao registrar fabricação.</span>
+                  <span class="form-ajuda">Sobe ao registrar produção.</span>
                 </div>
                 <div class="form-grupo">
                   <label for="prod-estoque-min">Estoque mínimo</label>
@@ -996,14 +1092,13 @@ const MODULO_PRODUTOS = (() => {
   }
 
   function preencherItemProduto() {
-    // Apenas reservado caso precise de ação ao escolher produto
+    // reservado
   }
 
   function confirmarAdicionarItem() {
     const tipo = document.querySelector('input[name="item-tipo"]:checked')?.value || 'componente';
 
     if (tipo === 'extra') {
-      // Adicionar custo extra (digitado)
       const nome = document.getElementById('item-nome-extra').value.trim();
       const valor = Number(document.getElementById('item-valor-extra').value) || 0;
       const qtd = Number(document.getElementById('item-qtd-extra').value) || 1;
@@ -1020,7 +1115,6 @@ const MODULO_PRODUTOS = (() => {
       });
 
     } else {
-      // Adicionar componente ou embalagem (do produto)
       const sel = document.getElementById('item-produto');
       const opt = sel && sel.value ? sel.options[sel.selectedIndex] : null;
       const qtd = Number(document.getElementById('item-qtd').value) || 1;
@@ -1034,7 +1128,6 @@ const MODULO_PRODUTOS = (() => {
       const sku = opt.dataset.sku;
       const custoUnitario = Number(opt.dataset.custo || 0);
 
-      // Se já existe, soma quantidade
       const existente = itensTemporarios.find(i =>
         i.tipo === tipo && Number(i.produtoId) === produtoId
       );
@@ -1369,6 +1462,7 @@ const MODULO_PRODUTOS = (() => {
     aoMudarCanais,
     salvar,
     confirmarExclusao,
+    produzir,
     gerarSkuAutomatico,
     regenerarSku,
     atualizarPreviewMargem,
@@ -1377,6 +1471,7 @@ const MODULO_PRODUTOS = (() => {
     alterarFiltroStatus,
     alterarFiltroCanal,
     alterarFiltroMargem,
+    alterarFiltroEstoque,
     alternarStatus,
     alternarSelecao,
     alternarTodos,
@@ -1385,11 +1480,13 @@ const MODULO_PRODUTOS = (() => {
     limparSelecao,
     _listar: () => [...produtos],
     _buscar: buscarProduto,
+    _atualizarEstoque,
     _criarDoCustos: _criarDoCustos,
     _calcularMargem: calcularMargem,
     _margemAbaixoDoMinimo: margemAbaixoDoMinimo,
     _calcularMargemCanal: calcularMargemCanal,
     _sugerirPrecoParaCanal: sugerirPrecoParaCanal,
+    _classificarEstoque: classificarEstoque,
     MARGEM_MINIMA_PADRAO
   };
 
